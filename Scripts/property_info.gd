@@ -107,30 +107,73 @@ func setup_card() -> void:
 			and Actions.actions_owned.has("insurance")
 
 	_build_btn.visible = Cards.is_lot(details)
+	_layout_token_buttons.call_deferred()
 
 	var art_path: String = details["art"]
 	if art_path != "" and ResourceLoader.exists(art_path):
 		property_icon.texture = load(art_path)
 
-# Builds the Add Insurance button (its own row, styled like Add SkyBnB) and the badge.
+# Builds the Add Insurance button (a copy of Add SkyBnB, in the same row) and the badge.
 func _add_insurance_controls() -> void:
 	# Copy without signals, so the new button doesn't also trigger SkyBnB.
 	var copy_flags := Node.DUPLICATE_GROUPS | Node.DUPLICATE_SCRIPTS | Node.DUPLICATE_USE_INSTANTIATION
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.custom_minimum_size.y = 100
 	addinsurance = addskybnb.duplicate(copy_flags)
 	addinsurance.name = "addinsurance"
-	addinsurance.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	addinsurance.get_node("add_skybnb2").text = "Add Insurance"
 	addinsurance.get_node("add_skybnb").pressed.connect(_on_add_insurance_pressed)
-	row.add_child(addinsurance)
-	addskybnb.get_parent().add_sibling(row)
+	addskybnb.add_sibling(addinsurance)
+	var row := addskybnb.get_parent() as HBoxContainer
+	row.add_theme_constant_override("separation", 12)
+	(row.get_parent() as Control).resized.connect(_layout_token_buttons)
 
+	# The badge sits in the left column, one slot ABOVE the SkyBnB badge, so it never
+	# covers the property picture / name in the middle of the screen.
 	insurance_status = skybnb_status.duplicate(copy_flags)
 	insurance_status.name = "insurance_status"
 	insurance_status.get_node("TextureRect").texture = load(INSURANCE_ICON)
-	skybnb_status.add_sibling(insurance_status)
+	var badge_row := skybnb_status.get_parent() as Control
+	badge_row.get_parent().add_child(insurance_status)
+	insurance_status.size = skybnb_status.custom_minimum_size
+	insurance_status.position = badge_row.position + Vector2(19, -insurance_status.size.y - 10)
+
+# Add SkyBnB / Add Double / Add Insurance sit side by side and share the row's width.
+# Each label shrinks until its text fits inside its button.
+const TOKEN_FONT_SIZE := 45
+const TOKEN_FONT_MIN := 18
+const TOKEN_TEXT_PADDING := 24
+var _laying_out := false
+
+func _layout_token_buttons() -> void:
+	if _laying_out:
+		return
+	_laying_out = true
+	var row := addskybnb.get_parent() as HBoxContainer
+	var shown := [addskybnb, adddouble, addinsurance].filter(func(p): return p.visible)
+	# Let the row shrink first: the buttons' own minimum widths can stretch it (and
+	# everything around it) past the screen edge, which would spoil the measurement.
+	for panel in shown:
+		panel.custom_minimum_size.x = 0
+	await get_tree().process_frame
+	if not is_inside_tree():
+		return   # the player already left this screen
+	var available: float = (row.get_parent() as Control).size.x
+	if not shown.is_empty() and available > 0:
+		var separation := row.get_theme_constant("separation")
+		var width := minf(300.0, (available - separation * (shown.size() - 1)) / shown.size())
+		row.alignment = BoxContainer.ALIGNMENT_CENTER if shown.size() > 1 else BoxContainer.ALIGNMENT_BEGIN
+		for panel in shown:
+			panel.custom_minimum_size.x = width
+			panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if shown.size() > 1 else Control.SIZE_SHRINK_BEGIN
+			var label: Label = panel.get_child(0)
+			var font := label.get_theme_font("font")
+			var size := TOKEN_FONT_SIZE
+			while size > TOKEN_FONT_MIN and font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > width - TOKEN_TEXT_PADDING:
+				size -= 1
+			label.add_theme_font_size_override("font_size", size)
+			label.clip_text = true
+	if is_inside_tree():
+		await get_tree().process_frame
+	_laying_out = false
 
 func _add_build_button() -> void:
 	_build_btn = Button.new()

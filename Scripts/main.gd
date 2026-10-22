@@ -14,8 +14,10 @@ var _waiting_popup: Node = null
 
 func _ready() -> void:
 	ui_menu_frame.clear_ui()
+	ui_menu_frame.show_title("Ad Valorem Pocket Edition", "Main Menu")
 	Network.room_ready.connect(_on_room_ready)
 	Network.connection_failed.connect(_on_connection_failed)
+	Network.resumed.connect(_on_resumed)
 
 
 ## ---- HOST ----
@@ -46,8 +48,22 @@ func _on_join_game_pressed() -> void:
 		_show_waiting("Joining room...")
 		Network.join_game(name_field.text, key_field.text))
 
+## ---- RESUME ----
+# Rejoin the game this phone was in (after a refresh or lost connection).
 func _on_resume_game_pressed() -> void:
-	Sound.play("click")   # TODO: resume a saved game
+	Sound.play("click")
+	var snapshot := SaveGame.load_snapshot()
+	if snapshot.is_empty():
+		Sound.play("error")
+		_new_popup("There's no game to resume.", "OK", "")
+		return
+	var popup = _new_popup("Resume your game in room %s as %s?" % [snapshot["room_key"], snapshot["name"]], "Resume", "Back")
+	popup.left_pressed.connect(func():
+		_show_waiting("Rejoining game...")
+		Network.resume_game())
+
+func _on_resumed() -> void:
+	_close_waiting()
 
 
 ## ---- CONNECTION RESULTS ----

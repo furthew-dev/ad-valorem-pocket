@@ -11,6 +11,9 @@ signal players_changed
 signal session_ended(message: String)   # host left / connection lost
 signal game_starting
 signal settings_changed   # the host changed the game settings (lobby)
+signal resumed            # Resume Game worked: back in the game
+signal host_away(seconds: int)   # the host dropped; the relay holds the room for a while
+signal host_back
 
 # Host-adjustable game settings (lobby > Game Settings). Synced to everyone.
 const DEFAULT_SETTINGS := {"start_cash": 20, "start_properties": 4, "end_goal": 200}
@@ -20,6 +23,7 @@ const MAX_PLAYERS := 8
 const MIN_PLAYERS_TO_START := 1   # 1 lets the host play solo; raise to 2 to require company
 const MAX_NAME_LENGTH := 12
 const CONNECT_TIMEOUT := 75.0     # free relay hosts can take ~50 s to wake up
+const AWAY_GRACE := 180.0         # seconds a dropped player has to come back (Resume Game)
 
 # Where the relay runs. Editor builds use a relay on this computer (cd server && npm start).
 const RELAY_URL := "wss://ad-valorem-relay.onrender.com/"
@@ -30,6 +34,16 @@ var room_key := ""
 var my_name := ""
 var in_game := false
 var game_settings: Dictionary = DEFAULT_SETTINGS.duplicate()
+
+# Reconnecting. Every player gets a secret token for the game; the host remembers who is
+# who by token, so a player who refreshes can come back (with a new peer id) as themselves.
+var my_token := ""
+var host_secret := ""             # lets the host reclaim its room after a refresh
+var tokens: Dictionary = {}       # host: peer id -> token
+var away: Dictionary = {}         # host: token -> name, players who dropped mid-game
+var away_names: Array = []        # everyone: names of players currently reconnecting
+var _resuming: Dictionary = {}    # the save being resumed (see resume_game)
+var _wait_overlay: CanvasLayer
 
 var _peer: RelayPeer
 var _connect_timer: SceneTreeTimer
@@ -60,13 +74,35 @@ func is_host() -> bool:
 
 func host_game(player_name: String) -> void:
 	_start_session(player_name)
+	my_token = _new_token()
+	host_secret = _new_token()
 	game_settings = DEFAULT_SETTINGS.duplicate()
 	game_settings.merge(load_setting("host", "game_settings", {}), true)   # last time's choices
-	_activate(_peer.host(relay_url()))
+	_activate(_peer.host(relay_url(), host_secret))
 
 func join_game(player_name: String, key: String) -> void:
 	_start_session(player_name)
+	my_token = _new_token()
 	_activate(_peer.join(relay_url(), key))
+
+# Title screen > Resume Game: reconnect to the saved game as the same player.
+func resume_game() -> void:
+	var snapshot := SaveGame.load_snapshot()
+	if snapshot.is_empty():
+		connection_failed.emit("There's no game to resume.")
+		return
+	_start_session(snapshot["name"])
+	_resuming = snapshot
+	my_token = snapshot["token"]
+	host_secret = snapshot.get("host_secret", "")
+	var secret: String = host_secret if snapshot.get("was_host", false) else ""
+	_activate(_peer.join(relay_url(), snapshot["room_key"], true, secret))
+
+static func _new_token() -> String:
+	var bytes := PackedByteArray()
+	for i in 16:
+		bytes.append(randi() % 256)
+	return bytes.hex_encode()
 
 func start_game() -> void:
 	if not is_host() or players.size() < MIN_PLAYERS_TO_START:
@@ -82,11 +118,18 @@ func return_to_lobby() -> void:
 		_peer.lock_room(false)
 
 func leave() -> void:
+	if _peer and in_game and not is_host() and _peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+		_leaving_on_purpose.rpc_id(1)   # don't hold a seat for us
 	if _peer:
 		_peer.close()
 	_peer = null
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	players.clear()
+	tokens.clear()
+	away.clear()
+	away_names.clear()
+	_resuming = {}
+	_hide_wait_overlay()
 	room_key = ""
 	in_game = false
 
@@ -137,6 +180,8 @@ func _start_session(player_name: String) -> void:
 	_peer.room_joined.connect(_on_room_joined)
 	_peer.relay_error.connect(_on_relay_error)
 	_peer.room_closed.connect(_on_room_closed)
+	_peer.host_away.connect(_on_host_away)
+	_peer.host_back.connect(_on_host_back)
 	_connect_timer = get_tree().create_timer(CONNECT_TIMEOUT)
 	_connect_timer.timeout.connect(_on_connect_timeout.bind(_peer))
 
@@ -148,6 +193,8 @@ func _activate(err: Error) -> void:
 	multiplayer.multiplayer_peer = _peer
 
 func _fail(message: String) -> void:
+	if not _resuming.is_empty() and message == "That game has ended.":
+		SaveGame.clear()
 	leave()
 	connection_failed.emit(message)
 
@@ -158,11 +205,16 @@ func _on_connect_timeout(peer: RelayPeer) -> void:
 func _on_room_hosted(key: String) -> void:
 	room_key = key
 	players = {1: my_name}
+	tokens = {1: my_token}
 	room_ready.emit(key)
 	players_changed.emit()
 
 func _on_room_joined(key: String) -> void:
 	room_key = key
+	if not _resuming.is_empty():
+		if multiplayer.get_unique_id() == 1:
+			_restore_as_host()
+		return   # a player waits for the host to accept them (see _register_player)
 	room_ready.emit(key)   # the player list arrives from the host after registering
 
 func _on_relay_error(message: String) -> void:
@@ -172,10 +224,14 @@ func _on_relay_error(message: String) -> void:
 		push_warning("Relay: " + message)
 
 func _on_room_closed() -> void:
+	SaveGame.clear()   # the room is gone, so there's nothing to resume
 	_end_session("The host closed the room.")
 
 func _on_server_disconnected() -> void:
-	_end_session("Lost connection to the host.")
+	if in_game and SaveGame.has_resume():
+		_end_session("Lost connection to the game.\nTap Resume Game on the title screen to rejoin.")
+	else:
+		_end_session("Lost connection to the host.")
 
 func _end_session(message: String) -> void:
 	if _peer == null:
@@ -184,24 +240,165 @@ func _end_session(message: String) -> void:
 	session_ended.emit(message)
 
 func _on_connected_to_server() -> void:
-	_register_player.rpc_id(1, my_name)
+	if in_game:
+		return   # the host came back after a refresh; it already knows us (see _on_host_back)
+	_register_player.rpc_id(1, my_name, my_token)
 
 func _on_peer_disconnected(id: int) -> void:
-	if multiplayer.is_server() and players.erase(id):
-		_sync_players.rpc(players)
+	if not multiplayer.is_server() or not players.has(id):
+		return
+	var name: String = players[id]
+	players.erase(id)
+	var token: String = tokens.get(id, "")
+	tokens.erase(id)
+	if in_game and token != "":
+		# Mid-game: keep their seat for a while so they can Resume.
+		away[token] = name
+		get_tree().create_timer(AWAY_GRACE).timeout.connect(_on_away_expired.bind(token))
+		_announce.rpc("%s lost connection. Waiting for them to come back..." % name)
+	_sync_players.rpc(players, away.values())
+
+func _on_away_expired(token: String) -> void:
+	if not away.has(token) or not is_host():
+		return
+	var name: String = away[token]
+	away.erase(token)
+	Turns.forget(token)
+	_sync_players.rpc(players, away.values())
+	_announce.rpc("%s left the game." % name)
+
+
+## ---- RECONNECTING ----
+# Host after a refresh: the relay gave us peer 1 back. Restore the shared game and tell
+# everyone what it looks like.
+func _restore_as_host() -> void:
+	var snapshot := _resuming
+	_resuming = {}
+	in_game = true
+	SaveGame.restore_private(snapshot)
+	SaveGame.restore_shared(snapshot)
+	var shared: Dictionary = snapshot["shared"]
+	var connected := _peer.get_peer_ids()
+	players = {1: snapshot["name"]}
+	tokens = {1: my_token}
+	away = shared["away"].duplicate()
+	for id in shared["players"]:
+		if id == 1:
+			continue
+		var token: String = shared["tokens"].get(id, "")
+		if id in connected:
+			players[id] = shared["players"][id]
+			tokens[id] = token
+		elif token != "":   # dropped while we were gone: they can still come back
+			away[token] = shared["players"][id]
+	for token in away:
+		get_tree().create_timer(AWAY_GRACE).timeout.connect(_on_away_expired.bind(token))
+	Turns.restore_finished(shared["finished"])
+	_sync_players.rpc(players, away.values())
+	Market.send_state_to_all()
+	_announce.rpc("The host is back.")
+	Turns.resume(Global.ROUND, snapshot["private"]["round"], snapshot["private"]["turn_done"])
+	Turns.resync_waiting()
+	resumed.emit()
+
+# Host -> a returning player: you're in. Restore your own things and carry on.
+@rpc("authority", "reliable")
+func _resume_accepted(current_round: int, turn_done: bool) -> void:
+	var snapshot := _resuming
+	_resuming = {}
+	if snapshot.is_empty():
+		return
+	in_game = true
+	SaveGame.restore_private(snapshot)
+	Turns.resume(current_round, snapshot["private"]["round"], turn_done)
+	resumed.emit()
+
+@rpc("authority", "reliable")
+func _resume_rejected(message: String) -> void:
+	SaveGame.clear()
+	_fail(message)
+
+# Player -> host: "I'm leaving for good" (so they aren't marked as reconnecting).
+@rpc("any_peer", "reliable")
+func _leaving_on_purpose() -> void:
+	tokens.erase(multiplayer.get_remote_sender_id())
+
+# Host -> everyone: a short banner ("Sam lost connection...").
+@rpc("authority", "call_local", "reliable")
+func _announce(message: String) -> void:
+	Global.banner(message)
+
+# Everyone else while the host is away: block the game with a "reconnecting" notice.
+func _on_host_away(seconds: int) -> void:
+	host_away.emit(seconds)
+	_show_wait_overlay("The host lost connection.\nWaiting up to %d minutes for them to come back..." % ceili(seconds / 60.0))
+
+func _on_host_back() -> void:
+	_hide_wait_overlay()
+	Market.resend_pending()   # anything we asked while the host was gone
+	Turns.resend_turn_done()
+	host_back.emit()
+
+func _show_wait_overlay(text: String) -> void:
+	_hide_wait_overlay()
+	_wait_overlay = CanvasLayer.new()
+	_wait_overlay.layer = 150
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.75)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	var label := Label.new()
+	label.text = text
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", 40)
+	dim.add_child(label)
+	_wait_overlay.add_child(dim)
+	get_tree().root.add_child(_wait_overlay)
+
+func _hide_wait_overlay() -> void:
+	if is_instance_valid(_wait_overlay):
+		_wait_overlay.queue_free()
+	_wait_overlay = null
 
 
 ## ---- RPCs ----
-# Client -> host: "this is my name".
+# Client -> host: "this is my name" (and my secret token, for reconnecting later).
 @rpc("any_peer", "reliable")
-func _register_player(player_name: String) -> void:
+func _register_player(player_name: String, token: String = "") -> void:
 	if not multiplayer.is_server():
 		return
 	var id := multiplayer.get_remote_sender_id()
-	if players.size() >= MAX_PLAYERS or in_game:
-		return   # the relay already enforces both; this is a backstop
+	if in_game:
+		if token != "" and tokens.get(id, "") == token:
+			return   # already back in
+		# Only someone who dropped out of THIS game may come back, as themselves.
+		for old_id in tokens.keys():
+			if token != "" and tokens[old_id] == token and old_id != id:
+				# Their old connection hasn't timed out yet: this is them again.
+				away[token] = players.get(old_id, player_name)
+				players.erase(old_id)
+				tokens.erase(old_id)
+		if token == "" or not away.has(token) or Turns.game_over:
+			_resume_rejected.rpc_id(id, "That game has ended." if Turns.game_over else "That game has already started.")
+			return
+		players[id] = away[token]
+		tokens[id] = token
+		away.erase(token)
+		_sync_players.rpc(players, away.values())
+		_sync_settings.rpc_id(id, game_settings)
+		Market.send_state_to(id)
+		_resume_accepted.rpc_id(id, Global.ROUND, Turns.is_finished(token))
+		_announce.rpc("%s is back." % players[id])
+		Turns.resync_waiting()
+		return
+	if players.size() >= MAX_PLAYERS:
+		return   # the relay already enforces this; this is a backstop
 	players[id] = _unique_name(clean_name(player_name))
-	_sync_players.rpc(players)
+	tokens[id] = token
+	_sync_players.rpc(players, away.values())
 	_sync_settings.rpc_id(id, game_settings)
 
 # Client -> host: "call me this instead" (from the settings pop-up).
@@ -214,12 +411,13 @@ func _rename_player(player_name: String) -> void:
 		id = 1
 	players.erase(id)
 	players[id] = _unique_name(clean_name(player_name))
-	_sync_players.rpc(players)
+	_sync_players.rpc(players, away.values())
 
-# Host -> everyone (host included): the full player list.
+# Host -> everyone (host included): the full player list, and who is reconnecting.
 @rpc("authority", "call_local", "reliable")
-func _sync_players(list: Dictionary) -> void:
+func _sync_players(list: Dictionary, reconnecting: Array = []) -> void:
 	players = list
+	away_names = reconnecting
 	if in_game:
 		Global.PLAYER = players.get(multiplayer.get_unique_id(), Global.PLAYER)
 	players_changed.emit()

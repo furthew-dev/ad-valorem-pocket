@@ -44,6 +44,12 @@ func _build() -> void:
 
 	box.add_child(_label("Settings", 70))
 
+	# --- Room key (tap to copy) ---
+	if Network.is_online():
+		var key_button := _button("Room key: %s" % Network.room_key, _copy_room_key)
+		key_button.add_theme_font_size_override("font_size", 40)
+		box.add_child(key_button)
+
 	# --- Player name ---
 	box.add_child(_label("Player name", 40))
 	var name_row := HBoxContainer.new()
@@ -119,6 +125,11 @@ func _save_name() -> void:
 	Sound.play("saved")
 	Global.banner("Name saved.")
 
+func _copy_room_key() -> void:
+	DisplayServer.clipboard_set(Network.room_key)
+	Sound.play("switch")
+	Global.banner("Room key %s copied." % Network.room_key)
+
 func _on_sound_toggled(on: bool) -> void:
 	Sound.set_enabled(on)
 	Sound.play("switch")   # silent when turning off
@@ -141,6 +152,7 @@ func _confirm_leave() -> void:
 		question = "Leave this game?"
 	var popup = POPUP_SCENE.instantiate()
 	add_child(popup)
+	popup.bring_to_front(layer + 10)   # pop-ups normally sit under this one
 	popup.layout(question, "Yes", "No")
 	popup.left_pressed.connect(_leave)
 

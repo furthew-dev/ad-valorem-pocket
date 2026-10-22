@@ -11,6 +11,8 @@ signal room_hosted(key: String)
 signal room_joined(key: String)
 signal relay_error(message: String)
 signal room_closed
+signal host_away(seconds: int)   # the host dropped mid-game; the relay is holding the room
+signal host_back                 # ...and has returned
 
 const MAX_PACKET := 60000
 
@@ -29,11 +31,14 @@ var _refuse_new := false
 
 
 ## ---- PUBLIC ----
-func host(url: String) -> Error:
-	return _open(url, {"op": "host"})
+# `secret` lets the host reclaim the room if its connection drops mid-game.
+func host(url: String, secret: String = "") -> Error:
+	return _open(url, {"op": "host", "secret": secret})
 
-func join(url: String, key: String) -> Error:
-	return _open(url, {"op": "join", "key": key})
+# rejoin: coming back to a game in progress (the host checks who we are).
+# secret: only for the host itself, reclaiming its room as peer 1.
+func join(url: String, key: String, rejoin: bool = false, secret: String = "") -> Error:
+	return _open(url, {"op": "join", "key": key, "rejoin": rejoin, "secret": secret})
 
 # Host only: stop new players joining (call when the game starts).
 func lock_room(locked: bool = true) -> void:
@@ -182,6 +187,16 @@ func _handle_control(text: String) -> void:
 			var id := int(msg["id"])
 			if _peers.erase(id):
 				peer_disconnected.emit(id)
+		"host_away":
+			host_away.emit(int(msg.get("seconds", 0)))
+		"host_back":
+			# The host is a fresh program now: forget what Godot's multiplayer cached about
+			# peer 1 (node paths etc.) by reconnecting it.
+			if _peers.has(1):
+				_peers.erase(1)
+				peer_disconnected.emit(1)
+			_add_peer(1)
+			host_back.emit()
 		"room_closed":
 			room_closed.emit()
 			_ws.close()

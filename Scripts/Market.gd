@@ -67,13 +67,28 @@ func _ask(request: String, args: Array):
 		return callv("_host_" + request, args)
 	_next_request_id += 1
 	var id := _next_request_id
-	_pending[id] = true
+	_pending[id] = [request, args]
 	_request.rpc_id(1, id, request, args)
 	while true:
 		var reply: Array = await _reply_received
 		if reply[0] == id:
 			_pending.erase(id)
 			return reply[1]
+
+# The host dropped and came back: ask again for anything still unanswered.
+func resend_pending() -> void:
+	for id in _pending:
+		_request.rpc_id(1, id, _pending[id][0], _pending[id][1])
+
+# Host: the whole market to one returning player, or to everyone.
+func send_state_to(peer_id: int) -> void:
+	var stock := {}
+	for key in Actions.all_actions:
+		stock[key] = Actions.all_actions[key]["stock"]
+	_sync_all.rpc_id(peer_id, stock, _deck_names())
+
+func send_state_to_all() -> void:
+	_broadcast_all()
 
 # If the host vanishes, wake every waiting caller with a "no" answer.
 func _release_pending() -> void:

@@ -25,7 +25,7 @@ var waiting_on: Array = []         # player names, kept in sync by the host
 var game_over := false
 var final_results: Array = []      # [{name, net_worth}], best first
 
-var _finished: Dictionary = {}     # host only: peer id -> {cash, loans}
+var _finished: Dictionary = {}     # host only: player token -> {cash, loans}
 var _final_reports: Dictionary = {}  # host only: peer id -> {name, net_worth}
 var _was_online := false
 
@@ -60,15 +60,22 @@ func _player_done(cash: int, loans: int) -> void:
 	if not multiplayer.is_server():
 		return
 	var id := multiplayer.get_remote_sender_id()
-	_finished[id if id != 0 else 1] = {"cash": cash, "loans": loans}
+	_finished[_token_of(id if id != 0 else 1)] = {"cash": cash, "loans": loans}
 	_check_round()
 
+func _token_of(id: int) -> String:
+	return Network.tokens.get(id, str(id))
+
 # Host: who is still playing? Nobody -> game over or next round for everyone.
+# Players who dropped out and may come back count as still playing.
 func _check_round() -> void:
 	var still_playing := []
 	for id in Network.players:
-		if not _finished.has(id):
+		if not _finished.has(_token_of(id)):
 			still_playing.append(Network.players[id])
+	for token in Network.away:
+		if not _finished.has(token):
+			still_playing.append("%s (reconnecting)" % Network.away[token])
 	if not still_playing.is_empty():
 		_sync_waiting.rpc(still_playing)
 		return
@@ -91,14 +98,55 @@ func _sync_waiting(names: Array) -> void:
 func _on_players_changed() -> void:
 	if not (Network.in_game and multiplayer.is_server()):
 		return
-	# Someone left: they may have been the last one we were waiting on / reporting.
-	if not _finished.is_empty():
-		for id in _finished.keys():
-			if not Network.players.has(id):
-				_finished.erase(id)
+	# Someone left or came back: the waiting list changes.
+	if not _finished.is_empty() and not game_over:
 		_check_round()
 	if game_over:
 		_check_final_reports()
+
+
+## ---- RECONNECTING (see Network) ----
+func finished_snapshot() -> Dictionary:
+	return _finished.duplicate(true)
+
+func restore_finished(snapshot: Dictionary) -> void:
+	_finished = snapshot.duplicate(true)
+
+func is_finished(token: String) -> bool:
+	return _finished.has(token)
+
+# Host: a dropped player didn't come back in time.
+func forget(token: String) -> void:
+	_finished.erase(token)
+	if game_over:
+		_check_final_reports()
+	elif not _finished.is_empty():
+		_check_round()
+
+# Host: send the current "Waiting on..." list (or move on if everyone is done).
+func resync_waiting() -> void:
+	if Network.in_game and multiplayer.is_server() and not game_over and not _finished.is_empty():
+		_check_round()
+
+# Back in the game after Resume Game. Catch up on any rounds played while we were away.
+func resume(current_round: int, saved_round: int, turn_done: bool) -> void:
+	_was_online = true
+	game_over = false
+	if current_round > saved_round:
+		my_turn_done = false
+		for number in range(saved_round + 1, current_round + 1):
+			await _start_round(number)
+		return
+	my_turn_done = turn_done
+	if turn_done:
+		Global.ACTIONS = 0
+	await _play_curtain("Welcome back", HOME_SCENE)
+	waiting_changed.emit(waiting_on)
+
+# The host came back after dropping: make sure it knows we already ended our turn.
+func resend_turn_done() -> void:
+	if my_turn_done and not game_over and Network.is_online() and not multiplayer.is_server():
+		_player_done.rpc_id(1, Global.CASH, Global.all_loans())
 
 
 ## ---- NEXT ROUND ----
@@ -208,7 +256,9 @@ func quit_to_title() -> void:
 ## ---- SESSION ----
 # Clears round / game-over state. Also used when leaving on purpose (settings pop-up),
 # so no "lost connection" notice shows.
-func reset() -> void:
+func reset(clear_save: bool = true) -> void:
+	if clear_save:
+		SaveGame.clear()
 	my_turn_done = false
 	waiting_on = []
 	game_over = false
@@ -228,7 +278,7 @@ func _on_game_starting() -> void:
 
 func _on_session_ended(message: String) -> void:
 	var was_online := _was_online
-	reset()
+	reset(false)   # keep the save: Resume Game may still work (Network clears it if not)
 	if not was_online:
 		return   # the lobby handles its own exit
 	await Global.show_notice(message)

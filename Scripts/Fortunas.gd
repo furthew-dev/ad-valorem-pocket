@@ -775,6 +775,7 @@ func _play_sabotage_curtain(saboteur_name: String) -> void:
 	var icon := TextureRect.new()
 	icon.texture = load(Actions.sabotage["art"])
 	icon.custom_minimum_size = Vector2(320, 320)
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER   # a 320px box in the middle, so it scales from its centre
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.pivot_offset = Vector2(160, 160)

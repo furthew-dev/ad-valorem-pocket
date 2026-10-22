@@ -93,6 +93,45 @@ func clear_ui() -> void:
 	round_number.text = ""
 	actions_left.text = ""
 
+# Replaces the header (name / cash / round) with a big title and a smaller subtitle,
+# e.g. "Ad Valorem Pocket Edition" over "Main Menu". The title shrinks to fit the width.
+const TITLE_SIZE := 64
+const SUBTITLE_SIZE := 34
+
+func show_title(title: String, subtitle: String = "") -> void:
+	var top_menu: HBoxContainer = checking_bal.get_parent()
+	for child in top_menu.get_children():
+		child.visible = false
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 2)
+	var h1 := _title_label(title, TITLE_SIZE)
+	box.add_child(h1)
+	if subtitle != "":
+		var h2 := _title_label(subtitle, SUBTITLE_SIZE)
+		h2.modulate.a = 0.8
+		box.add_child(h2)
+	top_menu.add_child(box)
+	await get_tree().process_frame   # wait for the real width before fitting the title
+	if is_instance_valid(h1) and h1.size.x > 0:
+		var font := h1.get_theme_font("font")
+		var size := TITLE_SIZE
+		while size > 24 and font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > h1.size.x - 10:
+			size -= 2
+		h1.add_theme_font_size_override("font_size", size)
+
+func _title_label(text: String, size: int) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.clip_text = true   # don't let a long title push the header wider than the screen
+	label.add_theme_font_override("font", checking_bal.get_theme_font("font"))
+	label.add_theme_color_override("font_color", checking_bal.get_theme_color("font_color"))
+	label.add_theme_font_size_override("font_size", size)
+	return label
+
 func disable_buttons() -> void:
 	home_btn.disabled = true
 	back_btn.disabled = true
