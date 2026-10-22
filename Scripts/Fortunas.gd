@@ -623,6 +623,8 @@ const BENEFICIAL_EFFECTS = [
 	"gain_flat", "gain_per_property", "gain_insurance_tokens", "gain_free_token",
 	"raise_condition", "build_free_property"
 ]
+# Not harmful either (you choose whether to swap), so Just Say No isn't offered.
+const NOT_BLOCKABLE = ["swap_property", "reverse_penalty", "block_fortuna"]
 
 # Tokens offered by Free Token. These are the keys of Actions.all_actions, which is also the
 # format the market uses when it adds a purchase to Actions.actions_owned.
@@ -739,7 +741,26 @@ func _receive_sabotage(saboteur_name: String) -> void:
 	var saboteur_id := multiplayer.get_remote_sender_id()
 	await _wait_turn()
 	await _play_sabotage_curtain(saboteur_name)
+	if await offer_just_say_no("Play Just Say No to block %s's sabotage?" % saboteur_name):
+		Global.banner("You blocked %s's sabotage with Just Say No!" % saboteur_name)
+		_sabotage_blocked.rpc_id(saboteur_id, Global.PLAYER)
+		return
 	await play_fortuna(saboteur_id)
+
+@rpc("any_peer", "reliable")
+func _sabotage_blocked(victim_name: String) -> void:
+	Global.banner("%s blocked your sabotage with Just Say No." % victim_name)
+
+# Asks to play a Just Say No from hand (if we have one). Spends it and returns true on "Yes".
+func offer_just_say_no(question: String) -> bool:
+	var index = _find_in_hand("block_fortuna")
+	if index == -1:
+		return false
+	var answer = await ask_player_to_choose(question, ["Yes", "No"], 1)
+	if answer != "Yes":
+		return false
+	fortunas_owned.remove_at(index)
+	return true
 
 # A beneficial card drawn by our victim: we get it, so it resolves here.
 @rpc("any_peer", "reliable")
@@ -835,13 +856,9 @@ func resolve_fortuna(card: Dictionary) -> String:
 			return "%s was voided by a protection token." % card["name"]
 
 	# STEP 3: offer Just Say No against harmful cards
-	if not (effect in BENEFICIAL_EFFECTS):
-		var jsn_index = _find_in_hand("block_fortuna")
-		if jsn_index != -1:
-			var answer = await ask_player_to_choose("Play Just Say No to block %s?" % card["name"], ["Yes", "No"], 1)
-			if answer == "Yes":
-				fortunas_owned.remove_at(jsn_index)
-				return "%s was blocked by Just Say No." % card["name"]
+	if not (effect in BENEFICIAL_EFFECTS or effect in NOT_BLOCKABLE):
+		if await offer_just_say_no("Play Just Say No to block %s?" % card["name"]):
+			return "%s was blocked by Just Say No." % card["name"]
 
 	# STEP 4: apply the effect
 	match effect:

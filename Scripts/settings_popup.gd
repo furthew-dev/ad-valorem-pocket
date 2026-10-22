@@ -46,7 +46,7 @@ func _build() -> void:
 
 	# --- Room key (tap to copy) ---
 	if Network.is_online():
-		var key_button := _button("Room key: %s" % Network.room_key, _copy_room_key)
+		var key_button := _button("Room key: %s" % Network.room_key, _copy_room_key, false)
 		key_button.add_theme_font_size_override("font_size", 40)
 		box.add_child(key_button)
 
@@ -64,8 +64,11 @@ func _build() -> void:
 	_name_field.draw.connect(func(): _name_field.draw_line(
 			Vector2(0, _name_field.size.y - 4), Vector2(_name_field.size.x, _name_field.size.y - 4), Color(INK, 0.6), 3))
 	_name_field.text_submitted.connect(func(_t): _save_name())
+	name_row.add_theme_constant_override("separation", 16)
 	name_row.add_child(_name_field)
-	name_row.add_child(_button("Save", _save_name))
+	var save := _button("Save", _save_name)
+	save.custom_minimum_size.x = 120
+	name_row.add_child(save)
 	box.add_child(name_row)
 
 	# --- Sound ---
@@ -79,12 +82,18 @@ func _build() -> void:
 	# --- Leave ---
 	var leave_text := _leave_text()
 	if leave_text != "":
+		box.add_child(_spacer(10))
 		box.add_child(_button(leave_text, _confirm_leave))
 
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(spacer)
 	box.add_child(_button("Close", _close))
+
+func _spacer(height: int) -> Control:
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, height)
+	return spacer
 
 func _label(text: String, size: int) -> Label:
 	var label := Label.new()
@@ -93,13 +102,17 @@ func _label(text: String, size: int) -> Label:
 	_style_ink(label, size)
 	return label
 
-func _button(text: String, action: Callable) -> Button:
+# boxed: drawn inside a pencil box like the pop-up buttons (Save, Leave, Close).
+func _button(text: String, action: Callable, boxed: bool = true) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.flat = true
 	_style_ink(button, 48)
-	button.add_theme_color_override("font_hover_color", Color("b76051"))
-	button.add_theme_color_override("font_pressed_color", Color("96514b"))
+	if boxed:
+		InkBox.apply(button, INK)
+	else:
+		button.add_theme_color_override("font_hover_color", Color("b76051"))
+		button.add_theme_color_override("font_pressed_color", Color("96514b"))
 	button.pressed.connect(action)
 	return button
 

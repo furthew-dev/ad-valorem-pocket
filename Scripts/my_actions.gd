@@ -31,7 +31,22 @@ func _build_list() -> void:
 		row.setup_card(Actions.all_actions[action], counts[action])
 		row.use_requested.connect(_on_use_requested.bind(action))
 
-	title.text = "You have no Actions" if Actions.actions_owned.is_empty() else ""
+	# Fortunas kept in hand (Just Say No...): shown here so you know you have them.
+	var kept := {}   # effect -> [card, count]
+	for card in Fortunas.fortunas_owned:
+		var effect: String = card.get("effect", card.get("name", ""))
+		if kept.has(effect):
+			kept[effect][1] += 1
+		else:
+			kept[effect] = [card, 1]
+	for effect in kept:
+		var row = ACTION_ROW_SCENE.instantiate()
+		list_of_actions.add_child(row)
+		row.setup_card(kept[effect][0], kept[effect][1])
+		row.use_requested.connect(_on_kept_fortuna_pressed)
+
+	var nothing: bool = Actions.actions_owned.is_empty() and Fortunas.fortunas_owned.is_empty()
+	title.text = "You have no Actions" if nothing else ""
 
 func _on_use_requested(_data: Dictionary, key: String) -> void:
 	match key:
@@ -46,6 +61,13 @@ func _on_use_requested(_data: Dictionary, key: String) -> void:
 			get_tree().change_scene_to_file("res://Scenes/my_properties.tscn")
 		"double", "skybnb", "contractor":
 			Global.banner("Open a property in My Properties to use this.")
+
+
+func _on_kept_fortuna_pressed(card: Dictionary) -> void:
+	if card.get("effect", "") == "block_fortuna":
+		Global.banner("Just Say No is offered when a harmful Fortuna or a sabotage hits you.")
+	else:
+		Global.banner("%s is kept for when it's needed." % card.get("name", "This card"))
 
 
 ## ---- SABOTAGE ----

@@ -56,7 +56,7 @@ func setup(prompt: String, options: Array) -> void:
 
 	var scroll = ScrollContainer.new()   # long lists (e.g. every property type) scroll
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(560, mini(options.size(), 6) * 84)
+	scroll.custom_minimum_size = Vector2(560, mini(options.size(), 6) * 96)
 	vbox.add_child(scroll)
 
 	var list = VBoxContainer.new()
@@ -72,6 +72,13 @@ func setup(prompt: String, options: Array) -> void:
 		btn.add_theme_stylebox_override("normal", _button_style(Color(0.501961, 0.447059, 0.411765)))
 		btn.add_theme_stylebox_override("hover", _button_style(Color(0.588235, 0.317647, 0.294118)))
 		btn.add_theme_stylebox_override("pressed", _button_style(Color(0.47451, 0.235294, 0.266667)))
+		if option is Dictionary and ResourceLoader.exists(str(option.get("art", ""))):
+			btn.icon = load(option["art"])   # the property's picture, for a quick visual reference
+			btn.expand_icon = true
+			btn.add_theme_constant_override("icon_max_width", 64)
+			btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			btn.custom_minimum_size.y = 84
+			btn.add_theme_constant_override("h_separation", 14)
 		btn.pressed.connect(_on_option_pressed.bind(option))
 		list.add_child(btn)
 

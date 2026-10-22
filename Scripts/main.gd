@@ -90,7 +90,8 @@ func _name_problem(raw: String) -> String:
 
 # "Connecting" pop-up whose button cancels the attempt.
 func _show_waiting(text: String) -> void:
-	_waiting_popup = _new_popup(text + "\n(the server may take a moment to wake up)", "Cancel", "")
+	_waiting_popup = _new_popup(text, "Cancel", "")
+	_waiting_popup.add_note("The server may take a moment to wake up.")
 	_waiting_popup.left_sound = "back"
 	_waiting_popup.left_pressed.connect(func():
 		_waiting_popup = null

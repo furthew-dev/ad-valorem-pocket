@@ -7,14 +7,16 @@ const FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
 const INK := Color(0.1, 0.1, 0.1)
 const ERROR_INK := Color("b03030")
 
-# key, label, arrow step
+# key, label
 const ROWS := [
-	["start_cash", "Starting cash ($)", 5],
-	["start_properties", "Starting properties", 1],
-	["end_goal", "End goal ($)", 10],
+	["start_cash", "Starting Cash $:"],
+	["start_properties", "Starting Properties:"],
+	["end_goal", "End Goal $:"],
 ]
+const ROW_FONT := 38
 
-var _boxes: Dictionary = {}   # key -> SpinBox
+var _boxes: Dictionary = {}   # key -> LineEdit
+var _buttons: Array = []
 var _error: Label
 
 
@@ -49,26 +51,38 @@ func _build() -> void:
 	paper.add_child(box)
 
 	box.add_child(_label("Game Settings", 64))
+	box.add_child(_spacer(16))
+	# One line per setting: "Starting Cash $: ____"
 	for row in ROWS:
 		var key: String = row[0]
 		var limits: Array = Network.SETTING_LIMITS[key]
-		box.add_child(_label(row[1], 38))
-		var spin := SpinBox.new()
-		spin.min_value = limits[0]
-		spin.max_value = limits[1]
-		spin.step = 1
-		spin.custom_arrow_step = row[2]
-		spin.rounded = true
-		spin.value = Network.game_settings.get(key, Network.DEFAULT_SETTINGS[key])
-		spin.alignment = HORIZONTAL_ALIGNMENT_CENTER
-		var field := spin.get_line_edit()
+		var line := HBoxContainer.new()
+		line.add_theme_constant_override("separation", 10)
+		var name_label := _label(row[1], ROW_FONT)
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		name_label.custom_minimum_size.x = 270   # same width on every line, so the blanks line up
+		line.add_child(name_label)
+		var field := LineEdit.new()
+		field.text = str(Network.game_settings.get(key, Network.DEFAULT_SETTINGS[key]))
+		field.placeholder_text = "%d to %d" % [limits[0], limits[1]]   # also the phone prompt's title
+		field.max_length = 3
+		field.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		field.custom_minimum_size = Vector2(90, 0)
 		field.add_theme_font_override("font", FONT)
-		field.add_theme_font_size_override("font_size", 40)
+		field.add_theme_font_size_override("font_size", ROW_FONT)
 		field.add_theme_color_override("font_color", INK)
-		field.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
-		field.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-		box.add_child(spin)
-		_boxes[key] = spin
+		field.add_theme_color_override("font_placeholder_color", Color(INK, 0.4))
+		field.add_theme_color_override("caret_color", INK)
+		for style in ["normal", "focus", "read_only"]:
+			field.add_theme_stylebox_override(style, StyleBoxEmpty.new())
+		field.draw.connect(func(): field.draw_line(   # the pencil line to write on
+				Vector2(4, field.size.y - 4), Vector2(field.size.x - 4, field.size.y - 4), Color(INK, 0.6), 3))
+		field.text_changed.connect(_digits_only.bind(field))
+		field.text_submitted.connect(func(_t): _save())
+		line.add_child(field)
+		box.add_child(line)
+		_boxes[key] = field
 
 	_error = _label("", 30)
 	_error.add_theme_color_override("font_color", ERROR_INK)
@@ -76,9 +90,30 @@ func _build() -> void:
 	box.add_child(_error)
 
 	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 24)
 	buttons.add_child(_button("Save", _save))
 	buttons.add_child(_button("Cancel", _close))
 	box.add_child(buttons)
+	_fit_buttons.call_deferred()
+
+func _fit_buttons() -> void:
+	await get_tree().process_frame
+	InkBox.fit_text(_buttons)
+
+func _spacer(height: int) -> Control:
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, height)
+	return spacer
+
+func _digits_only(new_text: String, field: LineEdit) -> void:
+	var digits := ""
+	for c in new_text:
+		if c >= "0" and c <= "9":
+			digits += c
+	if digits != new_text:
+		var caret := field.caret_column
+		field.text = digits
+		field.caret_column = mini(caret, digits.length())
 
 func _label(text: String, size: int) -> Label:
 	var label := Label.new()
@@ -92,20 +127,20 @@ func _label(text: String, size: int) -> Label:
 func _button(text: String, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.flat = true
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.clip_text = true
 	button.add_theme_font_override("font", FONT)
 	button.add_theme_font_size_override("font_size", 52)
-	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-		button.add_theme_color_override(state, INK)
+	InkBox.apply(button, INK)
 	button.pressed.connect(action)
+	_buttons.append(button)
 	return button
 
 func current_values() -> Dictionary:
 	var values := {}
 	for key in _boxes:
-		_boxes[key].apply()   # include anything still being typed
-		values[key] = int(_boxes[key].value)
+		var text: String = _boxes[key].text.strip_edges()
+		values[key] = int(text) if text.is_valid_int() else -1   # -1 fails the range check
 	return values
 
 func _save() -> void:

@@ -176,6 +176,20 @@ func _build_overlay() -> void:
 	box.offset_bottom = -80
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 18)
+	# The property's picture, large and faded, behind the bids and countdown.
+	if ResourceLoader.exists(str(item.get("art", ""))):
+		var watermark := TextureRect.new()
+		watermark.texture = load(item["art"])
+		watermark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		watermark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		watermark.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		watermark.offset_left = 40
+		watermark.offset_right = -40
+		watermark.offset_top = 520
+		watermark.offset_bottom = -260
+		watermark.modulate = Color(1, 1, 1, 0.14)
+		watermark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bg.add_child(watermark)
 	bg.add_child(box)
 
 	box.add_child(_text("AUCTION", 110))
