@@ -28,6 +28,7 @@ Market="*res://Scripts/Market.gd"
 Turns="*res://Scripts/Turns.gd"
 Sound="*res://Scripts/sound_manager.gd"
 Auction="*res://Scripts/auction.gd"
+WebTextInput="*res://Scripts/web_text_input.gd"
 
 [display]
 

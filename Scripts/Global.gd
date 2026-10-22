@@ -48,6 +48,18 @@ var _cash_tween: Tween
 var _cash_target: int = 0   # where the running cash tween will land
 
 
+# The Handwriting font has no digits, "$", "-" or most symbols. On a PC Godot quietly
+# borrows them from Windows fonts, but phone browsers have none to borrow, so they showed
+# as boxes. Comfortaa now fills in any character Handwriting is missing, everywhere.
+const HANDWRITING_FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
+const FALLBACK_FONT = preload("res://Assets/fonts/Comfortaa-Regular.ttf")
+
+func _ready() -> void:
+	var handwriting: FontFile = HANDWRITING_FONT   # the shared, cached font every scene uses
+	if not handwriting.fallbacks.has(FALLBACK_FONT):
+		handwriting.fallbacks = handwriting.fallbacks + [FALLBACK_FONT]
+
+
 ## ---- UI HELPERS ----
 func banner(message: String) -> void:
 	Sound.play("notify")
