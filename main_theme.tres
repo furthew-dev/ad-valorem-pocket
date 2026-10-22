@@ -1,0 +1,54 @@
+[gd_resource type="Theme" load_steps=8 format=3 uid="uid://cjryg8ll4k0kw"]
+
+[ext_resource type="FontFile" uid="uid://dw6eqfioib8lx" path="res://Assets/fonts/Comfortaa-Regular.ttf" id="1_470mv"]
+[ext_resource type="FontFile" uid="uid://ct67wp5jkmuma" path="res://Assets/fonts/Comfortaa-Bold.ttf" id="2_a2l2q"]
+
+[sub_resource type="StyleBoxLine" id="StyleBoxLine_470mv"]
+grow_begin = -15.0
+grow_end = -25.0
+thickness = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_466ly"]
+bg_color = Color(0.454902, 0.254902, 0.270588, 1)
+corner_radius_top_left = 30
+corner_radius_top_right = 30
+corner_radius_bottom_right = 30
+corner_radius_bottom_left = 30
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_a2l2q"]
+bg_color = Color(0.384314, 0.329412, 0.403922, 1)
+corner_radius_top_left = 45
+corner_radius_top_right = 45
+corner_radius_bottom_right = 45
+corner_radius_bottom_left = 45
+shadow_size = 4
+shadow_offset = Vector2(5, 5)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_58jnp"]
+bg_color = Color(0.384314, 0.329412, 0.403922, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_0omi4"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[resource]
+Button/colors/font_color = Color(0.866667, 0.811765, 0.6, 1)
+Button/colors/font_disabled_color = Color(0.147672, 0.147672, 0.147672, 0.5)
+Button/colors/font_hover_color = Color(0.717647, 0.376471, 0.317647, 1)
+Button/colors/font_pressed_color = Color(0.760784, 0.521569, 0.372549, 1)
+Button/fonts/font = ExtResource("2_a2l2q")
+HSeparator/styles/separator = SubResource("StyleBoxLine_470mv")
+Label/colors/font_color = Color(0.866667, 0.811765, 0.6, 1)
+Label/font_sizes/font_size = 32
+Label/fonts/font = ExtResource("1_470mv")
+LineEdit/colors/font_color = Color(0.866667, 0.811765, 0.6, 1)
+LineEdit/font_sizes/font_size = 45
+LineEdit/fonts/font = ExtResource("2_a2l2q")
+LineEdit/styles/normal = SubResource("StyleBoxFlat_466ly")
+Panel/styles/panel = SubResource("StyleBoxFlat_a2l2q")
+SpinBoxInnerLineEdit/colors/font_color = Color(0.876821, 0.590252, 0.471078, 1)
+SpinBoxInnerLineEdit/fonts/font = ExtResource("2_a2l2q")
+SpinBoxInnerLineEdit/styles/panel = SubResource("StyleBoxFlat_58jnp")
+TextEdit/colors/font_color = Color(0, 0, 0, 1)
+TextEdit/font_sizes/font_size = 24
+TextEdit/fonts/font = ExtResource("1_470mv")
+TextEdit/styles/normal = SubResource("StyleBoxFlat_0omi4")

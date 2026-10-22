@@ -1,0 +1,130 @@
+[gd_scene load_steps=8 format=3 uid="uid://bguux2m5jylb7"]
+
+[ext_resource type="FontFile" uid="uid://ct67wp5jkmuma" path="res://Assets/fonts/Comfortaa-Bold.ttf" id="1_ka06h"]
+[ext_resource type="Script" uid="uid://cpdvpl2cvojma" path="res://Scripts/my_properties.gd" id="1_qids0"]
+[ext_resource type="Texture2D" uid="uid://byme73cvmjgba" path="res://Assets/bottom_art.png" id="2_b42ra"]
+[ext_resource type="PackedScene" uid="uid://6031uxv2m8js" path="res://Scenes/properties.tscn" id="2_qids0"]
+[ext_resource type="PackedScene" uid="uid://cl1t27dg0ta7t" path="res://Scenes/ui_menu_frame.tscn" id="4_b42ra"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_nia8k"]
+bg_color = Color(0.478431, 0.427451, 0.47451, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bdt85"]
+bg_color = Color(0.32549, 0.27451, 0.313726, 1)
+border_width_bottom = 8
+border_color = Color(0.972549, 0.972549, 0.972549, 0)
+
+[node name="my_properties" type="Node2D"]
+script = ExtResource("1_qids0")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Panel" type="Panel" parent="CanvasLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_nia8k")
+
+[node name="BottomDesign" type="TextureRect" parent="CanvasLayer/Panel"]
+modulate = Color(0.32549, 0.27451, 0.313726, 1)
+custom_minimum_size = Vector2(720, 800)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_b42ra")
+expand_mode = 1
+
+[node name="UI Menu Frame" parent="CanvasLayer/Panel" instance=ExtResource("4_b42ra")]
+z_index = 1
+layout_mode = 1
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 144.0
+offset_bottom = -217.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Title" type="Panel" parent="CanvasLayer/Panel/VBoxContainer"]
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bdt85")
+
+[node name="header" type="HBoxContainer" parent="CanvasLayer/Panel/VBoxContainer/Title"]
+layout_mode = 2
+offset_top = 4.0
+offset_right = 720.0
+offset_bottom = 104.0
+size_flags_vertical = 3
+
+[node name="Control3" type="Control" parent="CanvasLayer/Panel/VBoxContainer/Title/header"]
+custom_minimum_size = Vector2(50, 0)
+layout_mode = 2
+
+[node name="player_name" type="Label" parent="CanvasLayer/Panel/VBoxContainer/Title/header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("1_ka06h")
+theme_override_font_sizes/font_size = 50
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Control2" type="Control" parent="CanvasLayer/Panel/VBoxContainer/Title/header"]
+custom_minimum_size = Vector2(50, 0)
+layout_mode = 2
+
+[node name="ScrollContainer" type="ScrollContainer" parent="CanvasLayer/Panel/VBoxContainer"]
+custom_minimum_size = Vector2(720, 900)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="list_of_properties" type="VBoxContainer" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer"]
+custom_minimum_size = Vector2(300, 125)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Control" type="Control" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_properties"]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+
+[node name="list_of_properties3" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_properties" instance=ExtResource("2_qids0")]
+layout_mode = 2
+
+[node name="list_of_properties5" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_properties" instance=ExtResource("2_qids0")]
+layout_mode = 2
+
+[node name="list_of_properties4" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_properties" instance=ExtResource("2_qids0")]
+layout_mode = 2
+
+[node name="list_of_properties" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_properties" instance=ExtResource("2_qids0")]
+layout_mode = 2
+
+[node name="list_of_properties2" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_properties" instance=ExtResource("2_qids0")]
+layout_mode = 2
+
+[node name="list_of_properties6" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_properties" instance=ExtResource("2_qids0")]
+layout_mode = 2
+
+[node name="list_of_properties7" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_properties" instance=ExtResource("2_qids0")]
+layout_mode = 2
+
+[node name="list_of_properties8" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_properties" instance=ExtResource("2_qids0")]
+layout_mode = 2
+
+[node name="list_of_properties9" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_properties" instance=ExtResource("2_qids0")]
+layout_mode = 2
+
+[node name="list_of_properties10" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_properties" instance=ExtResource("2_qids0")]
+layout_mode = 2

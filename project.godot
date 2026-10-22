@@ -1,0 +1,46 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Ad Valorem Pocket"
+run/main_scene="uid://dqkipi5fd2c3r"
+config/features=PackedStringArray("4.4", "Mobile")
+boot_splash/bg_color=Color(0.32549, 0.235294, 0.266667, 1)
+boot_splash/image="uid://babce7gx3ptib"
+boot_splash/minimum_display_time=100
+
+[autoload]
+
+Global="*res://Scripts/Global.gd"
+Cards="*res://Scripts/cards.gd"
+Actions="*res://Scripts/Actions.gd"
+Fortunas="*res://Scripts/Fortunas.gd"
+Network="*res://Scripts/net/Network.gd"
+Market="*res://Scripts/Market.gd"
+Turns="*res://Scripts/Turns.gd"
+Sound="*res://Scripts/sound_manager.gd"
+Auction="*res://Scripts/auction.gd"
+
+[display]
+
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[rendering]
+
+renderer/rendering_method="mobile"

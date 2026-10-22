@@ -1,0 +1,149 @@
+[gd_scene load_steps=11 format=3 uid="uid://dqkipi5fd2c3r"]
+
+[ext_resource type="Script" uid="uid://cef17ce85sako" path="res://Scripts/main.gd" id="1_344ge"]
+[ext_resource type="Texture2D" uid="uid://pen46ntp30rp" path="res://Assets/main_menu/background.png" id="1_kry3j"]
+[ext_resource type="PackedScene" uid="uid://cl1t27dg0ta7t" path="res://Scenes/ui_menu_frame.tscn" id="2_8gbba"]
+[ext_resource type="Texture2D" uid="uid://bc8f1kr4buise" path="res://Assets/main_menu/pin_board.png" id="3_21xkr"]
+[ext_resource type="Texture2D" uid="uid://cdws8elwpbsqi" path="res://Assets/main_menu/paper.png" id="3_kry3j"]
+[ext_resource type="Texture2D" uid="uid://cfw86pj36kjmj" path="res://Assets/main_menu/pencil_holder.png" id="4_21xkr"]
+[ext_resource type="PackedScene" uid="uid://ho7vrpcp051v" path="res://Scenes/coffee_mug.tscn" id="4_jjvhh"]
+[ext_resource type="FontFile" uid="uid://wvvnuw372tbf" path="res://Assets/fonts/Handwriting-Regular.otf" id="6_d1ilt"]
+[ext_resource type="Theme" uid="uid://cpv1xk05fldxg" path="res://handwriting.tres" id="8_ynf5e"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_fdnlq"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[node name="main" type="Node2D"]
+script = ExtResource("1_344ge")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="NinePatchRect" type="NinePatchRect" parent="CanvasLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+texture = ExtResource("1_kry3j")
+
+[node name="UI Menu Frame" parent="CanvasLayer" instance=ExtResource("2_8gbba")]
+
+[node name="Options Panel" type="Panel" parent="CanvasLayer"]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -336.0
+offset_top = 192.0
+offset_right = 336.0
+offset_bottom = 568.0
+grow_horizontal = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_fdnlq")
+
+[node name="TextureRect" type="TextureRect" parent="CanvasLayer/Options Panel"]
+custom_minimum_size = Vector2(0, 1900)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -8.0
+offset_top = -144.0
+offset_right = -8.0
+offset_bottom = 1380.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("3_21xkr")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="TextureRect2" type="TextureRect" parent="CanvasLayer/Options Panel"]
+custom_minimum_size = Vector2(50, 100)
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -144.0
+offset_top = 488.0
+offset_right = -44.0
+offset_bottom = 588.0
+grow_horizontal = 2
+scale = Vector2(3.03187, 4.66964)
+texture = ExtResource("3_kry3j")
+expand_mode = 1
+
+[node name="TextureRect3" type="TextureRect" parent="CanvasLayer/Options Panel"]
+custom_minimum_size = Vector2(50, 100)
+layout_mode = 1
+offset_left = -136.0
+offset_top = 408.0
+offset_right = -36.0
+offset_bottom = 508.0
+scale = Vector2(3.03187, 4.66964)
+texture = ExtResource("4_21xkr")
+expand_mode = 1
+
+[node name="coffee_mug" parent="CanvasLayer/Options Panel" instance=ExtResource("4_jjvhh")]
+position = Vector2(288, 296)
+scale = Vector2(1.00164, 1)
+
+[node name="resume_game" type="Button" parent="CanvasLayer/Options Panel"]
+layout_mode = 0
+offset_left = 40.0
+offset_top = 120.0
+offset_right = 195.0
+offset_bottom = 276.0
+rotation = -0.0879447
+theme = ExtResource("8_ynf5e")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("6_d1ilt")
+theme_override_font_sizes/font_size = 60
+text = "Resume
+Game"
+flat = true
+
+[node name="join_game" type="Button" parent="CanvasLayer/Options Panel"]
+layout_mode = 0
+offset_left = 232.0
+offset_top = 143.681
+offset_right = 385.0
+offset_bottom = 299.681
+rotation = 0.0202271
+theme = ExtResource("8_ynf5e")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("6_d1ilt")
+theme_override_font_sizes/font_size = 60
+text = "Join
+Game"
+flat = true
+
+[node name="host_game" type="Button" parent="CanvasLayer/Options Panel"]
+layout_mode = 0
+offset_left = 424.0
+offset_top = 128.0
+offset_right = 577.0
+offset_bottom = 284.0
+rotation = -0.146871
+scale = Vector2(1.05763, 1.09092)
+theme = ExtResource("8_ynf5e")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("6_d1ilt")
+theme_override_font_sizes/font_size = 60
+text = "Host
+Game"
+flat = true
+
+[node name="Panel" type="Panel" parent="CanvasLayer"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -720.0
+offset_top = 24.0
+offset_right = -720.0
+offset_bottom = 24.0
+grow_horizontal = 0
+size_flags_horizontal = 3
+
+[connection signal="pressed" from="CanvasLayer/Options Panel/resume_game" to="." method="_on_resume_game_pressed"]
+[connection signal="pressed" from="CanvasLayer/Options Panel/join_game" to="." method="_on_join_game_pressed"]
+[connection signal="pressed" from="CanvasLayer/Options Panel/host_game" to="." method="_on_host_game_pressed"]

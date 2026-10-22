@@ -1,0 +1,107 @@
+[gd_scene load_steps=5 format=3 uid="uid://bbtxxhlboo3jt"]
+
+[ext_resource type="Script" uid="uid://c2ap4wuxprhng" path="res://Scripts/listed_property_template.gd" id="1_dr2ao"]
+[ext_resource type="Texture2D" uid="uid://bmguy3lx1ilj8" path="res://Assets/properties_sale/mansion_sale.png" id="1_xdmhh"]
+[ext_resource type="Theme" uid="uid://cjryg8ll4k0kw" path="res://main_theme.tres" id="2_dr2ao"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_xdmhh"]
+
+[node name="Canvas" type="Panel"]
+custom_minimum_size = Vector2(500, 500)
+offset_right = 320.0
+offset_bottom = 328.0
+mouse_filter = 1
+theme_override_styles/panel = SubResource("StyleBoxEmpty_xdmhh")
+script = ExtResource("1_dr2ao")
+
+[node name="image" type="TextureRect" parent="."]
+layout_direction = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_xdmhh")
+expand_mode = 1
+
+[node name="property_name" type="Label" parent="image"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -234.0
+offset_top = 173.0
+offset_right = 58.0
+offset_bottom = 210.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_dr2ao")
+theme_override_font_sizes/font_size = 20
+text = "Name of Property"
+
+[node name="property_condition" type="Label" parent="image"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -234.0
+offset_top = 203.0
+offset_right = 18.0
+offset_bottom = 240.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_dr2ao")
+theme_override_font_sizes/font_size = 20
+text = "Condition: Excellent"
+
+[node name="property_cost" type="Label" parent="image"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = 70.0
+offset_top = -194.0
+offset_right = 237.0
+offset_bottom = -154.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_dr2ao")
+theme_override_font_sizes/font_size = 30
+text = "Cost: $100"
+horizontal_alignment = 2
+
+[node name="property_rent" type="Label" parent="image"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -234.0
+offset_top = 139.0
+offset_right = -42.0
+offset_bottom = 179.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_dr2ao")
+theme_override_font_sizes/font_size = 24
+text = "Rent: $100"
+
+[node name="toggle_on_off" type="Button" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+flat = true
+
+[connection signal="toggled" from="toggle_on_off" to="." method="_on_toggle_on_off_toggled"]

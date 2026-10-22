@@ -1,0 +1,306 @@
+[gd_scene load_steps=8 format=3 uid="uid://cijqhcfpq0i4k"]
+
+[ext_resource type="Script" uid="uid://rxj74gqxhcau" path="res://Scripts/list_of_loans.gd" id="1_m8qat"]
+[ext_resource type="Theme" uid="uid://cjryg8ll4k0kw" path="res://main_theme.tres" id="2_2viga"]
+[ext_resource type="Texture2D" uid="uid://31yfycwjq8cq" path="res://Assets/icons/tokens/draft_icon.png" id="3_w88v7"]
+[ext_resource type="FontFile" uid="uid://dw6eqfioib8lx" path="res://Assets/fonts/Comfortaa-Regular.ttf" id="6_bg75y"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_168kx"]
+bg_color = Color(0.364706, 0.396078, 0.345098, 1)
+corner_radius_top_left = 40
+corner_radius_top_right = 40
+corner_radius_bottom_right = 40
+corner_radius_bottom_left = 40
+shadow_color = Color(0, 0, 0, 0.298039)
+shadow_size = 4
+shadow_offset = Vector2(10, 10)
+
+[sub_resource type="StyleBoxLine" id="StyleBoxLine_m8qat"]
+color = Color(0.796078, 0.654902, 0.478431, 1)
+thickness = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_w88v7"]
+bg_color = Color(0.752941, 0.694118, 0.560784, 1)
+corner_radius_top_left = 25
+corner_radius_top_right = 25
+corner_radius_bottom_right = 25
+corner_radius_bottom_left = 25
+
+[node name="list_of_loans" type="Control"]
+custom_minimum_size = Vector2(700, 300)
+layout_mode = 3
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_bottom = 150.0
+grow_horizontal = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+mouse_filter = 2
+script = ExtResource("1_m8qat")
+
+[node name="Panel" type="Panel" parent="."]
+custom_minimum_size = Vector2(550, 275)
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -275.0
+offset_right = 275.0
+offset_bottom = 275.0
+grow_horizontal = 2
+mouse_filter = 2
+theme = ExtResource("2_2viga")
+theme_override_styles/panel = SubResource("StyleBoxFlat_168kx")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_bottom = -3.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Control" type="Control" parent="Panel/VBoxContainer2"]
+custom_minimum_size = Vector2(0, 15)
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Panel/VBoxContainer2"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Control3" type="Control" parent="Panel/VBoxContainer2/HBoxContainer"]
+custom_minimum_size = Vector2(30, 0)
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel/VBoxContainer2/HBoxContainer"]
+custom_minimum_size = Vector2(350, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="loan_number" type="Label" parent="Panel/VBoxContainer2/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 1
+theme_override_fonts/font = ExtResource("6_bg75y")
+theme_override_font_sizes/font_size = 30
+text = "Loan#: 654489"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="Panel/VBoxContainer2/HBoxContainer/VBoxContainer"]
+modulate = Color(0.866667, 0.811765, 0.6, 1)
+layout_mode = 2
+theme_override_styles/separator = SubResource("StyleBoxLine_m8qat")
+
+[node name="Control2" type="Control" parent="Panel/VBoxContainer2/HBoxContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 25)
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Panel/VBoxContainer2/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="TextureRect" type="TextureRect" parent="Panel/VBoxContainer2/HBoxContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(130, 25)
+layout_mode = 2
+size_flags_horizontal = 2
+size_flags_stretch_ratio = 0.15
+texture = ExtResource("3_w88v7")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="make_payment" type="Panel" parent="Panel/VBoxContainer2/HBoxContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 2.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_w88v7")
+
+[node name="make_pymt_btn" type="Button" parent="Panel/VBoxContainer2/HBoxContainer/VBoxContainer/HBoxContainer/make_payment"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.32549, 0.235294, 0.266667, 1)
+theme_override_font_sizes/font_size = 30
+text = "Make Payment"
+flat = true
+
+[node name="Control" type="Control" parent="Panel/VBoxContainer2/HBoxContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="Panel/VBoxContainer2/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 6
+
+[node name="next_fee" type="Label" parent="Panel/VBoxContainer2/HBoxContainer/VBoxContainer/HBoxContainer2"]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_fonts/font = ExtResource("6_bg75y")
+theme_override_font_sizes/font_size = 15
+text = "Interest: $4"
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="interest_rate" type="Label" parent="Panel/VBoxContainer2/HBoxContainer/VBoxContainer/HBoxContainer2"]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_fonts/font = ExtResource("6_bg75y")
+theme_override_font_sizes/font_size = 15
+text = "APR: 10%"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="outstanding_bal" type="Label" parent="Panel/VBoxContainer2/HBoxContainer/VBoxContainer/HBoxContainer2"]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_fonts/font = ExtResource("6_bg75y")
+theme_override_font_sizes/font_size = 20
+text = "Balance: $200"
+horizontal_alignment = 2
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Control2" type="Control" parent="Panel/VBoxContainer2/HBoxContainer"]
+custom_minimum_size = Vector2(30, 0)
+layout_mode = 2
+
+[node name="action_button" type="Button" parent="Panel"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+flat = true
+
+[node name="make_payment" type="Panel" parent="."]
+custom_minimum_size = Vector2(550, 20)
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -275.0
+offset_top = 258.0
+offset_right = 275.0
+offset_bottom = 423.0
+grow_horizontal = 2
+mouse_filter = 2
+theme = ExtResource("2_2viga")
+theme_override_styles/panel = SubResource("StyleBoxFlat_168kx")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="make_payment"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Control" type="Control" parent="make_payment/VBoxContainer2"]
+custom_minimum_size = Vector2(0, 15)
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="make_payment/VBoxContainer2"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Control3" type="Control" parent="make_payment/VBoxContainer2/HBoxContainer"]
+custom_minimum_size = Vector2(30, 0)
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="make_payment/VBoxContainer2/HBoxContainer"]
+custom_minimum_size = Vector2(350, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="enter_amount" type="Label" parent="make_payment/VBoxContainer2/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 1
+theme_override_fonts/font = ExtResource("6_bg75y")
+theme_override_font_sizes/font_size = 30
+text = "Enter Amount"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="make_payment/VBoxContainer2/HBoxContainer/VBoxContainer"]
+modulate = Color(0.866667, 0.811765, 0.6, 1)
+layout_mode = 2
+theme_override_styles/separator = SubResource("StyleBoxLine_m8qat")
+
+[node name="Control2" type="Control" parent="make_payment/VBoxContainer2/HBoxContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 25)
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="make_payment/VBoxContainer2/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SpinBox" type="SpinBox" parent="make_payment/VBoxContainer2/HBoxContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 2.0
+max_value = 1000.0
+step = 5.0
+rounded = true
+alignment = 1
+prefix = "$"
+
+[node name="make_payment" type="Panel" parent="make_payment/VBoxContainer2/HBoxContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_w88v7")
+
+[node name="Label" type="Label" parent="make_payment/VBoxContainer2/HBoxContainer/VBoxContainer/HBoxContainer/make_payment"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.32549, 0.235294, 0.266667, 1)
+text = "Pay"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="pay" type="Button" parent="make_payment/VBoxContainer2/HBoxContainer/VBoxContainer/HBoxContainer/make_payment"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.32549, 0.235294, 0.266667, 1)
+flat = true
+
+[node name="Control" type="Control" parent="make_payment/VBoxContainer2/HBoxContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+
+[node name="Control2" type="Control" parent="make_payment/VBoxContainer2/HBoxContainer"]
+custom_minimum_size = Vector2(30, 0)
+layout_mode = 2
+
+[node name="close_tab" type="Button" parent="."]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -272.0
+offset_top = 275.0
+offset_right = 275.0
+offset_bottom = 353.0
+grow_horizontal = 2
+flat = true
+
+[connection signal="pressed" from="Panel/VBoxContainer2/HBoxContainer/VBoxContainer/HBoxContainer/make_payment/make_pymt_btn" to="." method="_on_make_pymt_btn_pressed"]
+[connection signal="pressed" from="make_payment/VBoxContainer2/HBoxContainer/VBoxContainer/HBoxContainer/make_payment/pay" to="." method="_on_pay_pressed"]
+[connection signal="pressed" from="close_tab" to="." method="_on_close_tab_pressed"]

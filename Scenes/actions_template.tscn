@@ -1,0 +1,125 @@
+[gd_scene load_steps=9 format=3 uid="uid://b0oy6e4gjb7uj"]
+
+[ext_resource type="Script" uid="uid://bcl3o25udxwwx" path="res://Scripts/actions_template.gd" id="1_re8vy"]
+[ext_resource type="Theme" uid="uid://cjryg8ll4k0kw" path="res://main_theme.tres" id="1_s5idn"]
+[ext_resource type="Texture2D" uid="uid://dkeestsdtipy5" path="res://Assets/icons/attorney_icon.png" id="2_re8vy"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_s5idn"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_njyed"]
+bg_color = Color(0.670588, 0.588235, 0.435294, 0.486275)
+corner_radius_top_left = 15
+corner_radius_top_right = 15
+corner_radius_bottom_right = 15
+corner_radius_bottom_left = 15
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_s5idn"]
+bg_color = Color(0.454351, 0.611288, 0.358971, 0.427451)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_re8vy"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_y58gb"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[node name="Control" type="Control"]
+custom_minimum_size = Vector2(0, 145)
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_re8vy")
+
+[node name="Panel" type="Panel" parent="."]
+custom_minimum_size = Vector2(15, 145)
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+grow_horizontal = 2
+mouse_filter = 2
+theme = ExtResource("1_s5idn")
+theme_override_styles/panel = SubResource("StyleBoxEmpty_s5idn")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Control2" type="Control" parent="Panel/HBoxContainer"]
+custom_minimum_size = Vector2(20, 0)
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel/HBoxContainer"]
+custom_minimum_size = Vector2(0, 135)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="item" type="HBoxContainer" parent="Panel/HBoxContainer/VBoxContainer"]
+custom_minimum_size = Vector2(400, 0)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="item_icon" type="TextureRect" parent="Panel/HBoxContainer/VBoxContainer/item"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+mouse_filter = 2
+texture = ExtResource("2_re8vy")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Button" type="Button" parent="Panel/HBoxContainer/VBoxContainer/item/item_icon"]
+custom_minimum_size = Vector2(720, 145)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -8.0
+offset_top = -9.0
+offset_right = 612.0
+offset_bottom = 36.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+theme = ExtResource("1_s5idn")
+theme_override_colors/font_hover_pressed_color = Color(0.964706, 0.890196, 0, 1)
+theme_override_colors/font_hover_color = Color(1, 0, 0, 1)
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/hover_pressed_mirrored = SubResource("StyleBoxFlat_njyed")
+theme_override_styles/pressed_mirrored = SubResource("StyleBoxFlat_s5idn")
+theme_override_styles/normal_mirrored = SubResource("StyleBoxFlat_re8vy")
+theme_override_styles/normal = SubResource("StyleBoxFlat_y58gb")
+toggle_mode = true
+
+[node name="title" type="Label" parent="Panel/HBoxContainer/VBoxContainer/item"]
+layout_mode = 2
+size_flags_horizontal = 2
+text = "Certificate of Deposit"
+
+[node name="HSeparator" type="HSeparator" parent="Panel/HBoxContainer/VBoxContainer/item"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="cost" type="Label" parent="Panel/HBoxContainer/VBoxContainer/item"]
+layout_mode = 2
+size_flags_horizontal = 10
+text = "$4.00"
+
+[node name="stock" type="Label" parent="Panel/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+theme = ExtResource("1_s5idn")
+theme_override_font_sizes/font_size = 20
+text = "1o in Stock"
+
+[node name="Control" type="Control" parent="Panel/HBoxContainer"]
+custom_minimum_size = Vector2(20, 0)
+layout_mode = 2

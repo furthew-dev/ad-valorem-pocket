@@ -1,0 +1,387 @@
+[gd_scene load_steps=19 format=3 uid="uid://ekrj8k7ot1hm"]
+
+[ext_resource type="Texture2D" uid="uid://dmmirp7vjdny1" path="res://Assets/icons/bank_icon.png" id="1_db1cy"]
+[ext_resource type="Script" uid="uid://gsyqonnb2et1" path="res://Scripts/home_screen.gd" id="1_ianbu"]
+[ext_resource type="Texture2D" uid="uid://byme73cvmjgba" path="res://Assets/bottom_art.png" id="2_hfiwk"]
+[ext_resource type="Texture2D" uid="uid://bd1s0otg7vkgw" path="res://Assets/icons/files_icon.png" id="2_u8qlv"]
+[ext_resource type="FontFile" uid="uid://wvvnuw372tbf" path="res://Assets/fonts/Handwriting-Regular.otf" id="2_yufik"]
+[ext_resource type="Texture2D" uid="uid://bjscwdjtr7m4o" path="res://Assets/icons/my_homes_icon.png" id="3_yufik"]
+[ext_resource type="PackedScene" uid="uid://cl1t27dg0ta7t" path="res://Scenes/ui_menu_frame.tscn" id="6_ianbu"]
+[ext_resource type="Texture2D" uid="uid://cid8qrlirsfhm" path="res://Assets/icons/bank_icon_2.png" id="8_ajhh6"]
+[ext_resource type="Texture2D" uid="uid://dkeestsdtipy5" path="res://Assets/icons/attorney_icon.png" id="9_jo0pi"]
+[ext_resource type="Texture2D" uid="uid://bxgmyet5rtq52" path="res://Assets/icons/end_turn_icon.png" id="10_jo0pi"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_db1cy"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ianbu"]
+bg_color = Color(0.482353, 0.494118, 0.388235, 1)
+corner_radius_top_left = 40
+corner_radius_top_right = 40
+corner_radius_bottom_right = 40
+corner_radius_bottom_left = 40
+
+[sub_resource type="Theme" id="Theme_hfiwk"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_yh8n3"]
+bg_color = Color(0.572549, 0.52549, 0.545098, 1)
+corner_radius_top_left = 40
+corner_radius_top_right = 40
+corner_radius_bottom_right = 40
+corner_radius_bottom_left = 40
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ajhh6"]
+bg_color = Color(0.717647, 0.376471, 0.317647, 1)
+corner_radius_top_left = 40
+corner_radius_top_right = 40
+corner_radius_bottom_right = 40
+corner_radius_bottom_left = 40
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_i4kj1"]
+bg_color = Color(0.454902, 0.254902, 0.270588, 1)
+corner_radius_top_left = 40
+corner_radius_top_right = 40
+corner_radius_bottom_right = 40
+corner_radius_bottom_left = 40
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_u58f3"]
+bg_color = Color(0.866667, 0.811765, 0.6, 1)
+corner_radius_top_left = 40
+corner_radius_top_right = 40
+corner_radius_bottom_right = 40
+corner_radius_bottom_left = 40
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mj6hq"]
+bg_color = Color(0.47451, 0.235294, 0.266667, 1)
+corner_radius_top_left = 40
+corner_radius_top_right = 40
+corner_radius_bottom_right = 40
+corner_radius_bottom_left = 40
+
+[node name="home_screen" type="CanvasLayer"]
+script = ExtResource("1_ianbu")
+
+[node name="Background" type="ColorRect" parent="."]
+custom_minimum_size = Vector2(800, 1300)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.752941, 0.694118, 0.560784, 1)
+
+[node name="BottomDesign" type="TextureRect" parent="."]
+modulate = Color(0.501961, 0.447059, 0.411765, 1)
+custom_minimum_size = Vector2(720, 800)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_hfiwk")
+expand_mode = 1
+
+[node name="UI Menu Frame" parent="." instance=ExtResource("6_ianbu")]
+
+[node name="Label" type="Label" parent="UI Menu Frame"]
+layout_mode = 0
+size_flags_vertical = 2
+text = "player_name"
+
+[node name="Label2" type="Label" parent="UI Menu Frame"]
+layout_mode = 0
+size_flags_vertical = 10
+
+[node name="Apps" type="Panel" parent="."]
+custom_minimum_size = Vector2(500, 720)
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -320.0
+offset_top = -400.0
+offset_right = 180.0
+offset_bottom = 320.0
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(1.25, 1.25)
+size_flags_vertical = 4
+theme_override_styles/panel = SubResource("StyleBoxFlat_db1cy")
+
+[node name="Apps Container" type="VBoxContainer" parent="Apps"]
+custom_minimum_size = Vector2(500, 200.1)
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -250.0
+offset_right = 250.0
+offset_bottom = 950.0
+grow_horizontal = 2
+theme_override_constants/separation = 25
+
+[node name="first_row" type="HBoxContainer" parent="Apps/Apps Container"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="bank" type="VBoxContainer" parent="Apps/Apps Container/first_row"]
+layout_mode = 2
+
+[node name="bank" type="AspectRatioContainer" parent="Apps/Apps Container/first_row/bank"]
+custom_minimum_size = Vector2(150, 150)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="Panel" type="Panel" parent="Apps/Apps Container/first_row/bank/bank"]
+custom_minimum_size = Vector2(150, 150)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_styles/panel = SubResource("StyleBoxFlat_ianbu")
+
+[node name="TextureRect" type="TextureRect" parent="Apps/Apps Container/first_row/bank/bank/Panel"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 0
+offset_left = 27.1455
+offset_top = 25.0287
+offset_right = 127.146
+offset_bottom = 125.029
+texture = ExtResource("1_db1cy")
+expand_mode = 2
+stretch_mode = 4
+
+[node name="bank_button" type="Button" parent="Apps/Apps Container/first_row/bank/bank"]
+layout_mode = 2
+flat = true
+
+[node name="bank_label" type="Label" parent="Apps/Apps Container/first_row/bank"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("2_yufik")
+theme_override_font_sizes/font_size = 40
+text = "Bank"
+horizontal_alignment = 1
+
+[node name="Control2" type="Control" parent="Apps/Apps Container/first_row"]
+custom_minimum_size = Vector2(25, 0)
+layout_mode = 2
+
+[node name="my_properties" type="VBoxContainer" parent="Apps/Apps Container/first_row"]
+layout_mode = 2
+
+[node name="Bank2" type="AspectRatioContainer" parent="Apps/Apps Container/first_row/my_properties"]
+custom_minimum_size = Vector2(150, 150)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="Panel2" type="Panel" parent="Apps/Apps Container/first_row/my_properties/Bank2"]
+custom_minimum_size = Vector2(150, 150)
+layout_mode = 2
+theme = SubResource("Theme_hfiwk")
+theme_override_styles/panel = SubResource("StyleBoxFlat_yh8n3")
+
+[node name="TextureRect" type="TextureRect" parent="Apps/Apps Container/first_row/my_properties/Bank2/Panel2"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 0
+offset_left = 27.1455
+offset_top = 25.0287
+offset_right = 127.146
+offset_bottom = 125.029
+texture = ExtResource("2_u8qlv")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="my_properties_button" type="Button" parent="Apps/Apps Container/first_row/my_properties/Bank2"]
+layout_mode = 2
+flat = true
+
+[node name="my_properties" type="Label" parent="Apps/Apps Container/first_row/my_properties"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("2_yufik")
+theme_override_font_sizes/font_size = 30
+text = "My Properties"
+horizontal_alignment = 1
+
+[node name="Control" type="Control" parent="Apps/Apps Container/first_row"]
+custom_minimum_size = Vector2(25, 0)
+layout_mode = 2
+
+[node name="market" type="VBoxContainer" parent="Apps/Apps Container/first_row"]
+layout_mode = 2
+
+[node name="Bank3" type="AspectRatioContainer" parent="Apps/Apps Container/first_row/market"]
+custom_minimum_size = Vector2(150, 150)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="Panel" type="Panel" parent="Apps/Apps Container/first_row/market/Bank3"]
+custom_minimum_size = Vector2(150, 150)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_ajhh6")
+
+[node name="TextureRect" type="TextureRect" parent="Apps/Apps Container/first_row/market/Bank3/Panel"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 0
+offset_left = 27.1455
+offset_top = 25.0287
+offset_right = 127.146
+offset_bottom = 125.029
+texture = ExtResource("3_yufik")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="market_button" type="Button" parent="Apps/Apps Container/first_row/market/Bank3"]
+layout_mode = 2
+flat = true
+
+[node name="market" type="Label" parent="Apps/Apps Container/first_row/market"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("2_yufik")
+theme_override_font_sizes/font_size = 40
+text = "Market"
+horizontal_alignment = 1
+
+[node name="second_row" type="HBoxContainer" parent="Apps/Apps Container"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="My Loans" type="VBoxContainer" parent="Apps/Apps Container/second_row"]
+layout_mode = 2
+
+[node name="my_loans" type="AspectRatioContainer" parent="Apps/Apps Container/second_row/My Loans"]
+custom_minimum_size = Vector2(150, 150)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="my_loans" type="Panel" parent="Apps/Apps Container/second_row/My Loans/my_loans"]
+custom_minimum_size = Vector2(150, 150)
+layout_mode = 2
+theme = SubResource("Theme_hfiwk")
+theme_override_styles/panel = SubResource("StyleBoxFlat_i4kj1")
+
+[node name="TextureRect" type="TextureRect" parent="Apps/Apps Container/second_row/My Loans/my_loans/my_loans"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 0
+offset_left = 27.1455
+offset_top = 25.0287
+offset_right = 127.146
+offset_bottom = 125.029
+texture = ExtResource("8_ajhh6")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="my_loans_button" type="Button" parent="Apps/Apps Container/second_row/My Loans/my_loans"]
+layout_mode = 2
+flat = true
+
+[node name="my_loans2" type="Label" parent="Apps/Apps Container/second_row/My Loans"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("2_yufik")
+theme_override_font_sizes/font_size = 30
+text = "My Loans"
+horizontal_alignment = 1
+
+[node name="Control2" type="Control" parent="Apps/Apps Container/second_row"]
+custom_minimum_size = Vector2(25, 0)
+layout_mode = 2
+
+[node name="My Actions" type="VBoxContainer" parent="Apps/Apps Container/second_row"]
+layout_mode = 2
+
+[node name="actions" type="AspectRatioContainer" parent="Apps/Apps Container/second_row/My Actions"]
+custom_minimum_size = Vector2(150, 150)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="Panel" type="Panel" parent="Apps/Apps Container/second_row/My Actions/actions"]
+custom_minimum_size = Vector2(150, 150)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_styles/panel = SubResource("StyleBoxFlat_u58f3")
+
+[node name="TextureRect" type="TextureRect" parent="Apps/Apps Container/second_row/My Actions/actions/Panel"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 0
+offset_left = 27.1455
+offset_top = 25.0287
+offset_right = 127.146
+offset_bottom = 125.029
+texture = ExtResource("9_jo0pi")
+expand_mode = 2
+stretch_mode = 4
+
+[node name="actions_button" type="Button" parent="Apps/Apps Container/second_row/My Actions/actions"]
+layout_mode = 2
+flat = true
+
+[node name="actions_label" type="Label" parent="Apps/Apps Container/second_row/My Actions"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("2_yufik")
+theme_override_font_sizes/font_size = 40
+text = "My Actions"
+horizontal_alignment = 1
+
+[node name="Control3" type="Control" parent="Apps/Apps Container/second_row"]
+custom_minimum_size = Vector2(25, 0)
+layout_mode = 2
+
+[node name="End Turn" type="VBoxContainer" parent="Apps/Apps Container/second_row"]
+layout_mode = 2
+
+[node name="actions" type="AspectRatioContainer" parent="Apps/Apps Container/second_row/End Turn"]
+custom_minimum_size = Vector2(150, 150)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="Panel" type="Panel" parent="Apps/Apps Container/second_row/End Turn/actions"]
+custom_minimum_size = Vector2(150, 150)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_styles/panel = SubResource("StyleBoxFlat_mj6hq")
+
+[node name="TextureRect" type="TextureRect" parent="Apps/Apps Container/second_row/End Turn/actions/Panel"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 0
+offset_left = 27.1455
+offset_top = 25.0287
+offset_right = 127.146
+offset_bottom = 125.029
+texture = ExtResource("10_jo0pi")
+expand_mode = 2
+stretch_mode = 4
+
+[node name="end_turn_btn" type="Button" parent="Apps/Apps Container/second_row/End Turn/actions"]
+layout_mode = 2
+flat = true
+
+[node name="end_turn _laebl" type="Label" parent="Apps/Apps Container/second_row/End Turn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("2_yufik")
+theme_override_font_sizes/font_size = 40
+text = "End Turn"
+horizontal_alignment = 1
+
+[node name="Control" type="Control" parent="Apps/Apps Container/second_row"]
+custom_minimum_size = Vector2(25, 0)
+layout_mode = 2
+
+[connection signal="pressed" from="Apps/Apps Container/first_row/bank/bank/bank_button" to="." method="_on_bank_button_pressed"]
+[connection signal="pressed" from="Apps/Apps Container/first_row/my_properties/Bank2/my_properties_button" to="." method="_on_my_properties_button_pressed"]
+[connection signal="pressed" from="Apps/Apps Container/first_row/market/Bank3/market_button" to="." method="_on_market_button_pressed"]
+[connection signal="pressed" from="Apps/Apps Container/second_row/My Loans/my_loans/my_loans_button" to="." method="_on_my_loans_button_pressed"]
+[connection signal="pressed" from="Apps/Apps Container/second_row/My Actions/actions/actions_button" to="." method="_on_actions_button_pressed"]
+[connection signal="pressed" from="Apps/Apps Container/second_row/End Turn/actions/end_turn_btn" to="." method="_on_end_turn_btn_pressed"]

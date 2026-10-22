@@ -1,0 +1,17 @@
+{
+  "name": "ad-valorem-relay",
+  "version": "1.0.0",
+  "description": "Room-key relay for Ad Valorem Pocket multiplayer (Godot high-level API over WebSockets)",
+  "main": "relay.js",
+  "scripts": {
+    "start": "node relay.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "8.18.0"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

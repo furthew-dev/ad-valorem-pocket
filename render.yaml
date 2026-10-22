@@ -1,0 +1,10 @@
+# Render.com blueprint: New > Blueprint > pick this repo. Free plan works.
+services:
+  - type: web
+    name: ad-valorem-relay
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /

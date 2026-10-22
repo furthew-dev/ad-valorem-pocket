@@ -1,0 +1,156 @@
+[gd_scene load_steps=11 format=3 uid="uid://pd2qaehm8aqq"]
+
+[ext_resource type="Script" uid="uid://djpgosb0bj456" path="res://Scripts/lobby.gd" id="1_lobby"]
+[ext_resource type="Texture2D" uid="uid://byme73cvmjgba" path="res://Assets/bottom_art.png" id="2_art"]
+[ext_resource type="PackedScene" uid="uid://cl1t27dg0ta7t" path="res://Scenes/ui_menu_frame.tscn" id="3_frame"]
+[ext_resource type="Theme" uid="uid://cjryg8ll4k0kw" path="res://main_theme.tres" id="4_theme"]
+[ext_resource type="FontFile" uid="uid://wvvnuw372tbf" path="res://Assets/fonts/Handwriting-Regular.otf" id="5_hand"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_none"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_key"]
+bg_color = Color(0.32549, 0.235294, 0.266667, 1)
+corner_radius_top_left = 30
+corner_radius_top_right = 30
+corner_radius_bottom_right = 30
+corner_radius_bottom_left = 30
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
+bg_color = Color(0.572549, 0.52549, 0.545098, 1)
+corner_radius_top_left = 40
+corner_radius_top_right = 40
+corner_radius_bottom_right = 40
+corner_radius_bottom_left = 40
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_start_off"]
+bg_color = Color(0.482353, 0.494118, 0.388235, 0.4)
+corner_radius_top_left = 40
+corner_radius_top_right = 40
+corner_radius_bottom_right = 40
+corner_radius_bottom_left = 40
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_start"]
+bg_color = Color(0.482353, 0.494118, 0.388235, 1)
+corner_radius_top_left = 40
+corner_radius_top_right = 40
+corner_radius_bottom_right = 40
+corner_radius_bottom_left = 40
+
+[node name="lobby" type="CanvasLayer"]
+script = ExtResource("1_lobby")
+
+[node name="Background" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.752941, 0.694118, 0.560784, 1)
+
+[node name="BottomDesign" type="TextureRect" parent="."]
+modulate = Color(0.501961, 0.447059, 0.411765, 1)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_art")
+expand_mode = 1
+
+[node name="UI Menu Frame" parent="." instance=ExtResource("3_frame")]
+
+[node name="Content" type="VBoxContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 60.0
+offset_top = 200.0
+offset_right = -60.0
+offset_bottom = -200.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("4_theme")
+theme_override_constants/separation = 18
+
+[node name="key_caption" type="Label" parent="Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("5_hand")
+theme_override_font_sizes/font_size = 48
+text = "Room Key"
+horizontal_alignment = 1
+
+[node name="room_key" type="Button" parent="Content"]
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+theme_override_colors/font_hover_color = Color(0.866667, 0.811765, 0.6, 1)
+theme_override_colors/font_color = Color(0.866667, 0.811765, 0.6, 1)
+theme_override_colors/font_pressed_color = Color(0.760784, 0.521569, 0.372549, 1)
+theme_override_font_sizes/font_size = 80
+theme_override_styles/focus = SubResource("StyleBoxEmpty_none")
+theme_override_styles/hover = SubResource("StyleBoxFlat_key")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_key")
+theme_override_styles/normal = SubResource("StyleBoxFlat_key")
+text = "---"
+
+[node name="key_hint" type="Label" parent="Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 24
+text = "Tap the key to copy it. Friends enter it under Join Game."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Players" type="PanelContainer" parent="Content"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="Margin" type="MarginContainer" parent="Content/Players"]
+layout_mode = 2
+theme_override_constants/margin_left = 30
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 30
+theme_override_constants/margin_bottom = 20
+
+[node name="VBox" type="VBoxContainer" parent="Content/Players/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="players_title" type="Label" parent="Content/Players/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("5_hand")
+theme_override_font_sizes/font_size = 52
+text = "Players 0/8"
+horizontal_alignment = 1
+
+[node name="player_list" type="VBoxContainer" parent="Content/Players/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="status" type="Label" parent="Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 28
+text = "Waiting for players..."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="start_btn" type="Button" parent="Content"]
+custom_minimum_size = Vector2(0, 110)
+layout_mode = 2
+theme_override_colors/font_disabled_color = Color(0.866667, 0.811765, 0.6, 0.5)
+theme_override_colors/font_color = Color(0.866667, 0.811765, 0.6, 1)
+theme_override_font_sizes/font_size = 48
+theme_override_styles/focus = SubResource("StyleBoxEmpty_none")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_start_off")
+theme_override_styles/hover = SubResource("StyleBoxFlat_start")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_start")
+theme_override_styles/normal = SubResource("StyleBoxFlat_start")
+text = "Start Game"
+
+[connection signal="pressed" from="Content/room_key" to="." method="_on_room_key_pressed"]
+[connection signal="pressed" from="Content/start_btn" to="." method="_on_start_btn_pressed"]

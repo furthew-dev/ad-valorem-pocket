@@ -1,0 +1,165 @@
+[gd_scene load_steps=4 format=3 uid="uid://1aolc8yi0hyq"]
+
+[ext_resource type="Script" uid="uid://cday3qjq4ngg5" path="res://Scripts/loan.gd" id="1_36dt8"]
+[ext_resource type="Texture2D" uid="uid://ku5t0i8ggmlr" path="res://Assets/Loan_application.png" id="1_h5vhx"]
+[ext_resource type="Theme" uid="uid://cjryg8ll4k0kw" path="res://main_theme.tres" id="2_36dt8"]
+
+[node name="Loan" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_36dt8")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Container" type="Container" parent="CanvasLayer"]
+custom_minimum_size = Vector2(500, 700)
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="NinePatchRect" type="NinePatchRect" parent="CanvasLayer/Container"]
+custom_minimum_size = Vector2(500, 700)
+layout_mode = 2
+texture = ExtResource("1_h5vhx")
+region_rect = Rect2(0, 218.432, 1080, 1484.5)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/Container/NinePatchRect"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 50.0
+offset_top = 118.0
+offset_right = -50.0
+offset_bottom = -70.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_36dt8")
+
+[node name="Control" type="Control" parent="CanvasLayer/Container/NinePatchRect/VBoxContainer"]
+layout_mode = 2
+
+[node name="title" type="Label" parent="CanvasLayer/Container/NinePatchRect/VBoxContainer"]
+layout_mode = 2
+text = "Loan Application"
+horizontal_alignment = 1
+
+[node name="Control2" type="Control" parent="CanvasLayer/Container/NinePatchRect/VBoxContainer"]
+layout_mode = 2
+
+[node name="instructions" type="Label" parent="CanvasLayer/Container/NinePatchRect/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Enter the desired loan amount"
+horizontal_alignment = 1
+
+[node name="Control5" type="Control" parent="CanvasLayer/Container/NinePatchRect/VBoxContainer"]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+
+[node name="loan_amount" type="SpinBox" parent="CanvasLayer/Container/NinePatchRect/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+max_value = 200.0
+step = 5.0
+alignment = 1
+prefix = "$"
+
+[node name="Control6" type="Control" parent="CanvasLayer/Container/NinePatchRect/VBoxContainer"]
+custom_minimum_size = Vector2(0, 15)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Disclosure" type="Label" parent="CanvasLayer/Container/NinePatchRect/VBoxContainer"]
+layout_mode = 2
+text = "Disclosure"
+horizontal_alignment = 1
+
+[node name="disclosure_script" type="Label" parent="CanvasLayer/Container/NinePatchRect/VBoxContainer"]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 12
+text = "By agreeing to the these terms you hereby promise to pay the loan balance of XXX. At the start of each round, you will be charged 10% of the total outstanding balance. Those funds will be added to the loan balance. Making a single payment, whether in part or in whole, that will count as an action. "
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Control3" type="Control" parent="CanvasLayer/Container/NinePatchRect/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Button" type="Panel" parent="CanvasLayer/Container/NinePatchRect/VBoxContainer"]
+custom_minimum_size = Vector2(300, 50)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 6
+
+[node name="Label" type="Label" parent="CanvasLayer/Container/NinePatchRect/VBoxContainer/Button"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "I Agree"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="i_agree" type="Button" parent="CanvasLayer/Container/NinePatchRect/VBoxContainer/Button"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+flat = true
+
+[node name="Control4" type="Control" parent="CanvasLayer/Container/NinePatchRect/VBoxContainer"]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+
+[node name="Panel" type="Panel" parent="CanvasLayer/Container/NinePatchRect"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -162.0
+offset_top = 54.0
+offset_right = -122.0
+offset_bottom = 94.0
+grow_horizontal = 0
+theme = ExtResource("2_36dt8")
+
+[node name="escape" type="Button" parent="CanvasLayer/Container/NinePatchRect/Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+flat = true
+
+[node name="Label" type="Label" parent="CanvasLayer/Container/NinePatchRect/Panel"]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 37.0
+theme_override_font_sizes/font_size = 20
+text = "X"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[connection signal="pressed" from="CanvasLayer/Container/NinePatchRect/VBoxContainer/Button/i_agree" to="." method="_on_i_agree_pressed"]
+[connection signal="pressed" from="CanvasLayer/Container/NinePatchRect/Panel/escape" to="." method="_on_escape_pressed"]

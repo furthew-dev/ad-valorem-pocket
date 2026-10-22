@@ -1,0 +1,569 @@
+[gd_scene load_steps=16 format=3 uid="uid://deippgof1e1bj"]
+
+[ext_resource type="FontFile" uid="uid://ct67wp5jkmuma" path="res://Assets/fonts/Comfortaa-Bold.ttf" id="1_ob433"]
+[ext_resource type="Script" uid="uid://bns1cehq8gxbt" path="res://Scripts/property_info.gd" id="1_vw6oe"]
+[ext_resource type="Texture2D" uid="uid://byme73cvmjgba" path="res://Assets/bottom_art.png" id="2_jt2bh"]
+[ext_resource type="Texture2D" uid="uid://chiw13v8abtdd" path="res://Assets/icons/double_icon.png" id="2_lk7w8"]
+[ext_resource type="Theme" uid="uid://cjryg8ll4k0kw" path="res://main_theme.tres" id="3_jt2bh"]
+[ext_resource type="Texture2D" uid="uid://fxradbu2uj4" path="res://Assets/icons/skybnb_icon.png" id="3_vw6oe"]
+[ext_resource type="Texture2D" uid="uid://dqdo4jxduk1q7" path="res://Assets/icons/tokens/contractor_icon.png" id="3_ydysq"]
+[ext_resource type="Texture2D" uid="uid://b1vss0n4sg3hq" path="res://Assets/icons/beach_icon.png" id="4_n2sij"]
+[ext_resource type="PackedScene" uid="uid://cl1t27dg0ta7t" path="res://Scenes/ui_menu_frame.tscn" id="5_jt2bh"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ydysq"]
+bg_color = Color(0.364706, 0.396078, 0.345098, 1)
+corner_radius_top_left = 45
+corner_radius_top_right = 45
+corner_radius_bottom_right = 45
+corner_radius_bottom_left = 45
+shadow_size = 4
+shadow_offset = Vector2(5, 5)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_nia8k"]
+bg_color = Color(0.478431, 0.427451, 0.47451, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bdt85"]
+bg_color = Color(0.900381, 0.711955, 0.49085, 1)
+border_width_bottom = 8
+border_color = Color(0.973535, 0.973535, 0.973535, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lk7w8"]
+bg_color = Color(0.847059, 0.843137, 0.294118, 0.45098)
+skew = Vector2(1, 0)
+corner_radius_top_left = 15
+corner_radius_top_right = 15
+corner_radius_bottom_right = 15
+corner_radius_bottom_left = 15
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ro3bg"]
+bg_color = Color(0.364706, 0.396078, 0.345098, 1)
+corner_radius_top_left = 45
+corner_radius_top_right = 45
+corner_radius_bottom_right = 45
+corner_radius_bottom_left = 45
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_vw6oe"]
+bg_color = Color(0.364706, 0.396078, 0.345098, 1)
+corner_radius_top_left = 30
+corner_radius_top_right = 30
+corner_radius_bottom_right = 30
+corner_radius_bottom_left = 30
+shadow_size = 1
+shadow_offset = Vector2(5, 5)
+
+[node name="property_info" type="Node2D"]
+script = ExtResource("1_vw6oe")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="tokens" type="Panel" parent="CanvasLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -120.0
+offset_bottom = -120.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("3_jt2bh")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/tokens"]
+custom_minimum_size = Vector2(720, 100)
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -360.0
+offset_top = 536.0
+offset_right = 360.0
+offset_bottom = 636.0
+grow_horizontal = 2
+
+[node name="Control" type="Control" parent="CanvasLayer/tokens/HBoxContainer"]
+custom_minimum_size = Vector2(15, 0)
+layout_mode = 2
+
+[node name="skybnb_status" type="Panel" parent="CanvasLayer/tokens/HBoxContainer"]
+z_index = 1
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+size_flags_horizontal = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_ydysq")
+
+[node name="TextureRect" type="TextureRect" parent="CanvasLayer/tokens/HBoxContainer/skybnb_status"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("3_vw6oe")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="double_status2" type="Panel" parent="CanvasLayer/tokens/HBoxContainer"]
+z_index = 1
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+size_flags_horizontal = 10
+theme_override_styles/panel = SubResource("StyleBoxFlat_ydysq")
+
+[node name="TextureRect" type="TextureRect" parent="CanvasLayer/tokens/HBoxContainer/double_status2"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_lk7w8")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Control2" type="Control" parent="CanvasLayer/tokens/HBoxContainer"]
+custom_minimum_size = Vector2(15, 0)
+layout_mode = 2
+
+[node name="Panel" type="Panel" parent="CanvasLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_nia8k")
+
+[node name="BottomDesign2" type="TextureRect" parent="CanvasLayer/Panel"]
+modulate = Color(0.32549, 0.27451, 0.313726, 1)
+custom_minimum_size = Vector2(720, 800)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_jt2bh")
+expand_mode = 1
+
+[node name="UI Menu Frame" parent="CanvasLayer/Panel" instance=ExtResource("5_jt2bh")]
+layout_mode = 1
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 168.0
+offset_bottom = -176.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Title" type="Panel" parent="CanvasLayer/Panel/VBoxContainer"]
+visible = false
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bdt85")
+
+[node name="header" type="HBoxContainer" parent="CanvasLayer/Panel/VBoxContainer/Title"]
+layout_mode = 2
+offset_top = 4.0
+offset_right = 720.0
+offset_bottom = 104.0
+size_flags_vertical = 3
+
+[node name="Control3" type="Control" parent="CanvasLayer/Panel/VBoxContainer/Title/header"]
+custom_minimum_size = Vector2(50, 0)
+layout_mode = 2
+
+[node name="player_name" type="Label" parent="CanvasLayer/Panel/VBoxContainer/Title/header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("1_ob433")
+theme_override_font_sizes/font_size = 50
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Control2" type="Control" parent="CanvasLayer/Panel/VBoxContainer/Title/header"]
+custom_minimum_size = Vector2(50, 0)
+layout_mode = 2
+
+[node name="Control4" type="Control" parent="CanvasLayer/Panel/VBoxContainer"]
+custom_minimum_size = Vector2(720, 25)
+layout_mode = 2
+
+[node name="box" type="VBoxContainer" parent="CanvasLayer/Panel/VBoxContainer"]
+custom_minimum_size = Vector2(300, 125)
+layout_mode = 2
+size_flags_vertical = 2
+theme = ExtResource("3_jt2bh")
+
+[node name="property_icon" type="TextureRect" parent="CanvasLayer/Panel/VBoxContainer/box"]
+custom_minimum_size = Vector2(300, 300)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 2
+texture = ExtResource("4_n2sij")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="MarginContainer2" type="MarginContainer" parent="CanvasLayer/Panel/VBoxContainer/box"]
+layout_mode = 2
+size_flags_vertical = 2
+theme_override_constants/margin_left = 15
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 15
+theme_override_constants/margin_bottom = 15
+
+[node name="Panel" type="Panel" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2"]
+custom_minimum_size = Vector2(200, 550)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 1.0
+offset_top = -8.0
+offset_right = 1.0
+offset_bottom = 8.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 15
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 15
+theme_override_constants/margin_bottom = 15
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer"]
+layout_mode = 2
+
+[node name="details" type="HBoxContainer" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="property_name" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/details"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Property"
+horizontal_alignment = 1
+
+[node name="property_value" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/details"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Value"
+horizontal_alignment = 1
+
+[node name="property_rent" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/details"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Rent"
+horizontal_alignment = 1
+
+[node name="Control6" type="Control" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 7)
+layout_mode = 2
+
+[node name="HSeparator" type="HSeparator" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Control" type="Control" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 7)
+layout_mode = 2
+
+[node name="excellent" type="HBoxContainer" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="excellent" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/excellent"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Excellent"
+horizontal_alignment = 1
+
+[node name="excellent_condition" type="Panel" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/excellent/excellent"]
+z_index = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 33.0
+offset_right = 392.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_lk7w8")
+
+[node name="e_value" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/excellent"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "$25"
+horizontal_alignment = 1
+
+[node name="e_rent" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/excellent"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "$20"
+horizontal_alignment = 1
+
+[node name="Control2" type="Control" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 15)
+layout_mode = 2
+
+[node name="good" type="HBoxContainer" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="good" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/good"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Good"
+horizontal_alignment = 1
+
+[node name="good_condition" type="Panel" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/good/good"]
+z_index = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 41.0
+offset_right = 376.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_lk7w8")
+
+[node name="g_value" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/good"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "$20"
+horizontal_alignment = 1
+
+[node name="g_rent" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/good"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "$15"
+horizontal_alignment = 1
+
+[node name="Control3" type="Control" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 15)
+layout_mode = 2
+
+[node name="fair" type="HBoxContainer" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="fair" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/fair"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Fair"
+horizontal_alignment = 1
+
+[node name="fair_condition" type="Panel" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/fair/fair"]
+z_index = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 33.0
+offset_right = 376.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_lk7w8")
+
+[node name="f_value" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/fair"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "$15"
+horizontal_alignment = 1
+
+[node name="f_rent" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/fair"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "$10"
+horizontal_alignment = 1
+
+[node name="Control4" type="Control" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 15)
+layout_mode = 2
+
+[node name="poor" type="HBoxContainer" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="poor" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/poor"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Poor"
+horizontal_alignment = 1
+
+[node name="poor_condition" type="Panel" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/poor/poor"]
+z_index = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 33.0
+offset_right = 376.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_lk7w8")
+
+[node name="p_value" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/poor"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "$10"
+horizontal_alignment = 1
+
+[node name="p_rent" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/poor"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "$5"
+horizontal_alignment = 1
+
+[node name="Control5" type="Control" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 15)
+layout_mode = 2
+
+[node name="TextEdit" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 125)
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 24
+text = "A bunch of text goes here describing what I need to say about hte specific property listed above if applicable. So yeah, that's what this is for. "
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="add_action" type="HBoxContainer" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 100)
+layout_mode = 2
+
+[node name="addskybnb" type="Panel" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/add_action"]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+size_flags_horizontal = 2
+theme = ExtResource("3_jt2bh")
+theme_override_styles/panel = SubResource("StyleBoxFlat_ro3bg")
+
+[node name="add_skybnb2" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/add_action/addskybnb"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("3_jt2bh")
+theme_override_colors/font_color = Color(0.866667, 0.811765, 0.6, 1)
+theme_override_font_sizes/font_size = 45
+text = "Add Skybnb"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="add_skybnb" type="Button" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/add_action/addskybnb"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("3_jt2bh")
+flat = true
+
+[node name="adddouble" type="Panel" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/add_action"]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+size_flags_horizontal = 8
+theme = ExtResource("3_jt2bh")
+theme_override_styles/panel = SubResource("StyleBoxFlat_ro3bg")
+
+[node name="add_double2" type="Label" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/add_action/adddouble"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("3_jt2bh")
+theme_override_colors/font_color = Color(0.866667, 0.811765, 0.6, 1)
+theme_override_font_sizes/font_size = 45
+text = "Add Double"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="add_double" type="Button" parent="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/add_action/adddouble"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("3_jt2bh")
+flat = true
+
+[node name="Sell" type="Panel" parent="CanvasLayer"]
+custom_minimum_size = Vector2(100, 100)
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -104.0
+offset_top = 1032.0
+offset_right = -4.0
+offset_bottom = 1132.0
+grow_horizontal = 0
+theme = ExtResource("3_jt2bh")
+theme_override_styles/panel = SubResource("StyleBoxFlat_vw6oe")
+
+[node name="Label" type="Label" parent="CanvasLayer/Sell"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Sell"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="sell" type="Button" parent="CanvasLayer/Sell/Label"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+flat = true
+
+[node name="contractor" type="Panel" parent="CanvasLayer"]
+z_index = 1
+custom_minimum_size = Vector2(100, 100)
+offset_left = 408.0
+offset_top = 192.0
+offset_right = 508.0
+offset_bottom = 292.0
+size_flags_horizontal = 10
+theme_override_styles/panel = SubResource("StyleBoxFlat_ydysq")
+
+[node name="TextureRect" type="TextureRect" parent="CanvasLayer/contractor"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("3_ydysq")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="use_contractor" type="Button" parent="CanvasLayer/contractor"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+flat = true
+
+[connection signal="pressed" from="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/add_action/addskybnb/add_skybnb" to="." method="_on_add_skybnb_pressed"]
+[connection signal="pressed" from="CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/add_action/adddouble/add_double" to="." method="_on_add_double_pressed"]
+[connection signal="pressed" from="CanvasLayer/Sell/Label/sell" to="." method="_on_sell_pressed"]
+[connection signal="pressed" from="CanvasLayer/contractor/use_contractor" to="." method="_on_use_contractor_pressed"]

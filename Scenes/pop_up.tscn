@@ -1,0 +1,108 @@
+[gd_scene load_steps=8 format=3 uid="uid://b70ypg7founr8"]
+
+[ext_resource type="Theme" uid="uid://cjryg8ll4k0kw" path="res://main_theme.tres" id="1_0ek4e"]
+[ext_resource type="Script" uid="uid://55vfkb2g4h02" path="res://Scripts/pop_up.gd" id="1_05qr1"]
+[ext_resource type="Texture2D" uid="uid://ddevajxat0fsn" path="res://Assets/icons/pop_up.png" id="1_tv3en"]
+[ext_resource type="FontFile" uid="uid://wvvnuw372tbf" path="res://Assets/fonts/Handwriting-Regular.otf" id="3_05qr1"]
+[ext_resource type="Theme" uid="uid://cpv1xk05fldxg" path="res://handwriting.tres" id="4_rl54y"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_5xndk"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_w1nac"]
+line_spacing = 30.0
+font = ExtResource("3_05qr1")
+font_size = 60
+font_color = Color(0, 0, 0, 1)
+
+[node name="Control" type="CanvasLayer"]
+layer = 2
+script = ExtResource("1_05qr1")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+layer = 2
+
+[node name="Panel" type="Panel" parent="CanvasLayer"]
+custom_minimum_size = Vector2(300, 300)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("1_0ek4e")
+theme_override_styles/panel = SubResource("StyleBoxEmpty_5xndk")
+
+[node name="TextureRect" type="TextureRect" parent="CanvasLayer/Panel"]
+custom_minimum_size = Vector2(550, 1000)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -296.0
+offset_top = -576.0
+offset_right = 320.0
+offset_bottom = 424.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_tv3en")
+expand_mode = 1
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/Panel/TextureRect"]
+custom_minimum_size = Vector2(400, 375)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -179.0
+offset_top = -204.0
+offset_right = 221.0
+offset_bottom = 246.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Control2" type="Control" parent="CanvasLayer/Panel/TextureRect/VBoxContainer"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+size_flags_vertical = 0
+
+[node name="question" type="Label" parent="CanvasLayer/Panel/TextureRect/VBoxContainer"]
+custom_minimum_size = Vector2(70, 220)
+layout_mode = 2
+size_flags_vertical = 2
+theme_override_fonts/font = ExtResource("3_05qr1")
+theme_override_font_sizes/font_size = 75
+text = "Are you sure you want to quit the game?
+"
+label_settings = SubResource("LabelSettings_w1nac")
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/Panel/TextureRect/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 2
+
+[node name="no" type="Button" parent="CanvasLayer/Panel/TextureRect/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme = ExtResource("4_rl54y")
+theme_override_fonts/font = ExtResource("3_05qr1")
+theme_override_font_sizes/font_size = 70
+text = "No"
+flat = true
+
+[node name="yes" type="Button" parent="CanvasLayer/Panel/TextureRect/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme = ExtResource("4_rl54y")
+text = "Yes"
+flat = true
+
+[node name="Control" type="Control" parent="CanvasLayer/Panel/TextureRect/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[connection signal="pressed" from="CanvasLayer/Panel/TextureRect/VBoxContainer/HBoxContainer/no" to="." method="_on_no_pressed"]
+[connection signal="pressed" from="CanvasLayer/Panel/TextureRect/VBoxContainer/HBoxContainer/yes" to="." method="_on_yes_pressed"]
