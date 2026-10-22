@@ -22,7 +22,7 @@ const MAX_NAME_LENGTH := 12
 const CONNECT_TIMEOUT := 75.0     # free relay hosts can take ~50 s to wake up
 
 # Where the relay runs. Editor builds use a relay on this computer (cd server && npm start).
-const RELAY_URL := "wss://ad-valorem-relay.onrender.com"
+const RELAY_URL := "wss://ad-valorem-relay.onrender.com/"
 const DEV_RELAY_URL := "ws://localhost:9080"
 
 var players: Dictionary = {}   # peer id -> display name (host's copy is the truth)
