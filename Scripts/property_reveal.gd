@@ -77,7 +77,7 @@ func _on_purchase_btn_pressed() -> void:
 
 	Sound.play("continue")
 	purchase_btn.disabled = true
-	Global.spend(cost)
+	Global.spend(cost, str(selected_card["name"]))
 	Global.action_used()
 	Global.new_property = true
 	if Global.using_realtor:
@@ -161,7 +161,7 @@ func _build_selected() -> void:
 		Global.error("Someone just took the last %s." % property_name)
 		return
 	Sound.play("continue")
-	Global.spend(cost)
+	Global.spend(cost, "Build %s" % property_name)
 	Actions.consume("contractor")
 	Global.action_used()
 	var built := Cards.build_on_lot(build_lot, property_name, condition)
@@ -187,7 +187,7 @@ func _on_cancel_confirmed() -> void:
 		get_tree().change_scene_to_file("res://Scenes/property_info.tscn")
 		return
 	if Global.using_realtor:
-		Global.remove_cash(REALTOR_FINE)
+		Global.remove_cash(REALTOR_FINE, "Realtor Fee")
 		Actions.consume("realtor")
 		await Global.show_notice("Realtor fined you $%d" % REALTOR_FINE)
 	await Cards.return_revealed()   # back into the shared deck

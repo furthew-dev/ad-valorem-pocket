@@ -46,7 +46,7 @@ func run(property: Dictionary) -> String:
 		return "You won your own auction and kept your %s." % property["name"]
 	await DiscardFx.play(get_tree(), property, "Sold at auction to %s for $%d" % [result[1], bid])
 	Cards.properties_owned.erase(_find_owned(property["id"]))
-	Global.add_cash(bid)
+	Global.add_cash(bid, "Auction Sale")
 	return "%s bought your %s at auction for $%d." % [result[1], property["name"], bid]
 
 func _find_owned(id: int) -> Dictionary:
@@ -143,10 +143,10 @@ func _close(winner_id: int, winner_name: String, bid: int) -> void:
 # Winner pays. Short on cash: everything you have plus a loan for the rest.
 func _pay(amount: int) -> void:
 	if Global.can_afford(amount):
-		Global.remove_cash(amount)
+		Global.remove_cash(amount, "Auction")
 		return
 	var shortfall := amount - Global.CASH
-	Global.remove_cash(Global.CASH)
+	Global.remove_cash(Global.CASH, "Auction")
 	Global.take_loan(shortfall)
 	Global.banner("Auction loan: $%d" % shortfall)
 

@@ -9,7 +9,7 @@ const TITLE_SCENE := "res://Scenes/main.tscn"
 const INK := Color(0.1, 0.1, 0.1)
 
 var _name_field: LineEdit
-var _sound_toggle: CheckButton
+var _sound_toggle: InkSwitch
 var _theme_button: Button
 
 
@@ -72,13 +72,17 @@ func _build() -> void:
 	name_row.add_child(save)
 	box.add_child(name_row)
 
-	# --- Sound ---
-	_sound_toggle = CheckButton.new()
-	_sound_toggle.text = "Sounds"
+	# --- Sound: a label and a big switch on one line ---
+	var sound_row := HBoxContainer.new()
+	var sound_label := _label("Sounds", 48)
+	sound_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	sound_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sound_row.add_child(sound_label)
+	_sound_toggle = InkSwitch.new()
 	_sound_toggle.button_pressed = Sound.enabled
-	_style_ink(_sound_toggle, 48)
 	_sound_toggle.toggled.connect(_on_sound_toggled)
-	box.add_child(_sound_toggle)
+	sound_row.add_child(_sound_toggle)
+	box.add_child(sound_row)
 
 	# --- Theme (tap to try the next one) ---
 	_theme_button = _button(_theme_text(), _next_theme)

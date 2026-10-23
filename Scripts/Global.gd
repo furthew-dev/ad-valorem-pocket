@@ -6,7 +6,7 @@ signal cash_changed(new_value: int)
 signal actions_changed(new_value: int)
 signal round_changed(new_value: int)
 signal banner_requested(message: String)
-signal animation_requested(type: String, total: int)   # Banner2 money notice: "gain" or "loss"
+signal animation_requested(type: String, total: int, reason: String)   # Banner2 money notice: "gain"/"loss" + why
 
 const POPUP_SCENE = preload("res://Scenes/pop_up.tscn")
 
@@ -73,9 +73,10 @@ func error(message: String) -> void:
 	Sound.play("error")
 	banner_requested.emit(message)
 
-func income_loss(type: String, total: int) -> void:
+# `reason` is shown next to the amount ("+$12 Rent", "-$10 Sabotage").
+func income_loss(type: String, total: int, reason: String = "") -> void:
 	Sound.play("cash_in" if type == "gain" else "cash_out")
-	animation_requested.emit(type, total)
+	animation_requested.emit(type, total, reason)
 
 # Shows the standard pop-up with a single OK button and waits until it is closed.
 func show_notice(message: String) -> void:
@@ -127,7 +128,7 @@ func process_new_round() -> void:
 	var rent_earned = expected_rent()
 	for property in Cards.properties_owned:
 		property["no_rent_rounds"] = max(property.get("no_rent_rounds", 0) - 1, 0)
-	income(rent_earned)
+	income(rent_earned, "Rent")
 	updating_loan_balance()
 	round_progress["rent"] = true
 
@@ -182,47 +183,47 @@ func can_afford(amount: int) -> bool:
 	return amount <= _settled_cash()
 
 # Instantly adds cash and shows the green notice.
-func add_cash(amount: int) -> void:
+func add_cash(amount: int, reason: String = "") -> void:
 	if amount <= 0:
 		return
 	_finish_cash_tween()
 	CASH += amount
-	income_loss("gain", amount)
+	income_loss("gain", amount, reason)
 
 # Instantly removes cash and shows the red notice. Can go below zero (fines).
-func remove_cash(amount: int) -> void:
+func remove_cash(amount: int, reason: String = "") -> void:
 	if amount <= 0:
 		return
 	_finish_cash_tween()
 	CASH -= amount
-	income_loss("loss", amount)
+	income_loss("loss", amount, reason)
 
 # Animated gain (rent). The notice shows first, then the balance counts up.
-func income(amount: int) -> void:
+func income(amount: int, reason: String = "") -> void:
 	if amount <= 0:
 		return
-	income_loss("gain", amount)
+	income_loss("gain", amount, reason)
 	await get_tree().create_timer(0.75).timeout
 	_tween_cash_to(_settled_cash() + amount, 0.8, Tween.TRANS_BACK)   # slight bounce
 
 # Animated spend. Returns false (and charges nothing) if the player can't afford it.
-func spend(amount: int, duration: float = 0.5) -> bool:
+func spend(amount: int, reason: String = "", duration: float = 0.5) -> bool:
 	if not can_afford(amount):
 		return false
 	if amount == 0:
 		return true
-	income_loss("loss", amount)
+	income_loss("loss", amount, reason)
 	_tween_cash_to(_settled_cash() - amount, duration, Tween.TRANS_QUAD)
 	return true
 
 # Charges instantly if affordable, otherwise shows "Insufficient funds".
-func has_enough_funds(amount: int) -> bool:
+func has_enough_funds(amount: int, reason: String = "") -> bool:
 	if amount == 0:
 		return true
 	if not can_afford(amount):
 		error("Insufficient funds")
 		return false
-	remove_cash(amount)
+	remove_cash(amount, reason)
 	return true
 
 func _settled_cash() -> int:
@@ -293,7 +294,7 @@ func pay_loan(loan_number: int, amount: int) -> bool:
 	if ACTIONS <= 0:
 		error("You are out of Actions")
 		return false
-	if amount <= 0 or not has_enough_funds(amount):   # has_enough_funds deducts CASH
+	if amount <= 0 or not has_enough_funds(amount, "Loan Payment"):   # has_enough_funds deducts CASH
 		return false
 	for i in loans.size():
 		if loans[i]["loan_number"] == loan_number:

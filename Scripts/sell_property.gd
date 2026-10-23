@@ -22,6 +22,8 @@ func _ready() -> void:
 	realtor_emblem.visible = false
 	personal_emblem.visible = false
 	listing_agent_toggle.disabled = not Actions.actions_owned.has("listing_agent")
+	for toggle in [listing_agent_toggle, ps_toggle]:
+		InkBox.soft_hover(toggle)
 	var property := _selected_property()
 	if not property.is_empty():
 		property_icon.texture = Cards.round_icon(property["art"])
@@ -60,11 +62,21 @@ func _on_sell_btn_pressed() -> void:
 		Actions.consume("listing_agent")
 	Global.SOLD = roll <= odds
 	print("Rolled %d, sold: %s" % [roll, Global.SOLD])
+	var price := 0
 	if Global.SOLD:
 		var property := _selected_property()
-		Global.add_cash(property["value"])
+		price = property["value"]
 		Cards.properties_owned.erase(property)
 	sell_btn.disabled = true   # no double taps while the animation plays
 	var transition = TRANSITION_SCENE.instantiate()
 	add_child(transition)
-	transition.run_animation(Global.mystery.app_color, "sold" if Global.SOLD else "failed", Global.mystery.app_url)
+	transition.run_animation(Global.mystery.app_color, "sold" if Global.SOLD else "failed",
+			Global.mystery.app_url, _on_result_revealed.bind(price))
+
+# The "?" lead-in has finished and SOLD / FAILED is showing: the money (with its cash
+# register) arrives now, or the crowd groans.
+func _on_result_revealed(price: int) -> void:
+	if Global.SOLD:
+		Global.add_cash(price, "Property Sale")
+	else:
+		Sound.play("aww")

@@ -786,7 +786,7 @@ func _resolve_for_saboteur(card_key: String, victim_name: String) -> void:
 # Our victim paid a penalty: the money comes to us.
 @rpc("any_peer", "reliable")
 func _sabotage_payout(amount: int, victim_name: String) -> void:
-	Global.add_cash(amount)
+	Global.add_cash(amount, "Sabotage")
 	Global.banner("%s paid you $%d (sabotage)." % [victim_name, amount])
 
 func _play_sabotage_curtain(saboteur_name: String) -> void:
@@ -871,7 +871,7 @@ func resolve_fortuna(card: Dictionary) -> String:
 	# STEP 4: apply the effect
 	match effect:
 		"pay_flat":
-			var forced = pay(card["fee"])
+			var forced = pay(card["fee"], card["name"])
 			return _with_loan("Paid %d Rebucks (%s)." % [card["fee"], card["name"]], forced)
 
 		"pay_per_property":
@@ -881,16 +881,16 @@ func resolve_fortuna(card: Dictionary) -> String:
 					continue
 				chargeable += 1
 			var total = card["fee"] * chargeable
-			var forced = pay(total)
+			var forced = pay(total, card["name"])
 			return _with_loan("%s: paid %d Rebucks (%d properties)." % [card["name"], total, chargeable], forced)
 
 		"gain_flat":
-			gain(card["value"])
+			gain(card["value"], card["name"])
 			return "Gained %d Rebucks!" % card["value"]
 
 		"gain_per_property":
 			var total = card["value"] * _props().size()
-			gain(total)
+			gain(total, card["name"])
 			return "%s: gained %d Rebucks." % [card["name"], total]
 
 		"destroy_property":
@@ -907,7 +907,7 @@ func resolve_fortuna(card: Dictionary) -> String:
 			var lost_name = target["name"]
 			await DiscardFx.play(get_tree(), target, "A tornado destroyed your %s" % lost_name)
 			_remove_property(target)
-			gain(payout)
+			gain(payout, "Insurance Claim")
 			return "A tornado destroyed your %s. Insurance payout: %d Rebucks." % [lost_name, payout]
 
 		"seize_property_compensate":   # Eminent Domain
@@ -915,7 +915,7 @@ func resolve_fortuna(card: Dictionary) -> String:
 			var lost_name = target["name"]
 			await DiscardFx.play(get_tree(), target, "The government seized your %s" % lost_name)
 			_remove_property(target)
-			gain(compensation)
+			gain(compensation, "Eminent Domain")
 			return "The government seized your %s. Compensation: %d Rebucks." % [lost_name, compensation]
 
 		"raise_condition":   # Appraisal Revaluation
@@ -933,7 +933,7 @@ func resolve_fortuna(card: Dictionary) -> String:
 
 		"repair_half_condition_price":   # Tree (half the current price, rounded up)
 			var repair_cost: int = ceili(target["value"] / 2.0)
-			var forced = pay(repair_cost)
+			var forced = pay(repair_cost, "Tree Repair")
 			return _with_loan("Tree repair on your %s cost %d Rebucks." % [target["name"], repair_cost], forced)
 
 		"no_rent_next_round":   # Breach of Contract, Wasted
@@ -1093,21 +1093,22 @@ func _peer_answer(id: int, result) -> void:
 # Takes money INSTANTLY. If the player can't cover it, they pay all the cash they have and are
 # forced to take a loan for the shortfall. Returns the loan amount (0 if no loan was needed).
 # Instant on purpose so back-to-back payments (e.g. Double Attack) can't overlap.
-func pay(amount: int) -> int:
+func pay(amount: int, reason: String = "") -> int:
 	if amount <= 0:
 		return 0
 	if _saboteur_id != 0 and Network.is_online():
 		_sabotage_payout.rpc_id(_saboteur_id, amount, Global.PLAYER)   # penalty goes to them
+		reason = "Sabotage"
 	if Global.can_afford(amount):
-		Global.remove_cash(amount)
+		Global.remove_cash(amount, reason)
 		return 0
 	var shortfall = amount - Global.CASH
-	Global.remove_cash(Global.CASH)
+	Global.remove_cash(Global.CASH, reason)
 	Global.take_loan(shortfall)
 	return shortfall
 
-func gain(amount: int) -> void:
-	Global.add_cash(amount)
+func gain(amount: int, reason: String = "") -> void:
+	Global.add_cash(amount, reason)
 
 func _with_loan(message: String, loan: int) -> String:
 	if loan > 0:

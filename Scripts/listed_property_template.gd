@@ -15,12 +15,13 @@ func setup_property(data: Dictionary, button_group: ButtonGroup) -> void:
 	card_data = data
 	var art_path: String = card_data.get("sale_art", "")
 	if art_path != "" and ResourceLoader.exists(art_path):
-		image.texture = Cards.round_icon(art_path)
-		image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED   # stay round in any box
+		image.texture = load(art_path)   # the "for sale" listing poster
 	# Build mode passes ready-made text (e.g. "from $4") instead of a single condition.
 	property_name.text = str(card_data["name"])
 	property_condition.text = card_data.get("condition_text", str(card_data["condition"]))
 	property_cost.text = card_data.get("price_text", "$%d" % card_data["value"])
 	property_rent.text = card_data.get("rent_text", "$%d" % card_data["rent"])
+	for label in [property_name, property_condition, property_cost, property_rent]:
+		ColorTheme.keep(label)   # written on the listing poster, which no theme changes
 	toggle_on_off.toggle_mode = true
 	toggle_on_off.button_group = button_group

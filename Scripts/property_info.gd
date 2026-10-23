@@ -52,6 +52,11 @@ var current_scene := "res://Scenes/property_info.tscn"
 
 
 func _ready() -> void:
+	# The highlight behind the property's current condition: drawn BEHIND the row's writing
+	# (not over it), so the text stays crisp whatever colour the theme gives the band.
+	for highlight in [excellent_condition, good_condition, fair_condition, poor_condition]:
+		highlight.z_index = 0
+		highlight.show_behind_parent = true
 	for p in Cards.properties_owned:
 		if p.get("id") == Cards.selected_id:
 			current_property = p

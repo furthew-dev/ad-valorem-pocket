@@ -86,7 +86,7 @@ func _on_popup_confirm() -> void:
 		if is_instance_valid(card):
 			card.update_stock()
 		return
-	if not Global.spend(selected_action["cost"]):
+	if not Global.spend(selected_action["cost"], str(selected_action.get("name", "Market"))):
 		_buying_key = ""
 		_show_message("You don't have enough funds.")
 		return

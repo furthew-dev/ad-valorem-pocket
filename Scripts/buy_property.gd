@@ -20,6 +20,8 @@ func _ready() -> void:
 	proceed_btn.disabled = true
 	Global.using_realtor = false
 	realtor_toggle.disabled = not Actions.actions_owned.has("realtor")
+	for toggle in [realtor_toggle, ps_toggle]:
+		InkBox.soft_hover(toggle)
 	if realtor_toggle.disabled:
 		realtor_select.text = "Not Available"
 

@@ -6,8 +6,8 @@ extends Node2D
 const PROPERTY_CARD_SCENE = preload("res://Scenes/properties.tscn")
 const POPUP_SCENE = preload("res://Scenes/pop_up.tscn")
 const FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
-# Sort button: tap to switch. "" = the order you got them in (until you first sort).
-const SORT_LABELS := {"": "Sort", "name": "A - Z", "value": "$ High - Low"}
+# Sort button: tap to switch between A-Z and highest value first.
+# "" = the order you got them in (until you first sort).
 
 @onready var list_of_properties: VBoxContainer = $CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_properties
 @onready var ui_menu_frame: Control = $"CanvasLayer/Panel/UI Menu Frame"
@@ -34,22 +34,33 @@ func _ready() -> void:
 
 ## ---- SORTING ----
 func _add_sort_button() -> void:
+	# Sits in the empty space to the right of the (centred) property cards, under the header.
 	_sort_button = Button.new()
-	_sort_button.custom_minimum_size = Vector2(230, 70)
-	_sort_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_sort_button.custom_minimum_size = Vector2(92, 92)
+	_sort_button.size = Vector2(92, 92)
 	_sort_button.add_theme_font_override("font", FONT)
-	_sort_button.add_theme_font_size_override("font_size", 34)
-	InkBox.apply(_sort_button, Color(1, 1, 1))
+	_sort_button.add_theme_font_size_override("font_size", 30)
+	InkBox.apply(_sort_button, Color("ddcf99"))
 	_sort_button.pressed.connect(_on_sort_pressed)
-	header.add_child(_sort_button)
-	header.move_child(_sort_button, header.get_child_count() - 2)   # before the right-hand spacer
-	_sort_button.text = SORT_LABELS[_sort_mode]
+	$CanvasLayer/Panel.add_child(_sort_button)
+	_sort_button.text = _sort_text()
+	_place_sort_button.call_deferred()
+
+func _place_sort_button() -> void:
+	var scroll: Control = list_of_properties.get_parent()
+	var area := scroll.get_global_rect()
+	var panel: Control = $CanvasLayer/Panel
+	var top_left := panel.get_global_transform().affine_inverse() * Vector2(area.end.x - 100, area.position.y + 12)
+	_sort_button.position = top_left
+
+func _sort_text() -> String:
+	return {"": "Sort", "name": "Sort\nA-Z", "value": "Sort\nValue"}[_sort_mode]
 
 func _on_sort_pressed() -> void:
 	Sound.play("switch")
 	_sort_mode = "value" if _sort_mode == "name" else "name"
 	Network.save_setting("my_properties", "sort", _sort_mode)
-	_sort_button.text = SORT_LABELS[_sort_mode]
+	_sort_button.text = _sort_text()
 	_build_list()
 
 # The properties in display order (the list itself stays in the order you got them).

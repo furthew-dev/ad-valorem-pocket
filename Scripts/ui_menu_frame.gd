@@ -13,6 +13,7 @@ const GAIN_COLOR := Color("4c9a52")   # Banner2 when money is received
 const BANNER_SPACING := 108.0   # vertical distance between stacked message banners
 const MONEY_SPACING := 84.0     # ...and between stacked money notices
 const MONEY_SIZE := Vector2(75, 75)
+const REASON_FONT_SIZE := 26
 const MONEY_POSITION := Vector2(8, 176)   # top-left of the screen, where income_loss sits in the scene
 const MAX_STACK := 4            # more than this wait for a free slot
 const WAITING_BG := Color(0.32549, 0.235294, 0.266667, 0.92)
@@ -167,27 +168,52 @@ func run_animation(message: String) -> void:
 	tween.tween_property(banner, "position:x", _banner_hidden.x, 0.48)
 	tween.finished.connect(_remove_from_stack.bind(banner, _active_banners, _banner_rest.y, BANNER_SPACING))
 
-# Money notice: a 75x75 circle at the top-left. Fades in, holds, fades out (2 s).
-# Red for money out, green for money in. Built fresh each time so its size can't drift.
-func run_income_loss(type: String, total: int) -> void:
+# Money notice: a 75x75 circle at the top-left, with the reason on a tag to its right
+# ("+$12" | Rent). Fades in, holds, fades out (2 s). Red for money out, green for money in.
+# Built fresh each time so its size can't drift.
+func run_income_loss(type: String, total: int, reason: String = "") -> void:
 	var is_loss := type == "loss"
-	var notice := Panel.new()
+	var color := LOSS_COLOR if is_loss else GAIN_COLOR
+	var notice := Control.new()   # holds the tag and the circle; this is what fades and stacks
 	notice.custom_minimum_size = MONEY_SIZE
 	notice.size = MONEY_SIZE
 	notice.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	notice.z_index = 5
-	var style := StyleBoxFlat.new()
-	style.bg_color = LOSS_COLOR if is_loss else GAIN_COLOR
-	style.set_corner_radius_all(35)
-	notice.add_theme_stylebox_override("panel", style)
 
+	if reason != "":
+		var tag := Panel.new()
+		tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var tag_style := StyleBoxFlat.new()
+		tag_style.bg_color = color.darkened(0.15)
+		tag_style.set_corner_radius_all(26)
+		tag.add_theme_stylebox_override("panel", tag_style)
+		var why: Label = amount.duplicate()
+		why.text = reason
+		why.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		why.add_theme_font_size_override("font_size", REASON_FONT_SIZE)
+		var width := why.get_theme_font("font").get_string_size(reason, HORIZONTAL_ALIGNMENT_LEFT, -1, REASON_FONT_SIZE).x
+		tag.size = Vector2(MONEY_SIZE.x / 2 + 16 + width + 22, 52)
+		tag.position = Vector2(MONEY_SIZE.x / 2, (MONEY_SIZE.y - tag.size.y) / 2)
+		why.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		why.offset_left = MONEY_SIZE.x / 2 + 12
+		tag.add_child(why)
+		notice.add_child(tag)
+
+	var circle := Panel.new()
+	circle.size = MONEY_SIZE
+	circle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = color
+	style.set_corner_radius_all(35)
+	circle.add_theme_stylebox_override("panel", style)
 	var label: Label = amount.duplicate()   # same theme and font as the scene's label
 	label.text = ("-$%d" if is_loss else "+$%d") % total
 	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	label.clip_text = true
 	if label.text.length() > 5:
 		label.add_theme_font_size_override("font_size", 18)   # e.g. "+$1000" still fits
-	notice.add_child(label)
+	circle.add_child(label)
+	notice.add_child(circle)
 
 	notice.modulate.a = 0.0
 	notice.position = _money_origin + Vector2(0, _active_money.size() * MONEY_SPACING)
@@ -196,7 +222,7 @@ func run_income_loss(type: String, total: int) -> void:
 
 	var tween := notice.create_tween()
 	tween.tween_property(notice, "modulate:a", 1.0, 0.36)
-	tween.tween_interval(1.3)
+	tween.tween_interval(1.6 if reason != "" else 1.3)   # a little longer when there's a reason to read
 	tween.tween_property(notice, "modulate:a", 0.0, 0.34)
 	tween.finished.connect(_remove_from_stack.bind(notice, _active_money, _money_origin.y, MONEY_SPACING))
 

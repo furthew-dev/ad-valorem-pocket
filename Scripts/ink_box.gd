@@ -38,3 +38,19 @@ static func fit_text(buttons: Array, smallest: int = 24) -> void:
 			size -= 2
 	for button in shown:
 		button.add_theme_font_size_override("font_size", size)
+
+
+# For pick-one toggle buttons (Realtor / Private Purchase): hovering shows a faint copy of
+# the "selected" look instead of the engine's grey box, so it fits the theme.
+static func soft_hover(button: Button) -> void:
+	var selected := button.get_theme_stylebox("pressed")
+	var hover: StyleBox = StyleBoxEmpty.new()
+	if selected is StyleBoxFlat:
+		var faint: StyleBoxFlat = selected.duplicate()
+		faint.bg_color.a *= 0.4
+		hover = faint
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("hover_pressed", selected)
+	button.add_theme_stylebox_override("hover_mirrored", hover)
+	button.add_theme_stylebox_override("hover_pressed_mirrored", selected)
+	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
