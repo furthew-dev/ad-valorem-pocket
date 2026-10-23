@@ -5,10 +5,14 @@ extends Node
 ## included) can bid. Each bid resets the clock to BID_RESET seconds; when it runs out
 ## the highest bidder pays and gets the property, and the owner receives the money.
 ## The host runs the clock and decides the winner; everyone else just shows it.
+##
+## The clock only starts once every player is free to bid (not reading their own Fortuna
+## or answering a menu), or after MAX_READY_WAIT seconds, so nobody gets skipped.
 
 signal _owner_result(winner_id: int, winner_name: String, bid: int)
 
 const OPENING_TIME := 10.0   # seconds before the first bid must come in
+const MAX_READY_WAIT := 30.0 # never wait longer than this for busy players
 const BID_RESET := 5.0       # clock resets to this after every bid
 const INCREMENTS := [1, 5, 10]
 const FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
@@ -21,6 +25,12 @@ var owner_name := ""
 var high_bid := 0
 var high_bidder := 0
 var time_left := 0.0
+var clock_running := false     # false while waiting for busy players
+var waiting_for: Array = []     # names of players still busy (shown on the auction screen)
+
+var _ready_ids: Dictionary = {}   # host: players who are free to bid
+var _wait_started := 0.0          # host: when this auction opened
+var _my_run_pending := false      # we're the owner, waiting for our auction's result
 
 var _queue: Array = []   # host only: auctions waiting for the current one to finish
 var _overlay: CanvasLayer
@@ -31,22 +41,27 @@ var _bid_buttons: Array[Button] = []
 
 func _ready() -> void:
 	Network.players_changed.connect(_on_players_changed)
+	Network.host_back.connect(_on_host_back)
 
 
 ## ---- OWNER (called from the Auction Fortuna) ----
 # Puts `property` up for auction and waits for the result. Returns a banner message.
 func run(property: Dictionary) -> String:
+	_my_run_pending = true
 	_request_start.rpc_id(1, Global.PLAYER, property)
 	var result: Array = await _owner_result
+	_my_run_pending = false
 	var winner_id: int = result[0]
 	var bid: int = result[2]
 	if winner_id == 0:
-		return "No bids. You kept your %s." % property["name"]
+		return "No sale. You kept your %s." % property["name"]
 	if winner_id == multiplayer.get_unique_id():
 		return "You won your own auction and kept your %s." % property["name"]
-	await DiscardFx.play(get_tree(), property, "Sold at auction to %s for $%d" % [result[1], bid])
+	# Hand it over and get paid first, then the animation (a crash mid-animation can't
+	# leave the property with two owners).
 	Cards.properties_owned.erase(_find_owned(property["id"]))
 	Global.add_cash(bid, "Auction Sale")
+	await DiscardFx.play(get_tree(), property, "Sold at auction to %s for $%d" % [result[1], bid])
 	return "%s bought your %s at auction for $%d." % [result[1], property["name"], bid]
 
 func _find_owned(id: int) -> Dictionary:
@@ -75,6 +90,10 @@ func _start_next() -> void:
 func _process(delta: float) -> void:
 	if not active:
 		return
+	if not clock_running:
+		if multiplayer.is_server():
+			_check_ready()   # also starts the clock once MAX_READY_WAIT has passed
+		return
 	time_left = maxf(time_left - delta, 0.0)
 	if _time_label:
 		_time_label.text = "%d" % ceili(time_left)
@@ -85,16 +104,86 @@ func _process(delta: float) -> void:
 
 @rpc("any_peer", "call_local", "reliable")
 func _place_bid(amount: int) -> void:
-	if not multiplayer.is_server() or not active or amount <= high_bid:
+	if not multiplayer.is_server() or not active or not clock_running or amount <= high_bid:
 		return
 	var sender := multiplayer.get_remote_sender_id()
 	_update.rpc(amount, sender if sender != 0 else 1, BID_RESET)
 
 func _on_players_changed() -> void:
-	# The owner left mid-auction: call it off.
-	if active and multiplayer.is_server() and not Network.players.has(owner_id):
+	if not (active and multiplayer.is_server()):
+		return
+	if not Network.players.has(owner_id):   # the owner left mid-auction: call it off
 		active = false
 		_close.rpc(0, "", 0)
+	else:
+		_check_ready()   # maybe the player we were waiting for left
+
+
+## ---- WAITING FOR EVERYONE TO BE FREE ----
+# Each phone reports in once nothing is covering the auction (its own Fortuna card, a
+# menu, a sabotage screen...).
+func _report_ready_when_free() -> void:
+	var opened_item := item
+	while is_inside_tree() and active and item == opened_item and _screen_busy():
+		await get_tree().create_timer(0.25).timeout
+	if active and item == opened_item:
+		_ready_to_bid.rpc_id(1)
+
+func _screen_busy() -> bool:
+	for node in get_tree().root.get_children():
+		if node.has_signal("dismissed") or node.has_signal("chosen") or node is DiscardFx:
+			return true   # a Fortuna card, a pick-one menu, the trash animation
+		if node is CanvasLayer and node.layer == 95:
+			return true   # the "Sabotaged!" screen
+	return false
+
+@rpc("any_peer", "call_local", "reliable")
+func _ready_to_bid() -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	_ready_ids[sender if sender != 0 else 1] = true
+	_check_ready()
+
+# Host: start the clock when everyone is free (or we've waited long enough); otherwise
+# tell everyone who we're waiting for.
+func _check_ready() -> void:
+	if not active or clock_running:
+		return
+	var busy := []
+	for id in Network.players:
+		if not _ready_ids.has(id):
+			busy.append(Network.players[id])
+	var waited := Time.get_ticks_msec() / 1000.0 - _wait_started
+	if busy.is_empty() or waited >= MAX_READY_WAIT:
+		_start_clock.rpc()
+	elif busy != waiting_for:
+		_sync_waiting.rpc(busy)
+
+@rpc("authority", "call_local", "reliable")
+func _sync_waiting(names: Array) -> void:
+	waiting_for = names
+	_refresh()
+
+@rpc("authority", "call_local", "reliable")
+func _start_clock() -> void:
+	clock_running = true
+	waiting_for = []
+	time_left = OPENING_TIME
+	Sound.play("notify")
+	_refresh()
+
+# The host refreshed and came back: it no longer knows about any auction, so call ours off
+# (everyone keeps what they had) instead of leaving the auction screen up forever.
+func _on_host_back() -> void:
+	if active:
+		active = false
+		clock_running = false
+		if is_instance_valid(_overlay):
+			_overlay.queue_free()
+		Global.banner("The auction was called off (the host reconnected).")
+	if _my_run_pending:
+		_owner_result.emit(0, "", 0)
 
 
 ## ---- EVERYONE ----
@@ -107,9 +196,15 @@ func _open(owner_peer: int, player_name: String, property: Dictionary) -> void:
 	high_bid = 0
 	high_bidder = 0
 	time_left = OPENING_TIME
+	clock_running = false
+	waiting_for = []
+	if multiplayer.is_server():
+		_ready_ids.clear()
+		_wait_started = Time.get_ticks_msec() / 1000.0
 	Sound.play("notify")
 	_build_overlay()
 	_refresh()
+	_report_ready_when_free()
 
 @rpc("authority", "call_local", "reliable")
 func _update(bid: int, bidder: int, clock: float) -> void:
@@ -122,6 +217,7 @@ func _update(bid: int, bidder: int, clock: float) -> void:
 @rpc("authority", "call_local", "reliable")
 func _close(winner_id: int, winner_name: String, bid: int) -> void:
 	active = false
+	clock_running = false
 	if is_instance_valid(_overlay):
 		_overlay.queue_free()
 	var me := multiplayer.get_unique_id()
@@ -238,6 +334,16 @@ func _build_overlay() -> void:
 
 func _refresh() -> void:
 	if not is_instance_valid(_overlay):
+		return
+	if not clock_running:   # waiting for busy players: no bidding yet
+		if waiting_for.is_empty():
+			_bid_label.text = "Getting everyone ready..."
+		else:
+			_bid_label.text = "Waiting for %s\nto finish their Fortuna..." % ", ".join(waiting_for)
+		_time_label.text = "..."
+		for button in _bid_buttons:
+			button.text = "Bid $%d" % (high_bid + INCREMENTS[_bid_buttons.find(button)])
+			button.disabled = true
 		return
 	if high_bidder == 0:
 		_bid_label.text = "No bids yet"

@@ -28,6 +28,7 @@ var _target_peer := 0
 var _transfer_mode := TRANSFER_MODE_RELIABLE
 var _transfer_channel := 0
 var _refuse_new := false
+var _leaving: Array = []             # peers that left: dropped on the next poll (see _poll)
 
 
 ## ---- PUBLIC ----
@@ -52,6 +53,12 @@ func get_peer_ids() -> Array:
 func _poll() -> void:
 	if _status == CONNECTION_DISCONNECTED:
 		return
+	# Peers that left during the last poll are dropped only now, after Godot has read the
+	# packets they sent just before leaving (e.g. "I'm leaving on purpose").
+	for id in _leaving:
+		if _peers.erase(id):
+			peer_disconnected.emit(id)
+	_leaving.clear()
 	_ws.poll()
 	var state := _ws.get_ready_state()
 
@@ -184,9 +191,7 @@ func _handle_control(text: String) -> void:
 		"peer_joined":
 			_add_peer(int(msg["id"]))
 		"peer_left":
-			var id := int(msg["id"])
-			if _peers.erase(id):
-				peer_disconnected.emit(id)
+			_leaving.append(int(msg["id"]))
 		"host_away":
 			host_away.emit(int(msg.get("seconds", 0)))
 		"host_back":
@@ -214,6 +219,7 @@ func _add_peer(id: int) -> void:
 	peer_connected.emit(id)
 
 func _drop_all() -> void:
+	_leaving.clear()
 	for id in _peers.keys():
 		peer_disconnected.emit(id)
 	_peers.clear()

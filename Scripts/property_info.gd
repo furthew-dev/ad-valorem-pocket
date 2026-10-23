@@ -197,6 +197,8 @@ func _add_build_button() -> void:
 
 # Empty lot -> property_reveal in build mode (pick any property, then a condition).
 func _on_build_pressed() -> void:
+	if not _still_owned():
+		return
 	if not Actions.actions_owned.has("contractor"):
 		Global.error("You need a Contractor to build here. Buy one in the Market.")
 		return
@@ -256,10 +258,21 @@ func _count_up(label: Label, from: int, to: int) -> void:
 	tween.parallel().tween_property(label, "scale", Vector2.ONE, 0.4)
 
 func _has_action_left() -> bool:
+	if not _still_owned():
+		return false
 	if Global.ACTIONS <= 0:
 		Global.error("You are out of Actions")
 		return false
 	return true
+
+# A sabotage, auction or swap can take this property while its page is open.
+func _still_owned() -> bool:
+	for p in Cards.properties_owned:
+		if p["id"] == current_property.get("id", -1):
+			return true
+	Global.error("You no longer own this property.")
+	get_tree().change_scene_to_file("res://Scenes/my_properties.tscn")
+	return false
 
 
 func _on_add_double_pressed() -> void:
@@ -305,6 +318,8 @@ func _on_add_insurance_pressed() -> void:
 	_refresh()
 
 func _on_sell_pressed() -> void:
+	if not _still_owned():
+		return
 	if current_property.get("has_golden_lock", false):
 		Global.error("This property has a Golden Lock and can't be sold.")
 		return

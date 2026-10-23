@@ -199,9 +199,12 @@ func _swap_tiles(a: Control, b: Control) -> void:
 
 
 # Saves this screen for the Back button and plays the app's opening animation.
+var _opening := false   # an app is already opening (ignore repeat taps)
+
 func _open_app(app: Dictionary) -> void:
-	if _swallow_tap or _dragging:
+	if _swallow_tap or _dragging or _opening:
 		return
+	_opening = true
 	Sound.play("click")
 	Global.save_scene(current_scene)
 	var transition = TRANSITION_SCENE.instantiate()

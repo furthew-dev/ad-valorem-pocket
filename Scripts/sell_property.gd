@@ -52,6 +52,10 @@ func _choose(agent: bool) -> void:
 	sell_btn.disabled = false
 
 func _on_sell_btn_pressed() -> void:
+	if _selected_property().is_empty():   # destroyed, swapped or auctioned while this screen was open
+		Global.error("You no longer own this property.")
+		get_tree().change_scene_to_file("res://Scenes/my_properties.tscn")
+		return
 	if Global.ACTIONS <= 0:
 		Global.error("You are out of Actions")
 		return

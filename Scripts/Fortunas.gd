@@ -746,13 +746,20 @@ func sabotage(target_id: int) -> void:
 @rpc("any_peer", "reliable")
 func _receive_sabotage(saboteur_name: String) -> void:
 	var saboteur_id := multiplayer.get_remote_sender_id()
+	# The whole sabotage (red screen, Just Say No question, the Fortuna) is one turn: when
+	# several players sabotage you at once they queue up and play one after another.
 	await _wait_turn()
+	_busy = true
 	await _play_sabotage_curtain(saboteur_name)
 	if await offer_just_say_no("Play Just Say No to block %s's sabotage?" % saboteur_name):
 		Global.banner("You blocked %s's sabotage with Just Say No!" % saboteur_name)
 		_sabotage_blocked.rpc_id(saboteur_id, Global.PLAYER)
+		_busy = false
 		return
-	await play_fortuna(saboteur_id)
+	_saboteur_id = saboteur_id
+	await _play_fortuna(saboteur_id)
+	_saboteur_id = 0
+	_busy = false
 
 @rpc("any_peer", "reliable")
 func _sabotage_blocked(victim_name: String) -> void:
@@ -765,6 +772,10 @@ func offer_just_say_no(question: String) -> bool:
 		return false
 	var answer = await ask_player_to_choose(question, ["Yes", "No"], 1)
 	if answer != "Yes":
+		return false
+	index = _find_in_hand("block_fortuna")   # look again: it may have been used meanwhile
+	if index == -1:
+		Global.error("Your Just Say No was already used.")
 		return false
 	fortunas_owned.remove_at(index)
 	Sound.play("shield")
@@ -895,8 +906,8 @@ func resolve_fortuna(card: Dictionary) -> String:
 
 		"destroy_property":
 			var lost_name = target["name"]
-			await DiscardFx.play(get_tree(), target, "%s destroyed your %s" % [card["name"], lost_name])
 			_remove_property(target)
+			await DiscardFx.play(get_tree(), target, "%s destroyed your %s" % [card["name"], lost_name])
 			# Any loan on the property stays due: loans live in Global.loans, not on the property.
 			return "%s destroyed your %s." % [card["name"], lost_name]
 
@@ -905,16 +916,16 @@ func resolve_fortuna(card: Dictionary) -> String:
 			if target.get("has_insurance", false):
 				payout = target["value"]
 			var lost_name = target["name"]
-			await DiscardFx.play(get_tree(), target, "A tornado destroyed your %s" % lost_name)
 			_remove_property(target)
+			await DiscardFx.play(get_tree(), target, "A tornado destroyed your %s" % lost_name)
 			gain(payout, "Insurance Claim")
 			return "A tornado destroyed your %s. Insurance payout: %d Rebucks." % [lost_name, payout]
 
 		"seize_property_compensate":   # Eminent Domain
 			var compensation = target["value"]
 			var lost_name = target["name"]
-			await DiscardFx.play(get_tree(), target, "The government seized your %s" % lost_name)
 			_remove_property(target)
+			await DiscardFx.play(get_tree(), target, "The government seized your %s" % lost_name)
 			gain(compensation, "Eminent Domain")
 			return "The government seized your %s. Compensation: %d Rebucks." % [lost_name, compensation]
 

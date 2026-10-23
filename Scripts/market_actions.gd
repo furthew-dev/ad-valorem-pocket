@@ -12,6 +12,7 @@ var button_group := ButtonGroup.new()
 var selected_card: Control = null       # the actions_template row
 var selected_action: Dictionary = {}    # e.g. Actions.certificate_of_deposit
 var _buying_key := ""                   # our own purchase animates after its pop-up closes
+var _confirming := false                # the "are you sure" pop-up is open (ignore repeat taps)
 
 
 func _ready() -> void:
@@ -40,6 +41,8 @@ func _on_group_pressed(button: BaseButton) -> void:
 	selected_action = selected_card.selected_card_data
 
 func _on_buy_pressed() -> void:
+	if _confirming or _buying_key != "":
+		return
 	var problem := _purchase_problem()
 	if problem != "":
 		Sound.play("error")
@@ -49,6 +52,8 @@ func _on_buy_pressed() -> void:
 	add_child(popup)
 	popup.layout("Are you sure you want to buy %s?" % selected_action["name"], "Yes", "No")
 	popup.left_pressed.connect(_on_popup_confirm)
+	_confirming = true
+	popup.tree_exited.connect(func(): _confirming = false)
 
 # Returns why this purchase can't happen, or "" if it can.
 func _purchase_problem() -> String:
@@ -65,6 +70,8 @@ func _purchase_problem() -> String:
 	return ""
 
 func _on_popup_confirm() -> void:
+	if _buying_key != "":
+		return   # a purchase is already on its way
 	# Re-check at the moment of purchase, before any money moves.
 	var problem := _purchase_problem()
 	if problem != "":

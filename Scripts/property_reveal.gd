@@ -22,6 +22,7 @@ const VBOX := "CanvasLayer/Panel/VBoxContainer/revealed_properties/MarginContain
 var button_group := ButtonGroup.new()
 var selected_card: Dictionary = {}
 var build_lot: Dictionary = {}   # the empty lot being built on (build mode only)
+var _loan_offer_open := false    # the "take a loan?" question or the loan form is up
 
 
 func _ready() -> void:
@@ -57,6 +58,8 @@ func _on_group_pressed(button: BaseButton) -> void:
 
 ## ---- PURCHASE ----
 func _on_purchase_btn_pressed() -> void:
+	if _loan_offer_open:
+		return   # a repeat tap while the loan question is up
 	if selected_card.is_empty():
 		Global.error("Select a property first.")
 		return
@@ -73,6 +76,8 @@ func _on_purchase_btn_pressed() -> void:
 		add_child(popup)
 		popup.layout("Insufficient funds. Take loan?", "Yes", "No")
 		popup.left_pressed.connect(_yes_take_loan)
+		popup.right_pressed.connect(func(): _loan_offer_open = false)
+		_loan_offer_open = true
 		return
 
 	Sound.play("continue")
@@ -93,11 +98,13 @@ func _on_purchase_btn_pressed() -> void:
 	transition.run_animation(Global.purchasing.app_color, Global.purchasing.app_anim, Global.purchasing.app_url)
 
 func _yes_take_loan(amount: int = -1) -> void:
+	_loan_offer_open = true
 	var loan = LOAN_SCENE.instantiate()
 	add_child(loan)
 	loan.set_min_value(amount if amount > 0 else selected_card["value"])
 	var loans_before := Global.loans.size()
 	await loan.tree_exited
+	_loan_offer_open = false
 	if Global.loans.size() > loans_before:
 		Global.banner("New loan of $%d added. You can now purchase." % Global.loans[-1]["loan_balance"])
 

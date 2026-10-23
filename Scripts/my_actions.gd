@@ -71,7 +71,11 @@ func _on_kept_fortuna_pressed(card: Dictionary) -> void:
 
 
 ## ---- SABOTAGE ----
+var _choosing_target := false   # the "who to sabotage" menu is open (ignore repeat taps)
+
 func _use_sabotage() -> void:
+	if _choosing_target:
+		return
 	if Global.ACTIONS <= 0:
 		Global.error("You are out of Actions")
 		return
@@ -88,7 +92,9 @@ func _use_sabotage() -> void:
 	var options: Array = names.keys()
 	options.append(CANCEL)
 	menu.setup("Who do you want to sabotage?", options)
+	_choosing_target = true
 	var choice = await menu.chosen
+	_choosing_target = false
 	if choice == CANCEL or not names.has(choice):
 		return
 	var target_id: int = names[choice]
@@ -96,7 +102,9 @@ func _use_sabotage() -> void:
 		Global.error("%s has left the game." % choice)
 		return
 
-	Actions.consume("sabotage")
+	if not Actions.consume("sabotage"):   # checked again: it may have been used meanwhile
+		Global.error("You have no Sabotage left.")
+		return
 	Global.action_used()
 	Fortunas.sabotage(target_id)
 	_build_list()

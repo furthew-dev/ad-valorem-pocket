@@ -105,8 +105,8 @@ static func _new_token() -> String:
 	return bytes.hex_encode()
 
 func start_game() -> void:
-	if not is_host() or players.size() < MIN_PLAYERS_TO_START:
-		return
+	if not is_host() or in_game or players.size() < MIN_PLAYERS_TO_START:
+		return   # in_game: Start was already pressed (a double tap must not deal twice)
 	_peer.lock_room()
 	Market.setup_new_game()   # fresh shared decks/stock, sent to everyone first
 	_begin_game.rpc()
