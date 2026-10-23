@@ -45,12 +45,13 @@ const SETTINGS_POPUP = preload("res://Scripts/settings_popup.gd")
 # what to do (the lobby uses this to confirm leaving the room).
 var custom_navigation := false
 
-var _banner_queue: Array[String] = []
+var _banner_queue: Array = []   # [message, link] waiting for a free slot
 var _active_banners: Array[Control] = []
 var _active_money: Array[Control] = []
 var _banner_rest: Vector2       # anim_frame's on-screen / off-screen spots (from banner_drop)
 var _banner_hidden: Vector2
 var _money_origin: Vector2
+var _banner_root: Control       # banners live here, on their own layer above the screen
 var _waiting_bar: PanelContainer
 var _waiting_label: Label
 
@@ -148,25 +149,61 @@ func _setup_banner_templates() -> void:
 	_money_origin = MONEY_POSITION
 	anim_frame.visible = false
 	income_loss.visible = false
+	# Banners get their own layer, so a tappable one is on top for taps too (not only for
+	# drawing): otherwise the screen's own buttons and pictures under it would take the tap.
+	var layer := CanvasLayer.new()
+	layer.layer = 2   # above the screens; pop-ups (also 2, added later) and Fortuna cards stay on top
+	add_child(layer)
+	_banner_root = Control.new()
+	_banner_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(_banner_root)
 
 # Message banner: slides in from the right, holds, slides back out (2.5 s).
-func run_animation(message: String) -> void:
+# `link` (a Global.LINKS key): the banner can be tapped while it shows to open that screen,
+# and says so ("Tap to open the Market"). It also stays up a little longer.
+func run_animation(message: String, link: String = "") -> void:
 	if _active_banners.size() >= MAX_STACK:
-		_banner_queue.append(message)
+		_banner_queue.append([message, link])
 		return
 	var banner: Control = anim_frame.duplicate()
-	banner.get_node("text").text = message
+	var label: Label = banner.get_node("text")
+	label.text = message
 	banner.visible = true
+	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE   # plain banners never block taps
+	if Global.LINKS.has(link):
+		_make_tappable(banner, label, link)
 	var y := _banner_rest.y + _active_banners.size() * BANNER_SPACING
 	banner.position = Vector2(_banner_hidden.x, y)
-	anim_frame.get_parent().add_child(banner)
+	var spot := (anim_frame.get_parent() as Control).get_global_transform_with_canvas()
+	_banner_root.position = spot.origin   # same place and size on screen as the banner area
+	_banner_root.scale = spot.get_scale()
+	_banner_root.size = (anim_frame.get_parent() as Control).size
+	_banner_root.add_child(banner)
 	_active_banners.append(banner)
 
 	var tween := banner.create_tween()
 	tween.tween_property(banner, "position:x", _banner_rest.x, 0.42)
-	tween.tween_interval(1.6)
+	tween.tween_interval(3.0 if Global.LINKS.has(link) else 1.6)
 	tween.tween_property(banner, "position:x", _banner_hidden.x, 0.48)
 	tween.finished.connect(_remove_from_stack.bind(banner, _active_banners, _banner_rest.y, BANNER_SPACING))
+
+func _make_tappable(banner: Control, label: Label, link: String) -> void:
+	label.offset_bottom = -22   # make room for the hint line
+	var hint: Label = label.duplicate()
+	hint.text = "Tap to open %s  >" % Global.LINKS[link][1]
+	hint.autowrap_mode = TextServer.AUTOWRAP_OFF
+	hint.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	hint.offset_top = 0
+	hint.offset_bottom = -8
+	hint.add_theme_font_size_override("font_size", 15)
+	hint.modulate.a = 0.85
+	banner.add_child(hint)
+	banner.mouse_filter = Control.MOUSE_FILTER_STOP
+	banner.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	banner.gui_input.connect(func(event: InputEvent):
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			banner.mouse_filter = Control.MOUSE_FILTER_IGNORE   # one tap is enough
+			Global.open_link(link))
 
 # Money notice: a 75x75 circle at the top-left, with the reason on a tag to its right
 # ("+$12" | Rent). Fades in, holds, fades out (2 s). Red for money out, green for money in.
@@ -234,7 +271,8 @@ func _remove_from_stack(node: Control, stack: Array[Control], top: float, spacin
 		var slide := stack[i].create_tween()
 		slide.tween_property(stack[i], "position:y", top + i * spacing, 0.2)
 	if is_same(stack, _active_banners) and not _banner_queue.is_empty():
-		run_animation(_banner_queue.pop_front())
+		var next: Array = _banner_queue.pop_front()
+		run_animation(next[0], next[1])
 
 
 ## ---- WAITING BAR (after End Turn) ----

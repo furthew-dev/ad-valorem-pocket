@@ -54,13 +54,13 @@ func _on_use_requested(_data: Dictionary, key: String) -> void:
 			_use_sabotage()
 		"golden_lock":   # pick the property in My Properties
 			if Global.ACTIONS <= 0:
-				Global.error("You are out of Actions")
+				Global.error("You are out of Actions. End your turn for more.", "home")
 				return
 			Global.assigning_token = "golden_lock"
 			Global.save_scene("res://Scenes/my_actions.tscn")
 			get_tree().change_scene_to_file("res://Scenes/my_properties.tscn")
 		"double", "skybnb", "contractor":
-			Global.banner("Open a property in My Properties to use this.")
+			Global.banner("Open a property in My Properties to use this.", "my_properties")
 
 
 func _on_kept_fortuna_pressed(card: Dictionary) -> void:
@@ -77,7 +77,7 @@ func _use_sabotage() -> void:
 	if _choosing_target:
 		return
 	if Global.ACTIONS <= 0:
-		Global.error("You are out of Actions")
+		Global.error("You are out of Actions. End your turn for more.", "home")
 		return
 	var names := {}   # display name -> peer id
 	for id in Network.players:
@@ -103,7 +103,7 @@ func _use_sabotage() -> void:
 		return
 
 	if not Actions.consume("sabotage"):   # checked again: it may have been used meanwhile
-		Global.error("You have no Sabotage left.")
+		Global.error("You need a Sabotage token.", "market")
 		return
 	Global.action_used()
 	Fortunas.sabotage(target_id)

@@ -27,10 +27,10 @@ func _ready() -> void:
 
 func _on_proceed_btn_pressed() -> void:
 	if Global.ACTIONS <= 0:
-		Global.error("You are out of Actions.")
+		Global.error("You are out of Actions. End your turn for more.", "home")
 		return
 	if Cards.properties_owned.size() >= Global.PROPERTY_CAPACITY:
-		Global.error("Your properties are maxed out!")
+		Global.error("Your properties are maxed out! Sell one first.", "my_properties")
 		return
 	Sound.play("continue")
 	Global.save_scene(current_scene)

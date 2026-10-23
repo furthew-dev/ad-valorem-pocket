@@ -200,7 +200,7 @@ func _on_build_pressed() -> void:
 	if not _still_owned():
 		return
 	if not Actions.actions_owned.has("contractor"):
-		Global.error("You need a Contractor to build here. Buy one in the Market.")
+		Global.error("You need a Contractor to build here.", "market")
 		return
 	if not _has_action_left():
 		return
@@ -261,7 +261,7 @@ func _has_action_left() -> bool:
 	if not _still_owned():
 		return false
 	if Global.ACTIONS <= 0:
-		Global.error("You are out of Actions")
+		Global.error("You are out of Actions. End your turn for more.", "home")
 		return false
 	return true
 
@@ -309,7 +309,7 @@ func _on_add_insurance_pressed() -> void:
 	if not _has_action_left():
 		return
 	if not Actions.consume("insurance"):
-		Global.error("You don't have an Insurance token.")
+		Global.error("You need an Insurance token.", "market")
 		return
 	current_property["has_insurance"] = true
 	Global.action_used()

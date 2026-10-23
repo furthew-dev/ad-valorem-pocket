@@ -57,7 +57,7 @@ func _on_sell_btn_pressed() -> void:
 		get_tree().change_scene_to_file("res://Scenes/my_properties.tscn")
 		return
 	if Global.ACTIONS <= 0:
-		Global.error("You are out of Actions")
+		Global.error("You are out of Actions. End your turn for more.", "home")
 		return
 	Sound.play("dice")
 	var roll := randi_range(1, 6)

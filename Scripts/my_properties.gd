@@ -100,8 +100,11 @@ func _on_assign_requested(property: Dictionary) -> void:
 	popup.left_pressed.connect(_lock.bind(property))
 
 func _lock(property: Dictionary) -> void:
-	if Global.ACTIONS <= 0 or not Actions.consume("golden_lock"):
-		Global.error("You can't use a Golden Lock right now.")
+	if Global.ACTIONS <= 0:
+		Global.error("You are out of Actions. End your turn for more.", "home")
+		return
+	if not Actions.consume("golden_lock"):
+		Global.error("You need a Golden Lock token.", "market")
 		return
 	property["has_golden_lock"] = true
 	Global.action_used()

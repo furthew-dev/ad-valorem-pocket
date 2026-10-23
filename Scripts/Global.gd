@@ -5,7 +5,7 @@ extends Node
 signal cash_changed(new_value: int)
 signal actions_changed(new_value: int)
 signal round_changed(new_value: int)
-signal banner_requested(message: String)
+signal banner_requested(message: String, link: String)   # link: a LINKS key ("" = not tappable)
 signal animation_requested(type: String, total: int, reason: String)   # Banner2 money notice: "gain"/"loss" + why
 
 const POPUP_SCENE = preload("res://Scenes/pop_up.tscn")
@@ -64,14 +64,37 @@ func _ready() -> void:
 
 
 ## ---- UI HELPERS ----
-func banner(message: String) -> void:
+# `link` makes the banner tappable while it shows: tapping opens that screen
+# (e.g. "You need a Contractor" -> the Market). See LINKS.
+func banner(message: String, link: String = "") -> void:
 	Sound.play("notify")
-	banner_requested.emit(message)
+	banner_requested.emit(message, link)
 
 # Same banner, with the error sound. Use for "you can't do that" messages.
-func error(message: String) -> void:
+func error(message: String, link: String = "") -> void:
 	Sound.play("error")
-	banner_requested.emit(message)
+	banner_requested.emit(message, link)
+
+# Where a tappable banner can take you: key -> [screen, name shown in "Tap to open ..."].
+const LINKS := {
+	"market": ["res://Scenes/market_actions.tscn", "the Market"],
+	"my_properties": ["res://Scenes/my_properties.tscn", "My Properties"],
+	"my_actions": ["res://Scenes/my_actions.tscn", "My Actions"],
+	"home": ["res://Scenes/home_screen.tscn", "Home"],   # "Tap to open Home"
+}
+
+# A tapped banner: go there (Back returns to where you were).
+func open_link(link: String) -> void:
+	if not LINKS.has(link):
+		return
+	var target: String = LINKS[link][0]
+	var scene := get_tree().current_scene
+	if scene and scene.scene_file_path == target:
+		return   # already there
+	Sound.play("click")
+	if scene and scene.scene_file_path != "":
+		save_scene(scene.scene_file_path)   # keeps the selected property, so Back works
+	get_tree().change_scene_to_file(target)
 
 # `reason` is shown next to the amount ("+$12 Rent", "-$10 Sabotage").
 func income_loss(type: String, total: int, reason: String = "") -> void:
@@ -292,7 +315,7 @@ func take_loan(amount: int) -> Dictionary:
 
 func pay_loan(loan_number: int, amount: int) -> bool:
 	if ACTIONS <= 0:
-		error("You are out of Actions")
+		error("You are out of Actions. End your turn for more.", "home")
 		return false
 	if amount <= 0 or not has_enough_funds(amount, "Loan Payment"):   # has_enough_funds deducts CASH
 		return false
@@ -301,8 +324,16 @@ func pay_loan(loan_number: int, amount: int) -> bool:
 			loans[i]["loan_balance"] -= amount
 			if loans[i]["loan_balance"] <= 0:
 				loans.remove_at(i)
+				_celebrate_paid_off(loan_number)
 			return true
 	return false
+
+
+# A loan just hit $0: confetti!
+func _celebrate_paid_off(loan_number: int) -> void:
+	ConfettiFx.play(get_tree())
+	Sound.play("saved")
+	banner("Loan #%d is paid off!" % loan_number if all_loans() > 0 else "Loan paid off! You're debt free!")
 
 
 ## ---- ACTION TOKENS ON PROPERTIES ----

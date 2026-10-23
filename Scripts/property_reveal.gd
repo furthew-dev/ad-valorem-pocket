@@ -64,7 +64,7 @@ func _on_purchase_btn_pressed() -> void:
 		Global.error("Select a property first.")
 		return
 	if Global.ACTIONS <= 0:
-		Global.error("You are out of Actions")
+		Global.error("You are out of Actions. End your turn for more.", "home")
 		return
 	if not build_lot.is_empty():
 		_build_selected()
