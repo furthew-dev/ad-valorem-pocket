@@ -887,6 +887,7 @@ func resolve_fortuna(card: Dictionary) -> String:
 
 		"destroy_property":
 			var lost_name = target["name"]
+			await DiscardFx.play(get_tree(), target, "%s destroyed your %s" % [card["name"], lost_name])
 			_remove_property(target)
 			# Any loan on the property stays due: loans live in Global.loans, not on the property.
 			return "%s destroyed your %s." % [card["name"], lost_name]
@@ -896,6 +897,7 @@ func resolve_fortuna(card: Dictionary) -> String:
 			if target.get("has_insurance", false):
 				payout = target["value"]
 			var lost_name = target["name"]
+			await DiscardFx.play(get_tree(), target, "A tornado destroyed your %s" % lost_name)
 			_remove_property(target)
 			gain(payout)
 			return "A tornado destroyed your %s. Insurance payout: %d Rebucks." % [lost_name, payout]
@@ -903,6 +905,7 @@ func resolve_fortuna(card: Dictionary) -> String:
 		"seize_property_compensate":   # Eminent Domain
 			var compensation = target["value"]
 			var lost_name = target["name"]
+			await DiscardFx.play(get_tree(), target, "The government seized your %s" % lost_name)
 			_remove_property(target)
 			gain(compensation)
 			return "The government seized your %s. Compensation: %d Rebucks." % [lost_name, compensation]
@@ -1040,6 +1043,7 @@ func _accept_swap(their_id: int, incoming: Dictionary, from_name: String) -> Dic
 		var p: Dictionary = _props()[i]
 		if p["id"] == their_id and not p.get("has_golden_lock", false):
 			_props()[i] = incoming
+			DiscardFx.play(get_tree(), p, "%s took your %s in a swap" % [from_name, p["name"]])   # don't wait: they're waiting on our answer
 			Global.banner("%s swapped your %s for their %s (Swap Fortuna)." % [from_name, p["name"], incoming["name"]])
 			return p
 	return {}

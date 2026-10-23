@@ -142,6 +142,9 @@ func resume(current_round: int, saved_round: int, turn_done: bool) -> void:
 		Global.ACTIONS = 0
 	await _play_curtain("Welcome back", HOME_SCENE)
 	waiting_changed.emit(waiting_on)
+	# Crashed part-way through the start of this round (e.g. before the 2nd Fortuna or rent).
+	if Global.ROUND > 1 and not Global.round_start_finished():
+		await Global.process_new_round()
 
 # The host came back after dropping: make sure it knows we already ended our turn.
 func resend_turn_done() -> void:

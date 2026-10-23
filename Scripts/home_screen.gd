@@ -1,5 +1,7 @@
 extends CanvasLayer
 ## Phone home screen: app buttons and End Turn.
+## Hold an app (or start dragging it) to pick it up, then drop it on another app to swap
+## their places. The layout is remembered on this phone.
 
 const POPUP_SCENE = preload("res://Scenes/pop_up.tscn")
 const TRANSITION_SCENE = preload("res://Scenes/transition.tscn")
@@ -9,8 +11,25 @@ const TRANSITION_SCENE = preload("res://Scenes/transition.tscn")
 
 var current_scene := "res://Scenes/home_screen.tscn"
 
+const HOLD_TIME := 0.35      # seconds held still before an app lifts up
+const DRAG_START := 24.0     # ...or start moving this far (pixels) to pick it up at once
+
+@onready var first_row: HBoxContainer = $"Apps/Apps Container/first_row"
+@onready var second_row: HBoxContainer = $"Apps/Apps Container/second_row"
+
+var _tiles: Array[Control] = []    # the six app tiles (each: picture + label)
+var _pressed_tile: Control         # finger is down on this tile
+var _press_pos := Vector2.ZERO
+var _press_time := 0.0
+var _dragging: Control             # tile being moved
+var _ghost: Control                # the floating copy that follows the finger
+var _ghost_offset := Vector2.ZERO
+var _hover_tile: Control
+var _swallow_tap := false          # the release that ends a drag must not open the app
+
 
 func _ready() -> void:
+	_setup_tiles()
 	_let_taps_through($Apps)
 	end_turn_btn.disabled = Turns.my_turn_done
 	Turns.waiting_changed.connect(func(_names): end_turn_btn.disabled = Turns.my_turn_done)
@@ -24,8 +43,165 @@ func _let_taps_through(node: Node) -> void:
 	for child in node.get_children():
 		_let_taps_through(child)
 
+## ---- REARRANGING APPS ----
+func _setup_tiles() -> void:
+	for row in [first_row, second_row]:
+		for child in row.get_children():
+			if child is VBoxContainer:
+				_tiles.append(child)
+	_apply_saved_order()
+	for tile in _tiles:
+		var button := _tile_button(tile)
+		if button:
+			button.button_down.connect(_on_tile_down.bind(tile))
+
+func _tile_button(tile: Control) -> Button:
+	var buttons := tile.find_children("*", "Button", true, false)
+	return buttons[0] if not buttons.is_empty() else null
+
+# Slots are the six places apps can sit, in reading order.
+func _slots() -> Array:
+	var slots := []
+	for row in [first_row, second_row]:
+		for child in row.get_children():
+			if child is VBoxContainer:
+				slots.append([row, child.get_index()])
+	return slots
+
+func _apply_saved_order() -> void:
+	var order: Array = Network.load_setting("home", "app_order", [])
+	if order.size() != _tiles.size():
+		return
+	var by_name := {}
+	for tile in _tiles:
+		by_name[String(tile.name)] = tile
+	for tile_name in order:
+		if not by_name.has(tile_name):
+			return   # an app was renamed/added since: keep the default layout
+	var slots := _slots()
+	for tile in _tiles:
+		tile.get_parent().remove_child(tile)
+	for i in slots.size():   # slots are in increasing index order per row, so inserting works
+		var row: HBoxContainer = slots[i][0]
+		var tile: Control = by_name[order[i]]
+		row.add_child(tile)
+		row.move_child(tile, slots[i][1])
+
+func _save_order() -> void:
+	var order := []
+	for row in [first_row, second_row]:
+		for child in row.get_children():
+			if child is VBoxContainer:
+				order.append(String(child.name))
+	Network.save_setting("home", "app_order", order)
+
+func _on_tile_down(tile: Control) -> void:
+	_pressed_tile = tile
+	_press_pos = get_viewport().get_mouse_position()
+	_press_time = 0.0
+
+func _process(delta: float) -> void:
+	if _pressed_tile and not _dragging:
+		_press_time += delta
+		if _press_time >= HOLD_TIME:
+			_start_drag(_pressed_tile)
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion and _pressed_tile:
+		var pos: Vector2 = event.position
+		if not _dragging and pos.distance_to(_press_pos) > DRAG_START:
+			_start_drag(_pressed_tile)
+		if _dragging:
+			_move_ghost(pos)
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		if _dragging:
+			_drop(event.position)
+		_pressed_tile = null
+
+func _start_drag(tile: Control) -> void:
+	_dragging = tile
+	Sound.play("switch")
+	_ghost = tile.duplicate(0)   # a look-alike with no signals or scripts
+	_ghost.top_level = true
+	_set_ignore(_ghost)
+	var rect := tile.get_global_rect()
+	_ghost.size = tile.size
+	_ghost.scale = tile.get_global_transform().get_scale() * 1.1
+	_ghost.modulate = Color(1, 1, 1, 0.9)
+	_ghost_offset = _press_pos - rect.position
+	$Apps.add_child(_ghost)
+	tile.modulate.a = 0.3
+	_move_ghost(get_viewport().get_mouse_position())
+
+func _set_ignore(node: Node) -> void:
+	if node is Control:
+		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		_set_ignore(child)
+
+func _move_ghost(pos: Vector2) -> void:
+	if not is_instance_valid(_ghost):
+		return
+	_ghost.global_position = pos - _ghost_offset * 1.1
+	var over := _tile_at(pos)
+	if over != _hover_tile:
+		if is_instance_valid(_hover_tile) and _hover_tile != _dragging:
+			_hover_tile.modulate = Color.WHITE
+		_hover_tile = over
+		if _hover_tile and _hover_tile != _dragging:
+			_hover_tile.modulate = Color(1.25, 1.25, 1.25)
+
+func _tile_at(pos: Vector2) -> Control:
+	for tile in _tiles:
+		if tile.get_global_rect().has_point(pos):
+			return tile
+	return null
+
+func _drop(pos: Vector2) -> void:
+	var target := _tile_at(pos)
+	if target and target != _dragging:
+		_swap_tiles(_dragging, target)
+		_save_order()
+		Sound.play("continue")
+	for tile in _tiles:
+		tile.modulate = Color.WHITE
+	if is_instance_valid(_ghost):
+		_ghost.queue_free()
+	_ghost = null
+	_dragging = null
+	_hover_tile = null
+	_swallow_tap = true   # the button's "pressed" comes right after this release
+	_clear_swallow.call_deferred()
+
+func _clear_swallow() -> void:
+	await get_tree().process_frame
+	_swallow_tap = false
+
+func _swap_tiles(a: Control, b: Control) -> void:
+	var pa := a.get_parent()
+	var pb := b.get_parent()
+	var ia := a.get_index()
+	var ib := b.get_index()
+	if pa == pb:
+		var low := a if ia < ib else b
+		var high := b if ia < ib else a
+		var low_index := mini(ia, ib)
+		var high_index := maxi(ia, ib)
+		pa.move_child(high, low_index)
+		pa.move_child(low, high_index)
+	else:
+		pa.remove_child(a)
+		pb.remove_child(b)
+		pa.add_child(b)
+		pa.move_child(b, ia)
+		pb.add_child(a)
+		pb.move_child(a, ib)
+
+
 # Saves this screen for the Back button and plays the app's opening animation.
 func _open_app(app: Dictionary) -> void:
+	if _swallow_tap or _dragging:
+		return
 	Sound.play("click")
 	Global.save_scene(current_scene)
 	var transition = TRANSITION_SCENE.instantiate()
@@ -48,6 +224,8 @@ func _on_actions_button_pressed() -> void:
 	_open_app(Global.my_actions_app)
 
 func _on_end_turn_btn_pressed() -> void:
+	if _swallow_tap or _dragging:
+		return
 	if Turns.my_turn_done:
 		Global.error("You already ended your turn.")
 		return

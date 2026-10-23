@@ -28,6 +28,9 @@ var new_property_name := ""  # ...with this name (defaults to the last card in t
 var build_lot_id := 0        # set while property_reveal is building on an empty lot
 var assigning_token := ""    # e.g. "golden_lock": My Properties is picking a property for it
 var new_loan := false
+# How far this round's start-of-round steps got, so Resume Game carries on from there
+# instead of redoing them: {"round": n, "fortunas": Fortunas drawn and finished, "rent": paid?}
+var round_progress: Dictionary = {}
 
 var CASH: int = 20:
 	set(value):
@@ -93,6 +96,7 @@ func start_game() -> void:
 	Cards.properties_owned.clear()
 	Cards.properties_revealed.clear()
 	tab_history.clear()
+	round_progress = {}
 	var settings: Dictionary = Network.game_settings   # chosen by the host in the lobby
 	END_GOAL = settings["end_goal"]
 	ROUND = 1
@@ -107,7 +111,13 @@ func end_turn() -> void:
 # Runs on every phone once all players have ended their turn and the "Round N"
 # transition has played: Fortuna (if needed), special properties, rent, loan interest.
 # (Winning is checked by Turns before the round starts: > END_GOAL cash and no loans.)
+# Start of a round: Fortuna(s), then rent and loan interest. Each step is recorded in
+# round_progress as it finishes, so after Resume Game this picks up where it stopped.
 func process_new_round() -> void:
+	if round_progress.get("round", -1) != ROUND:
+		round_progress = {"round": ROUND, "fortunas": 0, "rent": false}
+	if round_progress["rent"]:
+		return   # this round's start is already done
 	await has_fortuna()
 	await get_tree().create_timer(0.75).timeout   # let Fortuna cash changes settle first
 
@@ -118,14 +128,24 @@ func process_new_round() -> void:
 		property["no_rent_rounds"] = max(property.get("no_rent_rounds", 0) - 1, 0)
 	income(rent_earned)
 	updating_loan_balance()
+	round_progress["rent"] = true
+
+func round_start_finished() -> bool:
+	return round_progress.get("round", -1) == ROUND and round_progress.get("rent", false)
 
 func has_fortuna() -> void:
-	if CASH < FORTUNA_THRESHOLD:
-		print("You're safe, no need for fortuna.")
-		return
-	await _draw_required_fortuna("You must draw a Fortuna card.")
-	if CASH >= SECOND_FORTUNA_THRESHOLD:
-		await _draw_required_fortuna("You must draw another Fortuna card.")
+	var drawn: int = round_progress.get("fortunas", 0)
+	if drawn == 0:
+		if CASH < FORTUNA_THRESHOLD:
+			print("You're safe, no need for fortuna.")
+			round_progress["fortunas"] = 2
+			return
+		await _draw_required_fortuna("You must draw a Fortuna card.")
+		round_progress["fortunas"] = 1
+	if round_progress.get("fortunas", 0) == 1:
+		if CASH >= SECOND_FORTUNA_THRESHOLD:
+			await _draw_required_fortuna("You must draw another Fortuna card.")
+		round_progress["fortunas"] = 2
 
 func _draw_required_fortuna(message: String) -> void:
 	await show_notice(message)

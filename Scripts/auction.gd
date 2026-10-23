@@ -44,6 +44,7 @@ func run(property: Dictionary) -> String:
 		return "No bids. You kept your %s." % property["name"]
 	if winner_id == multiplayer.get_unique_id():
 		return "You won your own auction and kept your %s." % property["name"]
+	await DiscardFx.play(get_tree(), property, "Sold at auction to %s for $%d" % [result[1], bid])
 	Cards.properties_owned.erase(_find_owned(property["id"]))
 	Global.add_cash(bid)
 	return "%s bought your %s at auction for $%d." % [result[1], property["name"], bid]
