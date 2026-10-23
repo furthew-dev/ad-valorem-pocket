@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bddavrywvaxpm"
-path="res://.godot/imported/terraced_house.png-a6b4d075b391da863d75cf556dbe35c1.ctex"
+uid="uid://bviacpdjhlr66"
+path="res://.godot/imported/duplex_icond.png-33fbed1b33abd7ee925c8a440ae41006.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/icons/terraced_house.png"
-dest_files=["res://.godot/imported/terraced_house.png-a6b4d075b391da863d75cf556dbe35c1.ctex"]
+source_file="res://Assets/icons/duplex_icond.png"
+dest_files=["res://.godot/imported/duplex_icond.png-33fbed1b33abd7ee925c8a440ae41006.ctex"]
 
 [params]
 

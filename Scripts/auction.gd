@@ -180,7 +180,7 @@ func _build_overlay() -> void:
 	# The property's picture, large and faded, behind the bids and countdown.
 	if ResourceLoader.exists(str(item.get("art", ""))):
 		var watermark := TextureRect.new()
-		watermark.texture = load(item["art"])
+		watermark.texture = Cards.round_icon(item["art"])
 		watermark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		watermark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		watermark.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -197,7 +197,7 @@ func _build_overlay() -> void:
 	box.add_child(_text("%s's property is up for bids" % owner_name, 36))
 	var art := TextureRect.new()
 	if ResourceLoader.exists(str(item.get("art", ""))):
-		art.texture = load(item["art"])
+		art.texture = Cards.round_icon(item["art"])
 	art.custom_minimum_size = Vector2(0, 260)
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED

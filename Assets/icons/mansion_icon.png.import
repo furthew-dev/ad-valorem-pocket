@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b10v6gtdwqtit"
-path="res://.godot/imported/tiny_house.png-c2e9c733168dad1c15394e15d67087b7.ctex"
+uid="uid://cmpox6pd8r1gw"
+path="res://.godot/imported/mansion_icon.png-963593657d5a223ead06e656abde7c94.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/icons/tiny_house.png"
-dest_files=["res://.godot/imported/tiny_house.png-c2e9c733168dad1c15394e15d67087b7.ctex"]
+source_file="res://Assets/icons/mansion_icon.png"
+dest_files=["res://.godot/imported/mansion_icon.png-963593657d5a223ead06e656abde7c94.ctex"]
 
 [params]
 

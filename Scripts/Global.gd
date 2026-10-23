@@ -74,6 +74,7 @@ func error(message: String) -> void:
 	banner_requested.emit(message)
 
 func income_loss(type: String, total: int) -> void:
+	Sound.play("cash_in" if type == "gain" else "cash_out")
 	animation_requested.emit(type, total)
 
 # Shows the standard pop-up with a single OK button and waits until it is closed.

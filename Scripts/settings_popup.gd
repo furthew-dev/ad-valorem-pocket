@@ -10,6 +10,7 @@ const INK := Color(0.1, 0.1, 0.1)
 
 var _name_field: LineEdit
 var _sound_toggle: CheckButton
+var _theme_button: Button
 
 
 func _ready() -> void:
@@ -79,6 +80,11 @@ func _build() -> void:
 	_sound_toggle.toggled.connect(_on_sound_toggled)
 	box.add_child(_sound_toggle)
 
+	# --- Theme (tap to try the next one) ---
+	_theme_button = _button(_theme_text(), _next_theme)
+	_theme_button.add_theme_font_size_override("font_size", 42)
+	box.add_child(_theme_button)
+
 	# --- Leave ---
 	var leave_text := _leave_text()
 	if leave_text != "":
@@ -142,6 +148,14 @@ func _copy_room_key() -> void:
 	DisplayServer.clipboard_set(Network.room_key)
 	Sound.play("switch")
 	Global.banner("Room key %s copied." % Network.room_key)
+
+func _theme_text() -> String:
+	return "Theme: %s" % ColorTheme.theme_name()
+
+func _next_theme() -> void:
+	Sound.play("switch")
+	ColorTheme.set_theme(ColorTheme.next_theme())
+	_theme_button.text = _theme_text()
 
 func _on_sound_toggled(on: bool) -> void:
 	Sound.set_enabled(on)

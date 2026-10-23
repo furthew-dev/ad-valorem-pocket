@@ -73,7 +73,7 @@ func setup(prompt: String, options: Array) -> void:
 		btn.add_theme_stylebox_override("hover", _button_style(Color(0.588235, 0.317647, 0.294118)))
 		btn.add_theme_stylebox_override("pressed", _button_style(Color(0.47451, 0.235294, 0.266667)))
 		if option is Dictionary and ResourceLoader.exists(str(option.get("art", ""))):
-			btn.icon = load(option["art"])   # the property's picture, for a quick visual reference
+			btn.icon = Cards.round_icon(option["art"])   # the property's picture, for a quick visual reference
 			btn.expand_icon = true
 			btn.add_theme_constant_override("icon_max_width", 64)
 			btn.alignment = HORIZONTAL_ALIGNMENT_LEFT

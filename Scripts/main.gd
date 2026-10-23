@@ -15,6 +15,8 @@ var _waiting_popup: Node = null
 func _ready() -> void:
 	ui_menu_frame.clear_ui()
 	ui_menu_frame.show_title("Ad Valorem Pocket Edition", "Main Menu")
+	for button in [resume_game, join_game, host_game]:   # written on the pin-board paper art
+		ColorTheme.keep(button)
 	Network.room_ready.connect(_on_room_ready)
 	Network.connection_failed.connect(_on_connection_failed)
 	Network.resumed.connect(_on_resumed)

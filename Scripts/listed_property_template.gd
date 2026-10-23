@@ -15,7 +15,8 @@ func setup_property(data: Dictionary, button_group: ButtonGroup) -> void:
 	card_data = data
 	var art_path: String = card_data.get("sale_art", "")
 	if art_path != "" and ResourceLoader.exists(art_path):
-		image.texture = load(art_path)
+		image.texture = Cards.round_icon(art_path)
+		image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED   # stay round in any box
 	# Build mode passes ready-made text (e.g. "from $4") instead of a single condition.
 	property_name.text = str(card_data["name"])
 	property_condition.text = card_data.get("condition_text", str(card_data["condition"]))

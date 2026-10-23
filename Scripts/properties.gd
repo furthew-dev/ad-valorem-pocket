@@ -45,7 +45,8 @@ func setup_card(property_data: Dictionary) -> void:
 
 	var art_path: String = property_data.get("art", "")
 	if art_path != "" and ResourceLoader.exists(art_path):
-		texture_rect.texture = load(art_path)
+		texture_rect.texture = Cards.round_icon(art_path)
+		texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED   # stay round in any box
 
 # Golden Lock: same panel, with a gold border around it.
 func _add_gold_border() -> void:

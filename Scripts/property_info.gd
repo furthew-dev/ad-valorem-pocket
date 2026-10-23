@@ -111,7 +111,8 @@ func setup_card() -> void:
 
 	var art_path: String = details["art"]
 	if art_path != "" and ResourceLoader.exists(art_path):
-		property_icon.texture = load(art_path)
+		property_icon.texture = Cards.round_icon(art_path)
+		property_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED   # stay round in any box
 
 # Builds the Add Insurance button (a copy of Add SkyBnB, in the same row) and the badge.
 func _add_insurance_controls() -> void:

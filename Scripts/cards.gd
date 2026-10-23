@@ -158,7 +158,7 @@ var condo = {
 var duplex = {
 	"name": "Duplex",
 	"region": "City",
-	"art": "res://Assets/icons/duplex_icon.png",
+	"art": "res://Assets/icons/duplex_icond.png",
 	"sale_art": "res://Assets/properties_sale/duplex_listing.png",
 	"allow_skybnb": true,
 	"allow_double": true,
@@ -293,7 +293,7 @@ var lodge =  {
 var mansion =  {
 	"name": "Mansion",
 	"region": "Country",
-	"art": "res://Assets/icons/mansion.png",
+	"art": "res://Assets/icons/mansion_icon.png",
 	"sale_art": "res://Assets/properties_sale/mansion_listing.png",
 	"allow_skybnb": true,
 	"allow_double": true,
@@ -421,7 +421,7 @@ var terraced_house =  {
 	"has_insurance": false,
 	"value": 12,
 	"rent": 10,
-	"art": "res://Assets/icons/terraced_house.png",
+	"art": "res://Assets/icons/terraced_house_icon.png",
 	"sale_art": "res://Assets/properties_sale/terracedhouse_listing.png",
 	"description": "Each round, value and rent increase by $1.",
 	"round": 0
@@ -441,7 +441,7 @@ var tiny_house =  {
 	"has_insurance": false,
 	"value": 6,
 	"rent": 10,
-	"art": "res://Assets/icons/tiny_house.png",
+	"art": "res://Assets/icons/tiny_house_icon.png",
 	"sale_art": "res://Assets/properties_sale/tinyhouse_listing.png",
 	"description": "",
 }
@@ -729,3 +729,67 @@ func _make_property(template: Dictionary, condition: String) -> Dictionary:
 			"p_value": "", "p_rent": "",
 		})
 	return property
+
+
+## ---- ROUND PROPERTY ICONS ----
+# Property pictures are square; everywhere they're shown they're drawn as a circle with a
+# border. Use Cards.round_icon(property["art"]) instead of load(). Made once per picture.
+const ICON_BORDER_COLOR := Color("533c44")
+const ICON_BORDER_WIDTH := 0.045   # share of the picture's width
+
+var _round_icons: Dictionary = {}   # path -> ImageTexture
+var _icon_masks: Dictionary = {}    # size -> [mask Image, border ring Image]
+
+func round_icon(path: String) -> Texture2D:
+	if _round_icons.has(path):
+		return _round_icons[path]
+	if not ColorTheme.theme_changed.is_connected(_on_theme_changed):
+		ColorTheme.theme_changed.connect(_on_theme_changed)
+	if path == "" or not ResourceLoader.exists(path):
+		return null
+	var texture: Texture2D = load(path)
+	var image: Image = texture.get_image() if texture else null
+	if image == null:
+		return texture
+	image = image.duplicate()
+	if image.is_compressed():
+		image.decompress()
+	image.convert(Image.FORMAT_RGBA8)
+	var side := mini(image.get_width(), image.get_height())
+	if image.get_width() != image.get_height():   # centre square
+		image = image.get_region(Rect2i((image.get_width() - side) / 2, (image.get_height() - side) / 2, side, side))
+	var masks: Array = _masks_for(side)
+	var result := Image.create_empty(side, side, false, Image.FORMAT_RGBA8)
+	result.blit_rect_mask(image, masks[0], Rect2i(0, 0, side, side), Vector2i.ZERO)
+	result.blend_rect(masks[1], Rect2i(0, 0, side, side), Vector2i.ZERO)
+	var round_texture := ImageTexture.create_from_image(result)
+	_round_icons[path] = round_texture
+	return round_texture
+
+# The border follows the colour theme: icons made from now on use the new colour.
+func _on_theme_changed(_key: String) -> void:
+	_round_icons.clear()
+	_icon_masks.clear()
+
+# A circle mask (what to keep) and an anti-aliased border ring, for pictures `side` px wide.
+func _masks_for(side: int) -> Array:
+	if _icon_masks.has(side):
+		return _icon_masks[side]
+	var mask := Image.create_empty(side, side, false, Image.FORMAT_RGBA8)
+	var ring := Image.create_empty(side, side, false, Image.FORMAT_RGBA8)
+	var center := Vector2(side, side) / 2.0
+	var outer := side / 2.0 - 1.0
+	var width := maxf(2.0, side * ICON_BORDER_WIDTH)
+	var inner := outer - width
+	var border := ColorTheme.map_color(ICON_BORDER_COLOR, "fill")
+	for y in side:
+		for x in side:
+			var d := Vector2(x + 0.5, y + 0.5).distance_to(center)
+			if d <= outer - width * 0.5:
+				mask.set_pixel(x, y, Color.WHITE)
+			# coverage of the ring at this pixel, softened over 1px at both edges
+			var a := clampf(outer - d + 0.5, 0.0, 1.0) * clampf(d - inner + 0.5, 0.0, 1.0)
+			if a > 0.0:
+				ring.set_pixel(x, y, Color(border, a))
+	_icon_masks[side] = [mask, ring]
+	return _icon_masks[side]

@@ -708,6 +708,8 @@ func _play_fortuna(saboteur_id: int) -> void:
 		Global.banner("You're lucky! No more Fortunas available")
 		return
 	fortuna_drawn.emit(card)
+	if is_unlucky(card):
+		Sound.play("aww")
 	await show_card(card)   # waits until the player presses OK
 
 	if card["keep_in_hand"]:
@@ -724,6 +726,11 @@ func _play_fortuna(saboteur_id: int) -> void:
 	var message: String = await resolve_fortuna(card)
 	Global.banner(message)
 	fortuna_resolved.emit(card, message)
+
+# A card that hurts you (not a good one, not one you keep, not Swap where you choose).
+func is_unlucky(card: Dictionary) -> bool:
+	var effect: String = card.get("effect", "")
+	return not card.get("keep_in_hand", false) and not (effect in BENEFICIAL_EFFECTS or effect in NOT_BLOCKABLE)
 
 func _wait_turn() -> void:
 	while _busy:
@@ -760,6 +767,7 @@ func offer_just_say_no(question: String) -> bool:
 	if answer != "Yes":
 		return false
 	fortunas_owned.remove_at(index)
+	Sound.play("shield")
 	return true
 
 # A beneficial card drawn by our victim: we get it, so it resolves here.
@@ -812,7 +820,7 @@ func _play_sabotage_curtain(saboteur_name: String) -> void:
 	curtain.add_child(box)
 	layer.add_child(curtain)
 	get_tree().root.add_child(layer)
-	Sound.play("error")
+	Sound.play("joker")
 
 	var tween := create_tween()
 	tween.tween_property(curtain, "modulate:a", 1.0, 0.4)
@@ -915,6 +923,7 @@ func resolve_fortuna(card: Dictionary) -> String:
 			return "Your %s is now in %s condition." % [target["name"], target["condition"]]
 
 		"set_condition_poor":   # Flood
+			Sound.play("thunder")
 			set_condition(target, "poor")
 			return "Your %s flooded and is now in poor condition." % target["name"]
 
@@ -1169,9 +1178,11 @@ func _try_void(card: Dictionary, prop) -> bool:
 	for p in candidates:
 		if card["voidable_by_attorney"] and p.get("has_attorney", false):
 			p["has_attorney"] = false
+			Sound.play("shield")
 			return true
 		if card["voidable_by_insurance"] and p.get("has_insurance", false):
 			p["has_insurance"] = false
+			Sound.play("shield")
 			return true
 	return false
 

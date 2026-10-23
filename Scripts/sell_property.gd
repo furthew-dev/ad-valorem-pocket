@@ -24,7 +24,8 @@ func _ready() -> void:
 	listing_agent_toggle.disabled = not Actions.actions_owned.has("listing_agent")
 	var property := _selected_property()
 	if not property.is_empty():
-		property_icon.texture = load(property["art"])
+		property_icon.texture = Cards.round_icon(property["art"])
+		property_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED   # stay round in any box
 
 func _selected_property() -> Dictionary:
 	for property in Cards.properties_owned:

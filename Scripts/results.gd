@@ -12,6 +12,7 @@ func _ready() -> void:
 		details.text = "Congratulations! You successfully sold your property!"
 	else:
 		result.text = "SALE FAILED"
+		Sound.play("trumpet_fail")
 		details.text = "Unfortunately, your property didn't sell."
 
 func _on_ok_button_pressed() -> void:
