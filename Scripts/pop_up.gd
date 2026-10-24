@@ -57,23 +57,42 @@ func layout(body: String, first_btn: String, second_btn: String) -> void:
 	yes.visible = second_btn != ""
 	_fit_button_text()
 
-# "Starting server..." -> the dots count . .. ... in a loop. The full text stays laid out
-# (the hidden dots still take their space), so the words don't shift as the dots appear.
+# "Starting server..." -> the dots count . .. ... in a loop. The words stay put: the dots
+# are their own left-aligned label sitting just after the text, so only they change.
 func animate_dots(interval: float = 0.45) -> void:
 	var text := question.text
 	if not text.ends_with("..."):
 		return
-	question.visible_characters_behavior = TextServer.VC_CHARS_AFTER_SHAPING
-	var base := text.length() - 3
-	var dots := 1
-	question.visible_characters = base + dots
+	var base := text.substr(0, text.length() - 3)
+	question.text = base
+	var dots := Label.new()
+	dots.label_settings = question.label_settings
+	dots.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	question.add_child(dots)
+	var count := [1]
+	var place_dots := func():
+		var settings: LabelSettings = question.label_settings
+		var width := settings.font.get_string_size(base, HORIZONTAL_ALIGNMENT_LEFT, -1, settings.font_size).x
+		var dots_width := settings.font.get_string_size("...", HORIZONTAL_ALIGNMENT_LEFT, -1, settings.font_size).x
+		if question.size.x < 1.0:
+			return   # not laid out yet; resized fires once it is
+		if width + 2.0 * dots_width > question.size.x:   # would wrap: just change the text instead
+			dots.visible = false
+			question.text = base + ".".repeat(count[0])
+			return
+		question.text = base
+		dots.visible = true
+		dots.position = Vector2((question.size.x + width) / 2.0, 0)
+		dots.text = ".".repeat(count[0])
+	question.resized.connect(place_dots)
+	place_dots.call_deferred()
 	var timer := Timer.new()
 	timer.wait_time = interval
 	timer.autostart = true
 	add_child(timer)
 	timer.timeout.connect(func():
-		dots = dots % 3 + 1
-		question.visible_characters = base + dots)
+		count[0] = count[0] % 3 + 1
+		place_dots.call())
 
 # Adds a small one-line note under the question (e.g. "The server may take a moment...").
 # The text shrinks to fit the width of the paper.

@@ -1,7 +1,7 @@
 [gd_scene load_steps=10 format=3 uid="uid://6031uxv2m8js"]
 
 [ext_resource type="Script" uid="uid://dcx87ig3cq7xy" path="res://Scripts/properties.gd" id="1_h41tx"]
-[ext_resource type="Texture2D" uid="uid://co1srrhnf183f" path="res://Assets/icons/apartment_icon.png" id="1_odkyd"]
+[ext_resource type="Texture2D" uid="uid://b5uxg7ru0xc0p" path="res://Assets/icons/apartment_icon.png" id="1_odkyd"]
 [ext_resource type="FontFile" uid="uid://dw6eqfioib8lx" path="res://Assets/fonts/Comfortaa-Regular.ttf" id="2_h41tx"]
 [ext_resource type="Theme" uid="uid://cjryg8ll4k0kw" path="res://main_theme.tres" id="2_rpdgn"]
 [ext_resource type="Texture2D" uid="uid://chiw13v8abtdd" path="res://Assets/icons/double_icon.png" id="3_77t6f"]

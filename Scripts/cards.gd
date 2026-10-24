@@ -583,6 +583,14 @@ func randomize_condition() -> String:
 func tenants() -> int:
 	return randi_range(1, 6)
 
+# Apartment: a new number of tenants each round; rent is $3 each (x2 with a Double).
+func roll_tenants(property: Dictionary) -> void:
+	var count := tenants()
+	property["tenants"] = count
+	var rent := 3 * count * (2 if property.get("has_double", false) else 1)
+	property["rent"] = rent
+	property["e_rent"] = rent
+
 func has_condition(property: Dictionary) -> bool:
 	return property.get("has_condition", false)
 
@@ -728,6 +736,8 @@ func _make_property(template: Dictionary, condition: String) -> Dictionary:
 			"f_value": "", "f_rent": "",
 			"p_value": "", "p_rent": "",
 		})
+		if template["name"] == "Apartment":
+			roll_tenants(property)
 	return property
 
 

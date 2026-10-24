@@ -61,6 +61,7 @@ func _ready() -> void:
 	var handwriting: FontFile = HANDWRITING_FONT   # the shared, cached font every scene uses
 	if not handwriting.fallbacks.has(FALLBACK_FONT):
 		handwriting.fallbacks = handwriting.fallbacks + [FALLBACK_FONT]
+	_start_castle_sharing()
 
 
 ## ---- UI HELPERS ----
@@ -154,6 +155,10 @@ func process_new_round() -> void:
 	for property in Cards.properties_owned:
 		property["no_rent_rounds"] = max(property.get("no_rent_rounds", 0) - 1, 0)
 	income(rent_earned, "Rent")
+	var castle_bonus := CASTLE_BONUS * others_castles()
+	if castle_bonus > 0:
+		await get_tree().create_timer(0.9).timeout   # after the rent notice
+		income(castle_bonus, "Castle Tours")
 	updating_loan_balance()
 	round_progress["rent"] = true
 
@@ -183,13 +188,56 @@ func special_property() -> void:
 	for property in Cards.properties_owned:
 		match property["name"]:
 			"Apartment":
-				property["rent"] = 3 * Cards.tenants()
+				Cards.roll_tenants(property)
 			"Terraced House":   # value and rent grow by 1 each round owned
 				property["round"] += 1
 				property["rent"] += 1
 				property["value"] += 1
 			"Castle":
-				pass   # TODO (multiplayer): all players gain $5
+				pass   # paid out to the OTHER players: see CASTLES below
+
+
+## ---- CASTLES ----
+# "All other players gain $5 per round" for each Castle someone else owns. Hands are
+# private, so every phone tells the others how many Castles it has whenever that
+# changes (and when players join or come back); rent time adds up the others' Castles.
+const CASTLE_BONUS := 5
+var castle_counts: Dictionary = {}   # peer id -> Castles that player owns
+var _castles_shared := -1
+
+func _start_castle_sharing() -> void:
+	var timer := Timer.new()
+	timer.wait_time = 1.0
+	timer.autostart = true
+	add_child(timer)
+	timer.timeout.connect(_share_castles_if_changed)
+	Network.players_changed.connect(func(): _castles_shared = -1)   # someone (re)joined: tell them
+	# A new game: everyone re-sends their count (old numbers get overwritten, not cleared,
+	# so a count that arrives before our own game_starting isn't lost).
+	Network.game_starting.connect(func(): _castles_shared = -1)
+
+func my_castles() -> int:
+	return Cards.properties_owned.filter(func(p): return p["name"] == "Castle").size()
+
+func others_castles() -> int:
+	var me := multiplayer.get_unique_id()
+	var total := 0
+	for id in castle_counts:
+		if id != me and Network.players.has(id):
+			total += castle_counts[id]
+	return total
+
+func _share_castles_if_changed() -> void:
+	if not Network.is_online() or not Network.in_game:
+		return
+	var count := my_castles()
+	if count != _castles_shared:
+		_castles_shared = count
+		_receive_castles.rpc(count)
+
+@rpc("any_peer", "reliable")
+func _receive_castles(count: int) -> void:
+	castle_counts[multiplayer.get_remote_sender_id()] = count
 
 func action_used() -> bool:
 	if ACTIONS <= 0:

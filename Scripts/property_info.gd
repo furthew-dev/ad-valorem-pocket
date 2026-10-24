@@ -86,6 +86,9 @@ func setup_card() -> void:
 	text_edit.text = str(details["p_details"])
 	if details.get("has_golden_lock", false):
 		text_edit.text += "\n\nGolden Lock: protected from harm and can't be sold."
+	if details["name"] == "Apartment" and details.has("tenants") and Cards.properties_owned.has(details):
+		var tenants: int = details["tenants"]
+		text_edit.text += "\n\nThis round: %d tenant%s, $%d rent." % [tenants, "" if tenants == 1 else "s", details["rent"]]
 	_show_purchase_loan(details)
 
 	if details["has_condition"]:

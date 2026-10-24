@@ -36,8 +36,9 @@ const THEMES := {
 	},
 	"neon": {
 		"fill": {"49343d": "07071a", "533c44": "12122e", "744145": "7a0f6b", "96514b": "d4145a", "b76051": "c4146e", "c2855f": "ff7a1a", "cba77a": "00f0ff", "99966d": "1b1840", "7b7e63": "0b6e6e", "5d6558": "0a4a52", "534650": "1a1238", "625467": "2e1a5c", "7a6d79": "47308a", "92868b": "4b2aa8", "b3a999": "6c5ce7", "ddcf99": "1f2a5c", "c0b18f": "0d0d22", "9a8c7a": "3b3a7a", "807269": "1c1a4a", "655757": "2a1440", "574749": "160f30", "6d574f": "3a1a4f", "8a6f5b": "5a2d82", "a78767": "b14dff", "2e2328": "050512", "793c44": "7a0f6b", "5a1f22": "3d0a2e", "e16257": "a3125e", "e6b67d": "2a1f5e", "d8d74b": "2d2a6e", "9eccb3": "0e4a5c", "cbac93": "2b2560", "adca96": "1d4a3a", "9cbf80": "0b6e4a", "ab966f": "5a2d82", "749c5c": "0b6e6e", "ebceb0": "2a1a50"},
-		"text": {"49343d": "bcbcdc", "533c44": "c0c0d8", "744145": "e2b6dc", "96514b": "e3b5c6", "b76051": "e3b5cd", "c2855f": "e8c7b0", "cba77a": "b0e5e8", "99966d": "c1bfd9", "7b7e63": "b5e3e3", "5d6558": "b6dde2", "534650": "c4beda", "625467": "c6bcdc", "7a6d79": "c5beda", "92868b": "c4bbdd", "b3a999": "bcb7e1", "ddcf99": "ff71ce", "c0b18f": "bfbfd9", "9a8c7a": "c2c2d6", "807269": "c0bfd9", "655757": "ccbddb", "574749": "c4bddb", "6d574f": "cfbeda", "8a6f5b": "cdbeda", "a78767": "cfb0e8", "2e2328": "bcbcdc", "793c44": "e2b6dc", "5a1f22": "e0b8d4", "e16257": "e2b6cd", "e6b67d": "c3beda", "d8d74b": "c1bfd9", "9eccb3": "b7d7e1", "cbac93": "c2c0d8", "adca96": "c0d8d0", "9cbf80": "b5e3d2", "ab966f": "cdbeda", "749c5c": "b5e3e3", "ebceb0": "c6beda"},
+		"text": {"49343d": "7df9ff", "533c44": "7df9ff", "744145": "7df9ff", "96514b": "7df9ff", "b76051": "7df9ff", "c2855f": "7df9ff", "cba77a": "7df9ff", "99966d": "7df9ff", "7b7e63": "7df9ff", "5d6558": "7df9ff", "534650": "7df9ff", "625467": "7df9ff", "7a6d79": "7df9ff", "92868b": "7df9ff", "b3a999": "7df9ff", "ddcf99": "7df9ff", "c0b18f": "7df9ff", "9a8c7a": "7df9ff", "807269": "7df9ff", "655757": "7df9ff", "574749": "7df9ff", "6d574f": "7df9ff", "8a6f5b": "7df9ff", "a78767": "7df9ff", "2e2328": "7df9ff", "793c44": "7df9ff", "5a1f22": "7df9ff", "e16257": "7df9ff", "e6b67d": "7df9ff", "d8d74b": "7df9ff", "9eccb3": "7df9ff", "cbac93": "7df9ff", "adca96": "7df9ff", "9cbf80": "7df9ff", "ab966f": "7df9ff", "749c5c": "7df9ff", "ebceb0": "7df9ff"},
 		"ink": "7df9ff",
+		"all_text": "7df9ff",   # every bit of writing glows like the app icons
 	},
 }
 
@@ -105,6 +106,8 @@ func map_color(color: Color, role: String = "fill") -> Color:
 	if current == "default":
 		return color
 	var theme: Dictionary = THEMES[current]
+	if role == "text" and theme.has("all_text"):
+		return Color(Color(theme["all_text"]), color.a)
 	if role != "fill" and theme["ink"] != "" and _is_ink(color):
 		return Color(Color(theme["ink"]), color.a)
 	var hex := color.to_html(false)
@@ -250,6 +253,7 @@ func _mono_color(texture: Texture2D) -> String:
 				image.decompress()
 			var counts := {}
 			var total := 0
+			var inky := 0   # near-black pixels (a scanned line icon is many shades of black)
 			var step := maxi(1, maxi(image.get_width(), image.get_height()) / 48)
 			for y in range(0, image.get_height(), step):
 				for x in range(0, image.get_width(), step):
@@ -257,13 +261,17 @@ func _mono_color(texture: Texture2D) -> String:
 					if pixel.a < 0.8:
 						continue
 					total += 1
+					if _is_ink(pixel):
+						inky += 1
 					var hex := pixel.to_html(false)
 					counts[hex] = counts.get(hex, 0) + 1
 			var best := ""
 			for hex in counts:
 				if best == "" or counts[hex] > counts[best]:
 					best = hex
-			if total > 0 and float(counts.get(best, 0)) / total >= MONO_SHARE:
+			if total > 0 and float(inky) / total >= MONO_SHARE:
+				result = "000000"
+			elif total > 0 and float(counts.get(best, 0)) / total >= MONO_SHARE:
 				var color := Color(best)
 				if _is_ink(color) or THEMES["dark"]["fill"].has(best):
 					result = best

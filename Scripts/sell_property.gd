@@ -21,10 +21,11 @@ func _ready() -> void:
 	sell_btn.disabled = true
 	realtor_emblem.visible = false
 	personal_emblem.visible = false
-	listing_agent_toggle.disabled = not Actions.actions_owned.has("listing_agent")
 	for toggle in [listing_agent_toggle, ps_toggle]:
 		InkBox.soft_hover(toggle)
 		_match_realtor_page(toggle.get_parent() as Panel)
+	if not Actions.actions_owned.has("listing_agent"):
+		_show_unavailable(listing_agent_toggle)
 	var property := _selected_property()
 	if not property.is_empty():
 		property_icon.texture = Cards.round_icon(property["art"])
@@ -40,6 +41,25 @@ func _match_realtor_page(box: Panel) -> void:
 		var sage: StyleBoxFlat = style.duplicate()
 		sage.bg_color = Color("5d6558")
 		box.add_theme_stylebox_override("panel", sage)
+
+# No Listing Agent: the Select button stays tappable but looks faded (the theme's own
+# colors, see-through) and tapping it explains how to get one.
+func _show_unavailable(toggle: Button) -> void:
+	var normal := toggle.get_theme_stylebox("normal")
+	var faded: StyleBox = StyleBoxEmpty.new()
+	if normal is StyleBoxFlat:
+		faded = normal.duplicate()
+		faded.bg_color.a *= 0.35
+		faded.shadow_size = 0
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+		toggle.add_theme_stylebox_override(state, faded)
+	for child in toggle.get_parent().get_children():
+		if child is Label:   # the "Select" writing sits under the button
+			child.text = "None owned"
+			child.modulate.a = 0.5
+	toggle.toggle_mode = false
+	toggle.pressed.connect(func():
+		Global.error("You don't have a Listing Agent. Buy one in the Market.", "market"))
 
 func _selected_property() -> Dictionary:
 	for property in Cards.properties_owned:

@@ -4,7 +4,7 @@ extends CanvasLayer
 ## their places. The layout is remembered on this phone.
 
 const POPUP_SCENE = preload("res://Scenes/pop_up.tscn")
-const TRANSITION_SCENE = preload("res://Scenes/transition.tscn")
+const AppLaunch = preload("res://Scripts/app_launch.gd")
 
 @onready var ui_menu_frame: Control = $"UI Menu Frame"
 @onready var end_turn_btn: Button = $"Apps/Apps Container/second_row/End Turn/actions/end_turn_btn"
@@ -32,6 +32,7 @@ func _ready() -> void:
 	_setup_tiles()
 	_let_taps_through($Apps)
 	end_turn_btn.disabled = Turns.my_turn_done
+	_shrink_back_from_app()
 	Turns.waiting_changed.connect(func(_names): end_turn_btn.disabled = Turns.my_turn_done)
 
 # The Apps panel and its layout boxes are scaled 1.25x and reach past the bottom of the
@@ -201,30 +202,52 @@ func _swap_tiles(a: Control, b: Control) -> void:
 # Saves this screen for the Back button and plays the app's opening animation.
 var _opening := false   # an app is already opening (ignore repeat taps)
 
-func _open_app(app: Dictionary) -> void:
+# Like a phone: the app's tile grows to fill the screen (app_launch.gd).
+func _open_app(app: Dictionary, tile_name: String) -> void:
 	if _swallow_tap or _dragging or _opening:
+		return
+	var tile := _tile_named(tile_name)
+	if tile == null:
 		return
 	_opening = true
 	Sound.play("click")
 	Global.save_scene(current_scene)
-	var transition = TRANSITION_SCENE.instantiate()
-	add_child(transition)
-	transition.run_animation(app.app_color, app.app_anim, app.app_url)
+	AppLaunch.open(get_tree(), tile, _tile_panel(tile), _tile_icon(tile), app.app_url)
+
+# Back on the home screen from an app: it shrinks into its tile.
+func _shrink_back_from_app() -> void:
+	var tile := _tile_named(AppLaunch.returning_to)
+	AppLaunch.returning_to = ""
+	if tile:
+		AppLaunch.close_into(get_tree(), _tile_panel(tile))
+
+func _tile_named(tile_name: String) -> Control:
+	for tile in _tiles:
+		if String(tile.name) == tile_name:
+			return tile
+	return null
+
+# The coloured rounded square of a tile, and the picture on it.
+func _tile_panel(tile: Control) -> Control:
+	return _tile_icon(tile).get_parent() as Control
+
+func _tile_icon(tile: Control) -> TextureRect:
+	return tile.find_children("*", "TextureRect", true, false)[0]
 
 func _on_bank_button_pressed() -> void:
-	_open_app(Global.bank_app)
+	_open_app(Global.bank_app, "bank")
 
 func _on_my_properties_button_pressed() -> void:
-	_open_app(Global.my_properties_app)
+	_open_app(Global.my_properties_app, "my_properties")
 
 func _on_market_button_pressed() -> void:
-	_open_app(Global.market_app)
+	_open_app(Global.market_app, "market")
 
 func _on_my_loans_button_pressed() -> void:
-	_open_app(Global.my_loans_app)
+	_open_app(Global.my_loans_app, "My Loans")
 
 func _on_actions_button_pressed() -> void:
-	_open_app(Global.my_actions_app)
+	_open_app(Global.my_actions_app, "My Actions")
 
 func _on_end_turn_btn_pressed() -> void:
 	if _swallow_tap or _dragging:

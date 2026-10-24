@@ -52,10 +52,24 @@ func draw_fortuna() -> String:
 # Host / solo only: fresh decks and full stock for a new game, sent to everyone.
 func setup_new_game() -> void:
 	Actions.reset_stock()
-	Actions.llc["stock"] = maxi(1, Network.players.size())   # one LLC per player
+	scale_stock(maxi(1, Network.players.size()))
 	Cards.reset_deck()
 	Fortunas.generate_fortuna_deck()
 	_broadcast_all()
+
+# Bigger tables need a bigger Market. LLC and Land Expansion: one per player. Everything
+# else: the normal amount up to 4 players, +25% for each player past 4 (rounded up),
+# so 5 players = x1.25 ... 8 players = x2.
+const ONE_PER_PLAYER := ["llc", "land_expansion"]
+
+func scale_stock(players: int) -> void:
+	var factor := 1.0 + 0.25 * maxi(0, players - 4)
+	for key in Actions.all_actions:
+		var action: Dictionary = Actions.all_actions[key]
+		if key in ONE_PER_PLAYER:
+			action["stock"] = players
+		else:
+			action["stock"] = ceili(action["stock"] * factor - 0.001)
 
 
 ## ---- REQUEST PLUMBING ----
