@@ -324,10 +324,15 @@ func _setup_pages() -> void:
 		_dots.append(dot)
 	add_child(dots)
 	move_child(dots, ui_menu_frame.get_index())
-	get_viewport().size_changed.connect(func(): _place_pages.call_deferred(0.0))
+	get_viewport().size_changed.connect(_on_viewport_resized)
 	_remember_apps_spot.call_deferred()
 
+func _on_viewport_resized() -> void:
+	_place_pages.call_deferred(0.0)
+
 func _remember_apps_spot() -> void:
+	if not is_inside_tree():
+		return
 	_apps_home_x = $Apps.position.x
 	_place_pages(0.0)
 
@@ -336,10 +341,14 @@ func _page_width() -> float:
 
 # drag: how far the finger has moved sideways (0 = resting on the current page).
 func _place_pages(drag: float) -> void:
+	if not is_inside_tree():
+		return   # the screen closed before this ran
 	var width := _page_width()
 	if (_page == 0 and drag > 0) or (_page == PAGE_COUNT - 1 and drag < 0):
 		drag *= 0.3   # rubber band past the first / last page
 	var shift := -_page * width + drag
+	if shift < 0.0:
+		_activity.build()   # first look: make its rows now, not when Home opens
 	$Apps.position.x = _apps_home_x + shift
 	_activity.position.x = width + shift
 	_update_dots()
@@ -360,6 +369,8 @@ func _end_swipe(drag: float) -> void:
 	_go_to_page(target, drag)
 
 func _go_to_page(page: int, from_drag: float = 0.0) -> void:
+	if not is_inside_tree():
+		return
 	var width := _page_width()
 	if (_page == 0 and from_drag > 0) or (_page == PAGE_COUNT - 1 and from_drag < 0):
 		from_drag *= 0.3
@@ -369,6 +380,8 @@ func _go_to_page(page: int, from_drag: float = 0.0) -> void:
 	_page = page
 	_update_dots()
 	var finish := -_page * width
+	if _page > 0:
+		_activity.build()
 	if _page_tween:
 		_page_tween.kill()
 	_page_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
@@ -379,7 +392,11 @@ func _go_to_page(page: int, from_drag: float = 0.0) -> void:
 # A pop-up or card is open on top (something on a higher layer that takes taps covers
 # the spot): leave the pages alone.
 func _blocked_by_overlay(point: Vector2) -> bool:
-	for node in get_tree().root.find_children("*", "CanvasLayer", true, false):
+	# Overlays are added to the root (cards, menus, pop-ups) or to the UI frame (its pop-ups
+	# and banner layer): look only there, not through every node on the screen.
+	var layers: Array = get_tree().root.get_children().filter(func(n): return n is CanvasLayer)
+	layers.append_array(ui_menu_frame.find_children("*", "CanvasLayer", true, false))
+	for node in layers:
 		var canvas := node as CanvasLayer
 		if canvas == self or canvas.layer <= layer or not canvas.visible:
 			continue

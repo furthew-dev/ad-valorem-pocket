@@ -162,16 +162,12 @@ func _recolor_node(node: Node) -> void:
 		return
 	if node is Control:
 		var control := node as Control
-		for prop in control.get_property_list():
-			var prop_name: String = prop["name"]
-			if prop_name.begins_with("theme_override_colors/"):
-				var value = control.get(prop_name)
-				if value is Color:
-					control.set(prop_name, _remap(control, prop_name, value, "text"))
-			elif prop_name.begins_with("theme_override_styles/"):
-				var style = control.get(prop_name)
-				if style is StyleBoxFlat:
-					_recolor_style(style)
+		for prop_name in _override_props(control):
+			var value = control.get(prop_name)
+			if value is Color:
+				control.set(prop_name, _remap(control, prop_name, value, "text"))
+			elif value is StyleBoxFlat:
+				_recolor_style(value)
 		if control.theme and not control.theme in _themes_seen:
 			_recolor_theme(control.theme)
 		if control is ColorRect:
@@ -185,6 +181,26 @@ func _recolor_node(node: Node) -> void:
 		item.modulate = _remap(item, "modulate", item.modulate, "fill")
 		item.self_modulate = _remap(item, "self_modulate", item.self_modulate, "fill")
 		_tint_texture(item)
+
+# The theme_override_colors/... and theme_override_styles/... property names of a kind of
+# control. Asking every node for its whole property list was the slowest part of
+# theming a screen, and the list is the same for every Label (Button, ...), so it's
+# worked out once per class.
+var _props_by_class: Dictionary = {}
+
+func _override_props(control: Control) -> Array:
+	var key := control.get_class()
+	var script: Script = control.get_script()
+	if script:
+		key += ":" + script.resource_path   # a script can add its own theme items
+	if not _props_by_class.has(key):
+		var names := []
+		for prop in control.get_property_list():
+			var prop_name: String = prop["name"]
+			if prop_name.begins_with("theme_override_colors/") or prop_name.begins_with("theme_override_styles/"):
+				names.append(prop_name)
+		_props_by_class[key] = names
+	return _props_by_class[key]
 
 func _recolor_style(style: StyleBoxFlat) -> void:
 	style.bg_color = _remap(style, "bg_color", style.bg_color, "fill")

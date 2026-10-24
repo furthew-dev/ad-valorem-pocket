@@ -5,10 +5,11 @@ extends Node
 
 signal added(entry: Dictionary)
 
-const MAX_ENTRIES := 400
+const MAX_ENTRIES := 200   # older lines are dropped (and only these are saved)
 
 # kind: "info" (banners), "error", "gain", "loss", "fortuna_good", "fortuna_bad", "round", "notice"
 var entries: Array = []   # oldest first: {text, kind, round, time}
+var dirty := false        # changed since SaveGame last stored it
 
 
 func _ready() -> void:
@@ -20,14 +21,16 @@ func _ready() -> void:
 
 func clear() -> void:
 	entries.clear()
+	dirty = true
 
 func add(text: String, kind: String = "info") -> void:
 	if text.strip_edges() == "":
 		return
 	var entry := {"text": text, "kind": kind, "round": Global.ROUND, "time": Time.get_time_string_from_system()}
 	entries.append(entry)
-	if entries.size() > MAX_ENTRIES:
+	if entries.size() > MAX_ENTRIES + 20:   # trim in chunks, not on every line
 		entries = entries.slice(entries.size() - MAX_ENTRIES)
+	dirty = true
 	added.emit(entry)
 
 func _on_money(type: String, total: int, reason: String) -> void:
@@ -40,4 +43,8 @@ func snapshot() -> Array:
 	return entries.duplicate(true)
 
 func restore(saved: Array) -> void:
-	entries = saved.duplicate(true)
+	entries = []
+	for entry in saved:   # only well-formed lines (an old or damaged save can't break the page)
+		if entry is Dictionary and entry.has("text"):
+			entries.append(entry)
+	dirty = false

@@ -1,0 +1,45 @@
+[gd_resource type="SpriteFrames" load_steps=3 format=3]
+
+[ext_resource type="Texture2D" path="res://Assets/icons/ad_valorem_logo.png" id="1_5w7q6"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ffdkx"]
+atlas = ExtResource("1_5w7q6")
+region = Rect2(0, 0, 1556, 2000)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ffdkx")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ffdkx")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ffdkx")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ffdkx")
+}, {
+"duration": 10.0,
+"texture": SubResource("AtlasTexture_ffdkx")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ffdkx")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ffdkx")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ffdkx")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ffdkx")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ffdkx")
+}],
+"loop": false,
+"name": &"intro3",
+"speed": 20.0
+}]

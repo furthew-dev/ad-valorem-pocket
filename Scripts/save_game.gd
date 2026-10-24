@@ -41,23 +41,34 @@ func _process(delta: float) -> void:
 
 func _notification(what: int) -> void:
 	if what in [NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_WM_CLOSE_REQUEST]:
-		save_if_changed()
+		save_if_changed(true)
 
 func _on_page_hidden(_args) -> void:
-	save_if_changed()
+	save_if_changed(true)
 
 func should_save() -> bool:
 	return Network.in_game and Network.is_online() and not Turns.game_over
 
 # Saves now if the game is running and anything changed since the last save.
-func save_if_changed() -> void:
+# The activity log isn't part of the "did anything change?" check (it's the biggest
+# thing and changes with every notice): it rides along when something else is saved, or
+# on its own at most every ACTIVITY_EVERY seconds, and always when the page is hidden.
+const ACTIVITY_EVERY := 5.0
+var _activity_saved_at := 0.0
+
+func save_if_changed(force_activity: bool = false) -> void:
 	if not should_save():
 		return
 	var snapshot := _snapshot()
 	var bytes := var_to_bytes(snapshot)
-	if bytes == _last_saved:
+	var now := Time.get_ticks_msec() / 1000.0
+	var activity_due := Activity.dirty and (force_activity or now - _activity_saved_at >= ACTIVITY_EVERY)
+	if bytes == _last_saved and not activity_due:
 		return
 	_last_saved = bytes
+	snapshot["private"]["activity"] = Activity.snapshot()
+	Activity.dirty = false
+	_activity_saved_at = now
 	snapshot["saved_at"] = int(Time.get_unix_time_from_system())
 	_write(var_to_bytes(snapshot))
 
@@ -87,9 +98,16 @@ func _snapshot() -> Dictionary:
 		snapshot["shared"] = _shared_state()
 	return snapshot
 
+var _storage: JavaScriptObject   # the browser's localStorage
+
+# Hands the text straight to localStorage. (It used to be pasted into a line of JavaScript
+# and run with eval, which made the browser read through the whole save every time.)
 func _write(bytes: PackedByteArray) -> void:
 	if OS.has_feature("web"):
-		JavaScriptBridge.eval("try { localStorage.setItem('%s', '%s'); } catch (e) {}" % [WEB_KEY, Marshalls.raw_to_base64(bytes)])
+		if _storage == null:
+			_storage = JavaScriptBridge.get_interface("localStorage")
+		if _storage:
+			_storage.setItem(WEB_KEY, Marshalls.raw_to_base64(bytes))
 		return
 	var file := FileAccess.open(save_path(), FileAccess.WRITE)
 	if file:
@@ -128,7 +146,6 @@ func _private_state() -> Dictionary:
 		"round_progress": Global.round_progress.duplicate(),
 		"settings": Network.game_settings.duplicate(),
 		"stats": Stats.snapshot(),
-		"activity": Activity.snapshot(),
 	}
 
 func _shared_state() -> Dictionary:

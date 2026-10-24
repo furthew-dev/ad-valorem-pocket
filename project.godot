@@ -16,6 +16,7 @@ config/features=PackedStringArray("4.4", "Mobile")
 boot_splash/bg_color=Color(0.32549, 0.235294, 0.266667, 1)
 boot_splash/image="uid://babce7gx3ptib"
 boot_splash/minimum_display_time=100
+run/low_processor_mode=true
 
 [autoload]
 
