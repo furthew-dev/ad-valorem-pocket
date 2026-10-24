@@ -11,6 +11,11 @@ extends Node
 signal waiting_changed(names: Array)   # names still playing; [] = nobody waiting
 signal round_started(number: int)
 signal results_ready
+signal countdown_changed(player_name: String, seconds: float)   # "" = no countdown
+signal poked_list_changed
+
+const LAST_PLAYER_TIME := 30.0   # once everyone else has ended their turn, the last player has this long
+const FORCE_GRACE := 5.0         # host: then this long for their phone to answer before ending it for them
 
 const CURTAIN_COLOR := Color("533c44")
 const HOME_SCENE := "res://Scenes/home_screen.tscn"
@@ -28,6 +33,17 @@ var final_results: Array = []      # [{name, net_worth}], best first
 var _finished: Dictionary = {}     # host only: player token -> {cash, loans}
 var _final_reports: Dictionary = {}  # host only: peer id -> {name, net_worth}
 var _was_online := false
+
+# Last-player countdown (everyone sees it; the host runs it).
+var countdown_name := ""          # who it's counting down for ("" = none)
+var countdown_left := 0.0
+var _countdown_token := ""        # host: the last player's token
+var _countdown_deadline := 0.0    # host: when their time is up
+var _force_deadline := 0.0        # host: when we stop waiting for their phone and end it ourselves
+var _forced_token := ""
+
+# Pokes: each waiting player can poke each player they're waiting on once per round.
+var poked: Dictionary = {}        # names we've poked this round
 
 
 func _ready() -> void:
@@ -73,12 +89,19 @@ func _check_round() -> void:
 	for id in Network.players:
 		if not _finished.has(_token_of(id)):
 			still_playing.append(Network.players[id])
+	var still_tokens := []
+	for id in Network.players:
+		if not _finished.has(_token_of(id)):
+			still_tokens.append(_token_of(id))
 	for token in Network.away:
 		if not _finished.has(token):
 			still_playing.append("%s (reconnecting)" % Network.away[token])
+			still_tokens.append(token)
 	if not still_playing.is_empty():
 		_sync_waiting.rpc(still_playing)
+		_update_countdown(still_tokens, still_playing)
 		return
+	_stop_countdown()
 	var someone_won := false
 	for stats in _finished.values():
 		if _is_winner(stats["cash"], stats["loans"]):
@@ -94,6 +117,114 @@ func _check_round() -> void:
 func _sync_waiting(names: Array) -> void:
 	waiting_on = names
 	waiting_changed.emit(names)
+
+
+## ---- LAST PLAYER: 30 SECOND COUNTDOWN ----
+# Host: when everyone but one player has ended their turn, that player gets LAST_PLAYER_TIME
+# seconds; then their turn is ended for them and the round moves on.
+func _update_countdown(still_tokens: Array, still_names: Array) -> void:
+	var total := Network.players.size() + Network.away.size()
+	if still_tokens.size() != 1 or total < 2:
+		_stop_countdown()
+		return
+	if _countdown_token == still_tokens[0]:
+		return   # already counting down for them
+	_countdown_token = still_tokens[0]
+	_countdown_deadline = _now() + LAST_PLAYER_TIME
+	_force_deadline = 0.0
+	_sync_countdown.rpc(str(still_names[0]).trim_suffix(" (reconnecting)"), LAST_PLAYER_TIME)
+
+func _stop_countdown() -> void:
+	if _countdown_token == "" and countdown_name == "":
+		return
+	_countdown_token = ""
+	_force_deadline = 0.0
+	if multiplayer.is_server() and Network.is_online():
+		_sync_countdown.rpc("", 0.0)
+
+func _now() -> float:
+	return Time.get_ticks_msec() / 1000.0
+
+func _process(delta: float) -> void:
+	if countdown_name != "":
+		countdown_left = maxf(countdown_left - delta, 0.0)
+	if not (Network.is_online() and multiplayer.is_server()) or _countdown_token == "":
+		return
+	var now := _now()
+	if _force_deadline == 0.0 and now >= _countdown_deadline:
+		# Time's up: ask their phone to end the turn (it saves their cash / loans as usual).
+		_force_deadline = now + FORCE_GRACE
+		var id := _id_of_token(_countdown_token)
+		if id == 1:
+			_force_end_turn()   # it's the host's own turn
+		elif id != 0:
+			_force_end_turn.rpc_id(id)
+		else:
+			_end_for_them(_countdown_token)   # reconnecting: no phone to ask
+	elif _force_deadline > 0.0 and now >= _force_deadline:
+		_end_for_them(_countdown_token)   # their phone didn't answer
+
+func _id_of_token(token: String) -> int:
+	for id in Network.tokens:
+		if Network.tokens[id] == token and Network.players.has(id):
+			return id
+	return 0
+
+# Host: end a player's turn without hearing from them (they can't win this round).
+func _end_for_them(token: String) -> void:
+	_countdown_token = ""
+	_force_deadline = 0.0
+	if not _finished.has(token):
+		_finished[token] = {"cash": 0, "loans": 1}
+	_check_round()
+
+@rpc("authority", "call_local", "reliable")
+func _sync_countdown(player_name: String, seconds: float) -> void:
+	var was := countdown_name
+	countdown_name = player_name
+	countdown_left = seconds
+	countdown_changed.emit(player_name, seconds)
+	if player_name != "" and player_name == my_name() and was != player_name and not my_turn_done:
+		Sound.play("notify")
+		Global.banner("Everyone is waiting on you! %d seconds to end your turn." % int(seconds), "home")
+
+@rpc("authority", "call_local", "reliable")
+func _force_end_turn() -> void:
+	if my_turn_done or game_over:
+		return
+	Global.banner("Time's up! Your turn was ended.")
+	end_turn()
+
+
+# Our name as everyone else sees it (the host may have made it unique, e.g. "Sam 2").
+func my_name() -> String:
+	return Network.players.get(multiplayer.get_unique_id(), Global.PLAYER)
+
+
+## ---- POKES ----
+# Names we're waiting on that we may still poke this round (not reconnecting players).
+func pokeable() -> Array:
+	if not my_turn_done:
+		return []
+	return waiting_on.filter(func(n): return not str(n).ends_with("(reconnecting)") and not poked.has(n) and n != my_name())
+
+func poke(player_name: String) -> void:
+	if not player_name in pokeable():
+		return
+	for id in Network.players:
+		if Network.players[id] == player_name:
+			poked[player_name] = true
+			_receive_poke.rpc_id(id, my_name())
+			Sound.play("switch")
+			Global.banner("You poked %s." % player_name)
+			poked_list_changed.emit()
+			return
+
+@rpc("any_peer", "reliable")
+func _receive_poke(from_name: String) -> void:
+	if my_turn_done:
+		return
+	Global.banner("%s is waiting on you!" % from_name, "home")
 
 func _on_players_changed() -> void:
 	if not (Network.in_game and multiplayer.is_server()):
@@ -156,6 +287,12 @@ func resend_turn_done() -> void:
 @rpc("authority", "call_local", "reliable")
 func _start_round(number: int) -> void:
 	waiting_on = []
+	poked.clear()
+	countdown_name = ""
+	if multiplayer.is_server():
+		_countdown_token = ""
+		_force_deadline = 0.0
+	countdown_changed.emit("", 0.0)
 	waiting_changed.emit([])
 	await _play_curtain("Round %d" % number, HOME_SCENE, func():
 		Global.ROUND = number
@@ -211,7 +348,7 @@ func _end_game() -> void:
 	waiting_on = []
 	waiting_changed.emit([])
 	final_results = []
-	var report := {"name": Global.PLAYER, "net_worth": Global.net_worth()}
+	var report := {"name": Global.PLAYER, "net_worth": Global.net_worth(), "stats": Stats.report()}
 	if Network.is_online():
 		_report_final.rpc_id(1, report)
 	else:
@@ -264,6 +401,10 @@ func reset(clear_save: bool = true) -> void:
 		SaveGame.clear()
 	my_turn_done = false
 	waiting_on = []
+	poked.clear()
+	countdown_name = ""
+	_countdown_token = ""
+	_force_deadline = 0.0
 	game_over = false
 	final_results = []
 	_finished.clear()

@@ -23,6 +23,7 @@ var button_group := ButtonGroup.new()
 var selected_card: Dictionary = {}
 var build_lot: Dictionary = {}   # the empty lot being built on (build mode only)
 var _loan_offer_open := false    # the "take a loan?" question or the loan form is up
+var _purchase_loan := 0          # number of the loan taken on this screen to pay for the purchase
 
 
 func _ready() -> void:
@@ -90,6 +91,8 @@ func _on_purchase_btn_pressed() -> void:
 
 	# Move the bought card into the hand; the rest go back into the shared deck.
 	Cards.properties_revealed.erase(selected_card)
+	if _purchase_loan != 0:
+		selected_card["loan_number"] = _purchase_loan   # property details shows what's still owed
 	Cards.properties_owned.append(selected_card)
 	Cards.return_revealed()
 
@@ -106,6 +109,7 @@ func _yes_take_loan(amount: int = -1) -> void:
 	await loan.tree_exited
 	_loan_offer_open = false
 	if Global.loans.size() > loans_before:
+		_purchase_loan = Global.loans[-1]["loan_number"]
 		Global.banner("New loan of $%d added. You can now purchase." % Global.loans[-1]["loan_balance"])
 
 
@@ -172,6 +176,8 @@ func _build_selected() -> void:
 	Actions.consume("contractor")
 	Global.action_used()
 	var built := Cards.build_on_lot(build_lot, property_name, condition)
+	if _purchase_loan != 0:
+		built["loan_number"] = _purchase_loan
 	Global.build_lot_id = 0
 	Global.new_property = true
 	Global.new_property_name = "%s (built on %s)" % [built["name"], build_lot["name"]]

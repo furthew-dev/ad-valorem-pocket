@@ -24,10 +24,22 @@ func _ready() -> void:
 	listing_agent_toggle.disabled = not Actions.actions_owned.has("listing_agent")
 	for toggle in [listing_agent_toggle, ps_toggle]:
 		InkBox.soft_hover(toggle)
+		_match_realtor_page(toggle.get_parent() as Panel)
 	var property := _selected_property()
 	if not property.is_empty():
 		property_icon.texture = Cards.round_icon(property["art"])
 		property_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED   # stay round in any box
+
+# The choice boxes use the same dark sage as the Realtor / Buy Solo page, so the white
+# writing reads in every theme (the light olive they had turned pale in some themes).
+func _match_realtor_page(box: Panel) -> void:
+	if box == null:
+		return
+	var style := box.get_theme_stylebox("panel")
+	if style is StyleBoxFlat:
+		var sage: StyleBoxFlat = style.duplicate()
+		sage.bg_color = Color("5d6558")
+		box.add_theme_stylebox_override("panel", sage)
 
 func _selected_property() -> Dictionary:
 	for property in Cards.properties_owned:
@@ -81,6 +93,7 @@ func _on_sell_btn_pressed() -> void:
 # register) arrives now, or the crowd groans.
 func _on_result_revealed(price: int) -> void:
 	if Global.SOLD:
+		Stats.add("sales")
 		Global.add_cash(price, "Property Sale")
 	else:
 		Sound.play("aww")

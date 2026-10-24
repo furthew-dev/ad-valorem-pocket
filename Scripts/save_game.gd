@@ -127,6 +127,7 @@ func _private_state() -> Dictionary:
 		"turn_done": Turns.my_turn_done,
 		"round_progress": Global.round_progress.duplicate(),
 		"settings": Network.game_settings.duplicate(),
+		"stats": Stats.snapshot(),
 	}
 
 func _shared_state() -> Dictionary:
@@ -178,6 +179,7 @@ func restore_private(snapshot: Dictionary) -> void:
 	Global.CASH = p["cash"]
 	Global.ACTIONS = p["actions"]
 	Global.round_progress = p.get("round_progress", {}).duplicate()
+	Stats.restore(p.get("stats", {}))
 	Global.erase_scenes()
 
 # Host only: the shared market and decks.

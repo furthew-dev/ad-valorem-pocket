@@ -225,6 +225,7 @@ func _close(winner_id: int, winner_name: String, bid: int) -> void:
 		_pay(bid)
 		var won := item.duplicate(true)
 		Cards.properties_owned.append(won)
+		Stats.add("auctions_won")
 		Global.banner("You won the %s for $%d!" % [item["name"], bid])
 	elif me != owner_id:
 		if winner_id == 0:

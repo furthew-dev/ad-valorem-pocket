@@ -741,11 +741,13 @@ func _wait_turn() -> void:
 # Called from My Actions. Spends the token and an action; the target plays a Fortuna for us.
 func sabotage(target_id: int) -> void:
 	_receive_sabotage.rpc_id(target_id, Global.PLAYER)
+	Stats.add("sabotages_sent")
 	Global.banner("You sabotaged %s!" % Network.players.get(target_id, "them"))
 
 @rpc("any_peer", "reliable")
 func _receive_sabotage(saboteur_name: String) -> void:
 	var saboteur_id := multiplayer.get_remote_sender_id()
+	Stats.add("sabotages_received")
 	# The whole sabotage (red screen, Just Say No question, the Fortuna) is one turn: when
 	# several players sabotage you at once they queue up and play one after another.
 	await _wait_turn()
@@ -779,6 +781,7 @@ func offer_just_say_no(question: String) -> bool:
 		return false
 	fortunas_owned.remove_at(index)
 	Sound.play("shield")
+	Stats.add("blocks")
 	return true
 
 # A beneficial card drawn by our victim: we get it, so it resolves here.

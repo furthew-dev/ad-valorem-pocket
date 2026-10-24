@@ -57,6 +57,24 @@ func layout(body: String, first_btn: String, second_btn: String) -> void:
 	yes.visible = second_btn != ""
 	_fit_button_text()
 
+# "Starting server..." -> the dots count . .. ... in a loop. The full text stays laid out
+# (the hidden dots still take their space), so the words don't shift as the dots appear.
+func animate_dots(interval: float = 0.45) -> void:
+	var text := question.text
+	if not text.ends_with("..."):
+		return
+	question.visible_characters_behavior = TextServer.VC_CHARS_AFTER_SHAPING
+	var base := text.length() - 3
+	var dots := 1
+	question.visible_characters = base + dots
+	var timer := Timer.new()
+	timer.wait_time = interval
+	timer.autostart = true
+	add_child(timer)
+	timer.timeout.connect(func():
+		dots = dots % 3 + 1
+		question.visible_characters = base + dots)
+
 # Adds a small one-line note under the question (e.g. "The server may take a moment...").
 # The text shrinks to fit the width of the paper.
 func add_note(text: String, size: int = 30) -> Label:

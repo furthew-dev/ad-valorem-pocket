@@ -80,6 +80,7 @@ const LINKS := {
 	"market": ["res://Scenes/market_actions.tscn", "the Market"],
 	"my_properties": ["res://Scenes/my_properties.tscn", "My Properties"],
 	"my_actions": ["res://Scenes/my_actions.tscn", "My Actions"],
+	"my_loans": ["res://Scenes/my_loans.tscn", "My Loans"],
 	"home": ["res://Scenes/home_screen.tscn", "Home"],   # "Tap to open Home"
 }
 
@@ -113,6 +114,7 @@ func show_notice(message: String) -> void:
 # Every player runs this when the game starts. Private state only; the shared
 # decks/stock were already set up by the host (Market.setup_new_game).
 func start_game() -> void:
+	Stats.reset()
 	A_CAPACITY = 3
 	PROPERTY_CAPACITY = 4
 	loans.clear()
@@ -311,6 +313,8 @@ func take_loan(amount: int) -> Dictionary:
 	var loan = {"loan_number": randi_range(100000, 999999), "loan_balance": amount}
 	loans.append(loan)
 	new_loan = true
+	Stats.add("loans")
+	Stats.add("borrowed", amount)
 	return loan
 
 func pay_loan(loan_number: int, amount: int) -> bool:
@@ -331,6 +335,7 @@ func pay_loan(loan_number: int, amount: int) -> bool:
 
 # A loan just hit $0: confetti!
 func _celebrate_paid_off(loan_number: int) -> void:
+	Stats.add("loans_paid_off")
 	ConfettiFx.play(get_tree())
 	Sound.play("saved")
 	banner("Loan #%d is paid off!" % loan_number if all_loans() > 0 else "Loan paid off! You're debt free!")

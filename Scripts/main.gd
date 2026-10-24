@@ -94,6 +94,7 @@ func _name_problem(raw: String) -> String:
 func _show_waiting(text: String) -> void:
 	_waiting_popup = _new_popup(text, "Cancel", "")
 	_waiting_popup.add_note("The server may take a moment to wake up.")
+	_waiting_popup.animate_dots()
 	_waiting_popup.left_sound = "back"
 	_waiting_popup.left_pressed.connect(func():
 		_waiting_popup = null

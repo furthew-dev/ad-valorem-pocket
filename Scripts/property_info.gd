@@ -57,6 +57,9 @@ func _ready() -> void:
 	for highlight in [excellent_condition, good_condition, fair_condition, poor_condition]:
 		highlight.z_index = 0
 		highlight.show_behind_parent = true
+		var row := highlight.get_parent().get_parent() as Control   # label -> its row
+		row.resized.connect(_stretch_highlight.bind(highlight))
+		_stretch_highlight.call_deferred(highlight)
 	for p in Cards.properties_owned:
 		if p.get("id") == Cards.selected_id:
 			current_property = p
@@ -83,6 +86,7 @@ func setup_card() -> void:
 	text_edit.text = str(details["p_details"])
 	if details.get("has_golden_lock", false):
 		text_edit.text += "\n\nGolden Lock: protected from harm and can't be sold."
+	_show_purchase_loan(details)
 
 	if details["has_condition"]:
 		var condition: String = details["condition"]
@@ -264,6 +268,39 @@ func _has_action_left() -> bool:
 		Global.error("You are out of Actions. End your turn for more.", "home")
 		return false
 	return true
+
+# Bought (or built) with a loan: say what's still owed on it, with a button to My Loans.
+var _loan_button: Button
+
+func _show_purchase_loan(details: Dictionary) -> void:
+	var loan: Dictionary = {}
+	for l in Global.loans:
+		if l["loan_number"] == details.get("loan_number", -1):
+			loan = l
+	if loan.is_empty():
+		if _loan_button:
+			_loan_button.visible = false
+		return
+	text_edit.text += "\n\nBought with Loan #%d: $%d still owed." % [loan["loan_number"], loan["loan_balance"]]
+	if _loan_button == null:
+		_loan_button = Button.new()
+		_loan_button.add_theme_font_size_override("font_size", 24)
+		_loan_button.custom_minimum_size = Vector2(0, 52)
+		_loan_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		InkBox.apply(_loan_button, Color("ddcf99"))
+		_loan_button.pressed.connect(func(): Global.open_link("my_loans"))
+		text_edit.add_sibling(_loan_button)
+	_loan_button.text = "  View loan ($%d owed)  >  " % loan["loan_balance"]
+	_loan_button.visible = true
+
+# The highlight lives inside the condition's label; make it span the whole row (label,
+# value and rent) at any screen width.
+func _stretch_highlight(highlight: Control) -> void:
+	var label := highlight.get_parent() as Control
+	var row := label.get_parent() as Control
+	highlight.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	highlight.position = Vector2(-label.position.x + 6, 0)
+	highlight.size = Vector2(row.size.x - 12, label.size.y)
 
 # A sabotage, auction or swap can take this property while its page is open.
 func _still_owned() -> bool:

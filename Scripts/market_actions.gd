@@ -18,11 +18,33 @@ var _confirming := false                # the "are you sure" pop-up is open (ign
 func _ready() -> void:
 	buy.disabled = true
 	button_group.pressed.connect(_on_group_pressed)
+	_keep_list_phone_width()
 	for action_data in Actions.action_types:
 		var card_instance = ACTION_CARD_SCENE.instantiate()
 		list_of_actions.add_child(card_instance)
 		card_instance.setup_card(action_data, button_group)
 	Market.stock_changed.connect(_on_stock_changed)   # someone (maybe another player) bought one
+
+# On a wide screen (desktop browser) the rows stay phone-width and centred, so each
+# token's name, line and price stay close together.
+const MAX_LIST_WIDTH := 720.0
+
+func _keep_list_phone_width() -> void:
+	var scroll := list_of_actions.get_parent() as ScrollContainer
+	if scroll == null:
+		return
+	# A full-width row that centres the list inside the scroll area.
+	var centre := HBoxContainer.new()
+	centre.alignment = BoxContainer.ALIGNMENT_CENTER
+	centre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	list_of_actions.reparent(centre, false)
+	scroll.add_child(centre)
+	list_of_actions.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var fit := func():
+		list_of_actions.custom_minimum_size.x = minf(MAX_LIST_WIDTH, scroll.size.x)
+	scroll.resized.connect(fit)
+	fit.call()
 
 func _on_stock_changed(key: String, _stock: int) -> void:
 	if key == _buying_key:
@@ -37,7 +59,7 @@ func _key_of(action: Dictionary) -> String:
 func _on_group_pressed(button: BaseButton) -> void:
 	Sound.play("switch")
 	buy.disabled = false
-	selected_card = button.owner   # the button belongs to the card scene
+	selected_card = button.get_meta("row", button.owner)   # the row the button belongs to
 	selected_action = selected_card.selected_card_data
 
 func _on_buy_pressed() -> void:
@@ -98,6 +120,9 @@ func _on_popup_confirm() -> void:
 		_show_message("You don't have enough funds.")
 		return
 
+	Stats.add("actions_bought")
+	if key == "certificate_of_deposit":
+		Stats.add("investments")
 	var where := "your inventory"
 	match key:
 		"llc":

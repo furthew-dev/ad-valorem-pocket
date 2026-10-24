@@ -23,6 +23,42 @@ func setup_card(action_data: Dictionary, group: ButtonGroup) -> void:
 	cost.text = "$%d" % action_data.get("cost", 0)
 	_set_shown_stock(action_data.get("stock", 0))
 	button.button_group = group
+	_make_row_button()
+
+# The select button covers the whole row (behind the icon and text), and its hover and
+# selected looks use the palette instead of the engine's greys, so they follow the theme.
+func _make_row_button() -> void:
+	button.set_meta("row", self)
+	button.reparent(self, false)
+	move_child(button, 0)   # drawn behind the row's content
+	button.custom_minimum_size = Vector2.ZERO
+	button.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	button.offset_top = 4
+	button.offset_bottom = -4
+	var normal := StyleBoxEmpty.new()
+	var hover := _row_style(Color(Color("ddcf99"), 0.16), Color(0, 0, 0, 0))
+	var picked := _row_style(Color(Color("533c44"), 0.45), Color(Color("ddcf99"), 0.9))
+	for state in ["normal", "normal_mirrored", "focus", "disabled"]:
+		button.add_theme_stylebox_override(state, normal)
+	for state in ["hover", "hover_mirrored"]:
+		button.add_theme_stylebox_override(state, hover)
+	for state in ["pressed", "pressed_mirrored", "hover_pressed", "hover_pressed_mirrored"]:
+		button.add_theme_stylebox_override(state, picked)
+	_let_taps_through($Panel)   # taps anywhere on the row reach the button
+
+func _row_style(fill: Color, border: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_color = border
+	style.set_border_width_all(3 if border.a > 0 else 0)
+	style.set_corner_radius_all(22)
+	return style
+
+func _let_taps_through(node: Node) -> void:
+	if node is Control:
+		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		_let_taps_through(child)
 
 # Animates the stock label to the card's current stock: counts down, flashes and pops.
 func update_stock() -> void:

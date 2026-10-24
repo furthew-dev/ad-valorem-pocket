@@ -31,27 +31,54 @@ func _show_final_summary() -> void:
 	player_name.text = "Final Summary: %s" % Global.PLAYER
 	make_payment.text = "OK"
 	ui_menu_frame.custom_navigation = true   # Home / Back do nothing now
+	balances.add_child(_property_icons())
 	var owned := Label.new()
 	owned.text = _owned_text()
 	owned.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	owned.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	owned.add_theme_font_size_override("font_size", 22)
 	balances.add_child(owned)
-	balances.move_child(owned, balances.get_child_count() - 1)
+
+const ICON_SIZE := 78
+
+# Your properties as a row of small round pictures. Tap one to see its name and value.
+func _property_icons() -> Control:
+	var flow := HFlowContainer.new()
+	flow.alignment = FlowContainer.ALIGNMENT_CENTER
+	flow.add_theme_constant_override("h_separation", 10)
+	flow.add_theme_constant_override("v_separation", 10)
+	for p in Cards.properties_owned:
+		var icon := TextureRect.new()
+		icon.texture = Cards.round_icon(p["art"])
+		icon.custom_minimum_size = Vector2(ICON_SIZE, ICON_SIZE)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.tooltip_text = _property_caption(p)
+		icon.gui_input.connect(func(event: InputEvent):
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				Sound.play("click")
+				Global.banner(_property_caption(p)))
+		flow.add_child(icon)
+	if Cards.properties_owned.is_empty():
+		var none := Label.new()
+		none.text = "No properties"
+		none.add_theme_font_size_override("font_size", 22)
+		flow.add_child(none)
+	return flow
+
+func _property_caption(p: Dictionary) -> String:
+	var condition: String = str(p.get("condition", ""))
+	var name_text: String = p["name"] if condition == "" else "%s (%s)" % [p["name"], condition.capitalize()]
+	return "%s: worth $%d" % [name_text, p.get("value", 0)]
 
 func _owned_text() -> String:
-	var properties := PackedStringArray()
-	for p in Cards.properties_owned:
-		properties.append(p["name"] if p["condition"] == "" else "%s (%s)" % [p["name"], p["condition"]])
 	var tokens := {}
 	for key in Actions.actions_owned:
 		tokens[key] = tokens.get(key, 0) + 1
 	var token_text := PackedStringArray()
 	for key in tokens:
 		token_text.append("%s x%d" % [Actions.all_actions[key]["name"], tokens[key]])
-	return "Properties: %s\nActions: %s" % [
-		", ".join(properties) if not properties.is_empty() else "none",
-		", ".join(token_text) if not token_text.is_empty() else "none"]
+	return "Actions: %s" % (", ".join(token_text) if not token_text.is_empty() else "none")
 
 func _on_make_payment_pressed() -> void:
 	if Turns.game_over:

@@ -52,6 +52,7 @@ var _banner_rest: Vector2       # anim_frame's on-screen / off-screen spots (fro
 var _banner_hidden: Vector2
 var _money_origin: Vector2
 var _banner_root: Control       # banners live here, on their own layer above the screen
+var _layer: CanvasLayer
 var _waiting_bar: PanelContainer
 var _waiting_label: Label
 
@@ -149,14 +150,9 @@ func _setup_banner_templates() -> void:
 	_money_origin = MONEY_POSITION
 	anim_frame.visible = false
 	income_loss.visible = false
-	# Banners get their own layer, so a tappable one is on top for taps too (not only for
-	# drawing): otherwise the screen's own buttons and pictures under it would take the tap.
-	var layer := CanvasLayer.new()
-	layer.layer = 2   # above the screens; pop-ups (also 2, added later) and Fortuna cards stay on top
-	add_child(layer)
 	_banner_root = Control.new()
 	_banner_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layer.add_child(_banner_root)
+	_top_layer().add_child(_banner_root)
 
 # Message banner: slides in from the right, holds, slides back out (2.5 s).
 # `link` (a Global.LINKS key): the banner can be tapped while it shows to open that screen,
@@ -275,34 +271,122 @@ func _remove_from_stack(node: Control, stack: Array[Control], top: float, spacin
 		run_animation(next[0], next[1])
 
 
+# Banners and the waiting bar get their own layer, so a tappable one is on top for taps too
+# (not only for drawing): otherwise the screen's own buttons and pictures under it would
+# take the tap.
+func _top_layer() -> CanvasLayer:
+	if _layer == null:
+		_layer = CanvasLayer.new()
+		# One above the layer this frame's screen is drawn on: above a normal screen (so
+		# pop-ups, added later on layer 2, still cover it) and above a Fortuna card when the
+		# frame belongs to the card.
+		var own := get_canvas_layer_node()
+		_layer.layer = (own.layer if own else 1) + 1
+		add_child(_layer)
+	return _layer
+
+
 ## ---- WAITING BAR (after End Turn) ----
-# A permanent strip under the header: "Waiting on: Sam, Jo".
+# A strip above the bottom bar: "Waiting on: Sam, Jo" (tap to poke them), or, when everyone
+# is waiting on YOU, a red strip with the seconds left to end your turn (tap to go Home).
+const URGENT_BG := Color("c94040")
+const WAITING_BAR_BOTTOM := 200.0   # distance from the bottom of the screen
+var _waiting_style: StyleBoxFlat
+var _waiting_hint: Label
+
 func _build_waiting_bar() -> void:
+	var holder := Control.new()   # full screen, like this frame
+	holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_top_layer().add_child(holder)
 	_waiting_bar = PanelContainer.new()
-	_waiting_bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	# Just above the Back / Home / Menu bar, so it never collides with the banners up top.
+	_waiting_bar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	_waiting_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_waiting_bar.offset_left = 30
 	_waiting_bar.offset_right = -30
-	_waiting_bar.offset_top = 165
+	_waiting_bar.offset_top = 0
+	_waiting_bar.offset_bottom = -WAITING_BAR_BOTTOM
 	_waiting_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := StyleBoxFlat.new()
-	style.bg_color = WAITING_BG
-	style.set_corner_radius_all(24)
-	style.content_margin_left = 20
-	style.content_margin_right = 20
-	style.content_margin_top = 8
-	style.content_margin_bottom = 8
-	_waiting_bar.add_theme_stylebox_override("panel", style)
+	_waiting_style = StyleBoxFlat.new()
+	_waiting_style.bg_color = WAITING_BG
+	_waiting_style.set_corner_radius_all(24)
+	_waiting_style.content_margin_left = 20
+	_waiting_style.content_margin_right = 20
+	_waiting_style.content_margin_top = 8
+	_waiting_style.content_margin_bottom = 8
+	_waiting_bar.add_theme_stylebox_override("panel", _waiting_style)
+	var lines := VBoxContainer.new()
+	lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lines.add_theme_constant_override("separation", 0)
 	_waiting_label = Label.new()
 	_waiting_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_waiting_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_waiting_label.add_theme_font_size_override("font_size", 26)
-	_waiting_bar.add_child(_waiting_label)
+	lines.add_child(_waiting_label)
+	_waiting_hint = Label.new()
+	_waiting_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_waiting_hint.add_theme_font_size_override("font_size", 18)
+	_waiting_hint.modulate.a = 0.85
+	lines.add_child(_waiting_hint)
+	_waiting_bar.add_child(lines)
+	_waiting_bar.gui_input.connect(_on_waiting_bar_input)
 	_waiting_bar.visible = false
-	add_child(_waiting_bar)
+	holder.add_child(_waiting_bar)
+	Turns.countdown_changed.connect(func(_n, _s): _refresh_waiting_bar())
+	Turns.poked_list_changed.connect(_refresh_waiting_bar)
 
-func _on_waiting_changed(names: Array) -> void:
+func _on_waiting_changed(_names: Array) -> void:
+	_refresh_waiting_bar()
+
+func _urgent() -> bool:   # everyone is waiting on me
+	return Turns.countdown_name != "" and Turns.countdown_name == Turns.my_name() and not Turns.my_turn_done
+
+func _refresh_waiting_bar() -> void:
+	if _waiting_bar == null:
+		return
+	var names := Turns.waiting_on
+	if _urgent():
+		_waiting_bar.visible = true
+		_waiting_style.bg_color = URGENT_BG
+		_waiting_label.text = "Everyone is waiting on you! %ds" % ceili(Turns.countdown_left)
+		_waiting_hint.text = "Tap to go Home and end your turn"
+		_waiting_hint.visible = true
+		_waiting_bar.mouse_filter = Control.MOUSE_FILTER_STOP
+		return
+	_waiting_style.bg_color = WAITING_BG
 	_waiting_bar.visible = Turns.my_turn_done and not names.is_empty()
-	_waiting_label.text = "Turn ended. Waiting on: " + ", ".join(PackedStringArray(names))
+	var shown := []
+	for n in names:
+		shown.append("%s (%ds)" % [n, ceili(Turns.countdown_left)] if n == Turns.countdown_name else str(n))
+	_waiting_label.text = "Turn ended. Waiting on: " + ", ".join(PackedStringArray(shown))
+	var can_poke := not Turns.pokeable().is_empty()
+	_waiting_hint.visible = can_poke
+	_waiting_hint.text = "Tap to poke them"
+	_waiting_bar.mouse_filter = Control.MOUSE_FILTER_STOP if can_poke else Control.MOUSE_FILTER_IGNORE
+
+func _process(_delta: float) -> void:
+	if Turns.countdown_name != "" and _waiting_bar and _waiting_bar.visible:
+		_refresh_waiting_bar()   # the seconds tick down
+
+func _on_waiting_bar_input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	if _urgent():
+		Global.open_link("home")
+		return
+	var names := Turns.pokeable()
+	if names.is_empty():
+		return
+	if names.size() == 1:
+		Turns.poke(names[0])
+		return
+	var menu = load("res://Scripts/choice_menu.gd").new()
+	get_tree().root.add_child(menu)
+	menu.setup("Poke who? (once each per round)", names + ["Cancel"])
+	var choice = await menu.chosen
+	if choice != "Cancel":
+		Turns.poke(choice)
 
 
 ## ---- BUTTONS ----
