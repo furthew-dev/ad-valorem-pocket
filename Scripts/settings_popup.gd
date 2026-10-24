@@ -36,8 +36,8 @@ func _build() -> void:
 
 	var box := VBoxContainer.new()   # same writing area as pop_up.tscn
 	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	box.offset_left = -179
-	box.offset_right = 221
+	box.offset_left = -175   # centred on the paper, with a margin each side
+	box.offset_right = 175
 	box.offset_top = -230
 	box.offset_bottom = 290
 	box.add_theme_constant_override("separation", 10)

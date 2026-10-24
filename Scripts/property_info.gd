@@ -98,6 +98,7 @@ func setup_card() -> void:
 		fair_condition.visible = condition == "fair"
 		poor_condition.visible = condition == "poor"
 		contractor.visible = Actions.actions_owned.has("contractor") and condition != "excellent"
+		_nudge_contractor()
 	else:
 		# Fixed-value property: only the single value/rent row is meaningful.
 		excellent.visible = false
@@ -332,6 +333,55 @@ func _on_add_skybnb_pressed() -> void:
 	Actions.consume("skybnb")
 	Global.banner("SkyBnB applied. Rent doubled.")
 	_refresh(before)
+
+# A Contractor could upgrade this property: the hammer gives a little shake every couple
+# of seconds and an "Upgrade?" tag (like the money notices) sits beside it. Tapping
+# either uses the Contractor.
+const NUDGE_GREEN := Color("4c9a52")
+var _upgrade_tag: Panel
+var _nudge_tween: Tween
+
+func _nudge_contractor() -> void:
+	if _nudge_tween:
+		_nudge_tween.kill()
+		_nudge_tween = null
+	contractor.rotation = 0.0
+	contractor.scale = Vector2.ONE
+	if _upgrade_tag:
+		_upgrade_tag.visible = contractor.visible
+	if not contractor.visible:
+		return
+	if _upgrade_tag == null:
+		_upgrade_tag = Panel.new()
+		var style := StyleBoxFlat.new()
+		style.bg_color = NUDGE_GREEN.darkened(0.15)
+		style.set_corner_radius_all(26)
+		_upgrade_tag.add_theme_stylebox_override("panel", style)
+		var label := Label.new()
+		label.text = "Upgrade?"
+		label.add_theme_font_size_override("font_size", 26)
+		label.add_theme_color_override("font_color", Color("f6f2e1"))
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_upgrade_tag.add_child(label)
+		_upgrade_tag.size = Vector2(150, 52)
+		_upgrade_tag.position = contractor.position + Vector2(contractor.size.x + 10, (contractor.size.y - 52) / 2.0)
+		_upgrade_tag.z_index = contractor.z_index
+		_upgrade_tag.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		_upgrade_tag.gui_input.connect(func(event: InputEvent):
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				_on_use_contractor_pressed())
+		contractor.add_sibling(_upgrade_tag)   # beside the hammer, so it doesn't shake with it
+		_upgrade_tag.modulate.a = 0.0
+		_upgrade_tag.create_tween().tween_property(_upgrade_tag, "modulate:a", 1.0, 0.4).set_delay(0.3)
+	contractor.pivot_offset = contractor.size / 2.0
+	_nudge_tween = contractor.create_tween().set_loops()
+	_nudge_tween.tween_interval(1.6)
+	for angle in [0.18, -0.18, 0.14, -0.12, 0.06, 0.0]:
+		_nudge_tween.tween_property(contractor, "rotation", angle, 0.06)
+	_nudge_tween.parallel().tween_property(contractor, "scale", Vector2.ONE, 0.1)
 
 func _on_use_contractor_pressed() -> void:
 	if not _has_action_left():

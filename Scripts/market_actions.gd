@@ -136,6 +136,7 @@ func _on_popup_confirm() -> void:
 			Actions.actions_owned.append(key)
 	Global.action_used()
 
+	Activity.add("Bought %s for $%d" % [action_name, selected_action["cost"]], "info")
 	await _show_message("%s has been added to %s." % [action_name, where])
 	_buying_key = ""
 	if is_instance_valid(card):

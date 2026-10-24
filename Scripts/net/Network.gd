@@ -16,7 +16,7 @@ signal host_away(seconds: int)   # the host dropped; the relay holds the room fo
 signal host_back
 
 # Host-adjustable game settings (lobby > Game Settings). Synced to everyone.
-const DEFAULT_SETTINGS := {"start_cash": 20, "start_properties": 4, "end_goal": 200}
+const DEFAULT_SETTINGS := {"start_cash": 20, "start_properties": 4, "end_goal": 200, "turn_timer": true}
 const SETTING_LIMITS := {"start_cash": [0, 100], "start_properties": [0, 4], "end_goal": [100, 750]}
 
 const MAX_PLAYERS := 8

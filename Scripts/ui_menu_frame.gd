@@ -329,7 +329,22 @@ func _build_waiting_bar() -> void:
 	_waiting_hint.add_theme_font_size_override("font_size", 18)
 	_waiting_hint.modulate.a = 0.85
 	lines.add_child(_waiting_hint)
-	_waiting_bar.add_child(lines)
+	lines.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var row := HBoxContainer.new()   # the message, and an × to put it away
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 6)
+	row.add_child(lines)
+	var close := Button.new()
+	close.text = "×"
+	close.flat = true
+	close.focus_mode = Control.FOCUS_NONE
+	close.custom_minimum_size = Vector2(56, 56)
+	close.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	close.add_theme_font_size_override("font_size", 40)
+	close.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	close.pressed.connect(_dismiss_waiting_bar)
+	row.add_child(close)
+	_waiting_bar.add_child(row)
 	_waiting_bar.gui_input.connect(_on_waiting_bar_input)
 	_waiting_bar.visible = false
 	holder.add_child(_waiting_bar)
@@ -342,8 +357,23 @@ func _on_waiting_changed(_names: Array) -> void:
 func _urgent() -> bool:   # everyone is waiting on me
 	return Turns.countdown_name != "" and Turns.countdown_name == Turns.my_name() and not Turns.my_turn_done
 
+# The × hides the bar (it can sit over a screen's own buttons) until something changes:
+# someone else finishes, a countdown starts... Remembered across screens.
+static var _dismissed_key := "-"
+
+func _waiting_key() -> String:
+	return "%s|%s|%s|%s|%d" % [_urgent(), Turns.my_turn_done, Turns.waiting_on, Turns.countdown_name, Global.ROUND]
+
+func _dismiss_waiting_bar() -> void:
+	Sound.play("back")
+	_dismissed_key = _waiting_key()
+	_waiting_bar.visible = false
+
 func _refresh_waiting_bar() -> void:
 	if _waiting_bar == null:
+		return
+	if _waiting_key() == _dismissed_key:
+		_waiting_bar.visible = false
 		return
 	var names := Turns.waiting_on
 	if _urgent():
@@ -366,7 +396,7 @@ func _refresh_waiting_bar() -> void:
 	_waiting_bar.mouse_filter = Control.MOUSE_FILTER_STOP if can_poke else Control.MOUSE_FILTER_IGNORE
 
 func _process(_delta: float) -> void:
-	if Turns.countdown_name != "" and _waiting_bar and _waiting_bar.visible:
+	if Turns.countdown_name != "" and _waiting_bar and (_waiting_bar.visible or _urgent()):
 		_refresh_waiting_bar()   # the seconds tick down
 
 func _on_waiting_bar_input(event: InputEvent) -> void:

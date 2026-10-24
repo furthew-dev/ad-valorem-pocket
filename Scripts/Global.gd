@@ -68,11 +68,13 @@ func _ready() -> void:
 # `link` makes the banner tappable while it shows: tapping opens that screen
 # (e.g. "You need a Contractor" -> the Market). See LINKS.
 func banner(message: String, link: String = "") -> void:
+	Activity.add(message, "info")
 	Sound.play("notify")
 	banner_requested.emit(message, link)
 
 # Same banner, with the error sound. Use for "you can't do that" messages.
 func error(message: String, link: String = "") -> void:
+	Activity.add(message, "error")
 	Sound.play("error")
 	banner_requested.emit(message, link)
 
@@ -105,6 +107,7 @@ func income_loss(type: String, total: int, reason: String = "") -> void:
 
 # Shows the standard pop-up with a single OK button and waits until it is closed.
 func show_notice(message: String) -> void:
+	Activity.add(message, "notice")
 	var popup = POPUP_SCENE.instantiate()
 	get_tree().root.add_child(popup)
 	popup.layout(message, "OK", "")
@@ -116,6 +119,7 @@ func show_notice(message: String) -> void:
 # decks/stock were already set up by the host (Market.setup_new_game).
 func start_game() -> void:
 	Stats.reset()
+	Activity.clear()
 	A_CAPACITY = 3
 	PROPERTY_CAPACITY = 4
 	loans.clear()

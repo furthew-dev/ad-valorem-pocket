@@ -98,6 +98,12 @@ func _on_sell_btn_pressed() -> void:
 		Actions.consume("listing_agent")
 	Global.SOLD = roll <= odds
 	print("Rolled %d, sold: %s" % [roll, Global.SOLD])
+	var sale_name: String = str(_selected_property().get("name", "Property"))
+	var how := "Listing Agent" if using_agent else "private sale"
+	if Global.SOLD:
+		Activity.add("Sold %s by %s (rolled %d)" % [sale_name, how, roll], "info")
+	else:
+		Activity.add("%s didn't sell by %s (rolled %d)" % [sale_name, how, roll], "error")
 	var price := 0
 	if Global.SOLD:
 		var property := _selected_property()

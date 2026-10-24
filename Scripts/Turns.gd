@@ -124,7 +124,7 @@ func _sync_waiting(names: Array) -> void:
 # seconds; then their turn is ended for them and the round moves on.
 func _update_countdown(still_tokens: Array, still_names: Array) -> void:
 	var total := Network.players.size() + Network.away.size()
-	if still_tokens.size() != 1 or total < 2:
+	if still_tokens.size() != 1 or total < 2 or not Network.game_settings.get("turn_timer", true):
 		_stop_countdown()
 		return
 	if _countdown_token == still_tokens[0]:

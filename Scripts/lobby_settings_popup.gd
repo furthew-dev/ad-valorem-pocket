@@ -16,6 +16,7 @@ const ROWS := [
 const ROW_FONT := 38
 
 var _boxes: Dictionary = {}   # key -> LineEdit
+var _timer_switch: InkSwitch
 var _buttons: Array = []
 var _error: Label
 
@@ -43,8 +44,8 @@ func _build() -> void:
 
 	var box := VBoxContainer.new()
 	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	box.offset_left = -179
-	box.offset_right = 221
+	box.offset_left = -175   # centred on the paper, with a margin each side
+	box.offset_right = 175
 	box.offset_top = -230
 	box.offset_bottom = 290
 	box.add_theme_constant_override("separation", 8)
@@ -83,6 +84,18 @@ func _build() -> void:
 		line.add_child(field)
 		box.add_child(line)
 		_boxes[key] = field
+
+	# Last-player timer: when everyone else has ended their turn, the last player gets
+	# 30 seconds before their turn is ended for them.
+	var timer_line := HBoxContainer.new()
+	var timer_label := _label("30s Last-Turn Timer:", ROW_FONT)
+	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	timer_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	timer_line.add_child(timer_label)
+	_timer_switch = InkSwitch.new()
+	_timer_switch.button_pressed = Network.game_settings.get("turn_timer", true)
+	timer_line.add_child(_timer_switch)
+	box.add_child(timer_line)
 
 	_error = _label("", 30)
 	_error.add_theme_color_override("font_color", ERROR_INK)
@@ -141,6 +154,7 @@ func current_values() -> Dictionary:
 	for key in _boxes:
 		var text: String = _boxes[key].text.strip_edges()
 		values[key] = int(text) if text.is_valid_int() else -1   # -1 fails the range check
+	values["turn_timer"] = _timer_switch.button_pressed
 	return values
 
 func _save() -> void:

@@ -32,6 +32,7 @@ func _ready() -> void:
 	_setup_tiles()
 	_let_taps_through($Apps)
 	end_turn_btn.disabled = Turns.my_turn_done
+	_setup_pages()
 	_shrink_back_from_app()
 	Turns.waiting_changed.connect(func(_names): end_turn_btn.disabled = Turns.my_turn_done)
 
@@ -108,6 +109,18 @@ func _process(delta: float) -> void:
 			_start_drag(_pressed_tile)
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_swipe_start = event.position
+		_swipe_tracking = not _blocked_by_overlay(event.position)
+		_swiping = false
+	if event is InputEventMouseMotion and _swipe_tracking and not _dragging:
+		var moved: Vector2 = event.position - _swipe_start
+		if not _swiping and absf(moved.x) > DRAG_START and absf(moved.x) > absf(moved.y) * 1.5:
+			_swiping = true   # a sideways swipe turns the page instead of picking up an app
+			_pressed_tile = null
+		if _swiping:
+			_place_pages(moved.x)
+			return
 	if event is InputEventMouseMotion and _pressed_tile:
 		var pos: Vector2 = event.position
 		if not _dragging and pos.distance_to(_press_pos) > DRAG_START:
@@ -115,6 +128,9 @@ func _input(event: InputEvent) -> void:
 		if _dragging:
 			_move_ghost(pos)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		if _swiping:
+			_end_swipe(event.position.x - _swipe_start.x)
+		_swipe_tracking = false
 		if _dragging:
 			_drop(event.position)
 		_pressed_tile = null
@@ -263,3 +279,122 @@ func _on_end_turn_btn_pressed() -> void:
 func _on_end_turn_confirmed() -> void:
 	end_turn_btn.disabled = true   # re-enabled when the next round starts
 	Global.end_turn()
+
+
+## ---- PAGES: apps | activity ----
+# Like a phone's home screen: swipe left for the Activity log, right to come back.
+# The two dots above the bottom bar show which page is up (and can be tapped).
+const ActivityPage = preload("res://Scripts/activity_page.gd")
+const PAGE_COUNT := 2
+var _page := 0
+var _activity: Control
+var _dots: Array[Panel] = []
+var _apps_home_x := 0.0
+var _swipe_start := Vector2.ZERO
+var _swipe_tracking := false
+var _swiping := false
+var _page_tween: Tween
+
+func _setup_pages() -> void:
+	_activity = ActivityPage.new()
+	_activity.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_activity)
+	move_child(_activity, ui_menu_frame.get_index())   # under the header and bottom bar
+	var dots := HBoxContainer.new()
+	dots.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	dots.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	dots.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	dots.offset_bottom = -186
+	dots.offset_left = -60
+	dots.offset_right = 60
+	dots.alignment = BoxContainer.ALIGNMENT_CENTER
+	dots.add_theme_constant_override("separation", 18)
+	for i in PAGE_COUNT:
+		var dot := Panel.new()
+		dot.custom_minimum_size = Vector2(36, 36)   # a comfortable tap target...
+		var style := StyleBoxFlat.new()   # ...drawn as a small dot in the middle
+		style.bg_color = Color("533c44")
+		style.set_corner_radius_all(9)
+		style.set_expand_margin_all(-9)
+		dot.add_theme_stylebox_override("panel", style)
+		dot.gui_input.connect(func(event: InputEvent):
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				_go_to_page(i))
+		dots.add_child(dot)
+		_dots.append(dot)
+	add_child(dots)
+	move_child(dots, ui_menu_frame.get_index())
+	get_viewport().size_changed.connect(func(): _place_pages.call_deferred(0.0))
+	_remember_apps_spot.call_deferred()
+
+func _remember_apps_spot() -> void:
+	_apps_home_x = $Apps.position.x
+	_place_pages(0.0)
+
+func _page_width() -> float:
+	return get_viewport().get_visible_rect().size.x
+
+# drag: how far the finger has moved sideways (0 = resting on the current page).
+func _place_pages(drag: float) -> void:
+	var width := _page_width()
+	if (_page == 0 and drag > 0) or (_page == PAGE_COUNT - 1 and drag < 0):
+		drag *= 0.3   # rubber band past the first / last page
+	var shift := -_page * width + drag
+	$Apps.position.x = _apps_home_x + shift
+	_activity.position.x = width + shift
+	_update_dots()
+
+func _update_dots() -> void:
+	for i in _dots.size():
+		_dots[i].modulate.a = 1.0 if i == _page else 0.35
+
+func _end_swipe(drag: float) -> void:
+	_swiping = false
+	_swallow_tap = true   # the release must not also open an app
+	_clear_swallow.call_deferred()
+	var target := _page
+	if drag < -_page_width() * 0.18:
+		target = mini(_page + 1, PAGE_COUNT - 1)
+	elif drag > _page_width() * 0.18:
+		target = maxi(_page - 1, 0)
+	_go_to_page(target, drag)
+
+func _go_to_page(page: int, from_drag: float = 0.0) -> void:
+	var width := _page_width()
+	if (_page == 0 and from_drag > 0) or (_page == PAGE_COUNT - 1 and from_drag < 0):
+		from_drag *= 0.3
+	var start := -_page * width + from_drag
+	if page != _page:
+		Sound.play("switch")
+	_page = page
+	_update_dots()
+	var finish := -_page * width
+	if _page_tween:
+		_page_tween.kill()
+	_page_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_page_tween.tween_method(func(shift: float):
+		$Apps.position.x = _apps_home_x + shift
+		_activity.position.x = width + shift, start, finish, 0.3)
+
+# A pop-up or card is open on top (something on a higher layer that takes taps covers
+# the spot): leave the pages alone.
+func _blocked_by_overlay(point: Vector2) -> bool:
+	for node in get_tree().root.find_children("*", "CanvasLayer", true, false):
+		var canvas := node as CanvasLayer
+		if canvas == self or canvas.layer <= layer or not canvas.visible:
+			continue
+		for child in canvas.get_children():
+			if _covers(child, point):
+				return true
+	return false
+
+func _covers(node: Node, point: Vector2) -> bool:
+	if not node is Control or not (node as Control).is_visible_in_tree():
+		return false
+	var control := node as Control
+	if control.mouse_filter != Control.MOUSE_FILTER_IGNORE and control.get_global_rect().has_point(point):
+		return true
+	for child in control.get_children():
+		if _covers(child, point):
+			return true
+	return false
