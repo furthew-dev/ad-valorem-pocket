@@ -171,7 +171,7 @@ func _build_selected() -> void:
 		purchase_btn.disabled = false
 		Global.error("Someone just took the last %s." % property_name)
 		return
-	Sound.play("continue")
+	Sound.play("hammer")
 	Global.spend(cost, "Build %s" % property_name)
 	Actions.consume("contractor")
 	Global.action_used()

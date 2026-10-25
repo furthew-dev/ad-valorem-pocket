@@ -691,6 +691,17 @@ func draw_fortuna() -> Dictionary:
 	return card
 
 
+# Cards with a sound of their own, played as the card appears (instead of the crowd's "aww").
+const CARD_SOUNDS := {
+	"radon_gas": "radon_lead", "lead_paint": "radon_lead",
+	"mad_renter": "screaming",
+	"cyber_attack": "hack_error", "error": "hack_error",
+	"wreck": "car_crash",
+	"flood": "storm", "tornado": "storm",
+	"mold": "water_drop",
+	"vandalism": "spray_paint",
+}
+
 ## ---- ENTRY POINT: call this when a Fortuna must be drawn ----
 # saboteur_id: when another player sabotaged us, penalties we pay go to them and
 # beneficial cards are resolved on THEIR phone instead (see SABOTAGE below).
@@ -708,7 +719,11 @@ func _play_fortuna(saboteur_id: int) -> void:
 		Global.banner("You're lucky! No more Fortunas available")
 		return
 	fortuna_drawn.emit(card)
-	if is_unlucky(card):
+	if CARD_SOUNDS.has(card.get("key", "")):
+		Sound.play(CARD_SOUNDS[card["key"]])
+		if card["key"] == "flood":   # the storm, then the water coming in
+			get_tree().create_timer(1.2).timeout.connect(func(): Sound.play("water_drop"))
+	elif is_unlucky(card):
 		Sound.play("aww")
 	await show_card(card)   # waits until the player presses OK
 
@@ -831,6 +846,10 @@ func _play_sabotage_curtain(saboteur_name: String) -> void:
 	label.add_theme_color_override("font_color", Color(0.866667, 0.811765, 0.6))
 	box.add_child(icon)
 	box.add_child(label)
+	# The saboteur's character, tucked on the corner of the sabotage picture.
+	var face: Control = preload("res://Scripts/avatar.gd").for_player(saboteur_name, 150)
+	face.position = Vector2(200, 190)
+	icon.add_child(face)
 	curtain.add_child(box)
 	layer.add_child(curtain)
 	get_tree().root.add_child(layer)
@@ -937,7 +956,6 @@ func resolve_fortuna(card: Dictionary) -> String:
 			return "Your %s is now in %s condition." % [target["name"], target["condition"]]
 
 		"set_condition_poor":   # Flood
-			Sound.play("thunder")
 			set_condition(target, "poor")
 			return "Your %s flooded and is now in poor condition." % target["name"]
 

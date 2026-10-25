@@ -20,6 +20,18 @@ const SOUNDS := {
 	"joker": preload("res://Assets/sounds/joker_laugh_sabotage.mp3"),  # you've been sabotaged
 	"thunder": preload("res://Assets/sounds/thunder_clap.mp3"),    # Flood
 	"trumpet_fail": preload("res://Assets/sounds/trumpet_fail.mp3"),  # the sale roll failed
+	"char_prev": preload("res://Assets/sounds/back.mp3"),          # character maker: previous style
+	"char_next": preload("res://Assets/sounds/next.mp3"),          # character maker: next style
+	"hammer": preload("res://Assets/sounds/hammer_contractor.mp3"),   # a Contractor builds / improves
+	"double": preload("res://Assets/sounds/double_pop.mp3"),        # Double applied to a property
+	# Fortuna cards with their own sound (see Fortunas.CARD_SOUNDS)
+	"radon_lead": preload("res://Assets/sounds/radon_leadbased_paint.mp3"),
+	"screaming": preload("res://Assets/sounds/screaming_mad.mp3"),
+	"hack_error": preload("res://Assets/sounds/error_sound_hack_sound.mp3"),
+	"car_crash": preload("res://Assets/sounds/car_crash.mp3"),
+	"storm": preload("res://Assets/sounds/flood_thunder_tornado.mp3"),
+	"spray_paint": preload("res://Assets/sounds/spray_paint.mp3"),
+	"water_drop": preload("res://Assets/sounds/water_drop.mp3"),    # Mold, Flood
 }
 const VOICES := 6   # how many sounds can overlap
 

@@ -157,6 +157,7 @@ func _shared_state() -> Dictionary:
 		"deck": Cards.property_deck.map(func(t): return t["name"]),
 		"fortuna_deck": Fortunas.fortuna_deck.duplicate(),
 		"players": Network.players.duplicate(),
+		"avatars": Network.avatars.duplicate(true),
 		"tokens": Network.tokens.duplicate(),
 		"away": Network.away.duplicate(),
 		"finished": Turns.finished_snapshot(),

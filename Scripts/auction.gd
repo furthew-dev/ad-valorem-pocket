@@ -35,6 +35,9 @@ var _my_run_pending := false      # we're the owner, waiting for our auction's r
 var _queue: Array = []   # host only: auctions waiting for the current one to finish
 var _overlay: CanvasLayer
 var _bid_label: Label
+var _bid_row: HBoxContainer
+var _bid_face: Control
+const AvatarArt = preload("res://Scripts/avatar.gd")
 var _time_label: Label
 var _bid_buttons: Array[Button] = []
 
@@ -291,7 +294,14 @@ func _build_overlay() -> void:
 	bg.add_child(box)
 
 	box.add_child(_text("AUCTION", 110))
-	box.add_child(_text("%s's property is up for bids" % owner_name, 36))
+	var owner_row := HBoxContainer.new()   # [owner's character] Sam's property is up for bids
+	owner_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	owner_row.add_theme_constant_override("separation", 14)
+	owner_row.add_child(AvatarArt.for_player(owner_name, 64))
+	var owner_label := _text("%s's property is up for bids" % owner_name, 36)
+	owner_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	owner_row.add_child(owner_label)
+	box.add_child(owner_row)
 	var art := TextureRect.new()
 	if ResourceLoader.exists(str(item.get("art", ""))):
 		art.texture = Cards.round_icon(item["art"])
@@ -303,8 +313,16 @@ func _build_overlay() -> void:
 	box.add_child(_text("%s%s  |  value $%d  rent $%d" % [item["name"],
 			" (%s)" % condition if condition != "" else "", item["value"], item["rent"]], 34))
 
-	_bid_label = _text("", 56)
-	box.add_child(_bid_label)
+	_bid_label = _text("", 46)
+	_bid_row = HBoxContainer.new()   # [leader's character] Highest bid: $40 (Erika)
+	_bid_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_bid_row.add_theme_constant_override("separation", 14)
+	_bid_face = AvatarArt.make([0, 0, 0, 0], 72)
+	_bid_face.visible = false
+	_bid_row.add_child(_bid_face)
+	_bid_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_bid_row.add_child(_bid_label)
+	box.add_child(_bid_row)
 	_time_label = _text("", 120)
 	box.add_child(_time_label)
 
@@ -348,9 +366,12 @@ func _refresh() -> void:
 		return
 	if high_bidder == 0:
 		_bid_label.text = "No bids yet"
+		_bid_face.visible = false
 	else:
 		var who: String = "You" if high_bidder == multiplayer.get_unique_id() else Network.players.get(high_bidder, "?")
 		_bid_label.text = "Highest bid: $%d  (%s)" % [high_bid, who]
+		AvatarArt.update(_bid_face, AvatarArt.for_name(Network.players.get(high_bidder, "")))
+		_bid_face.visible = true
 	for i in INCREMENTS.size():
 		var amount: int = high_bid + INCREMENTS[i]
 		_bid_buttons[i].text = "Bid $%d" % amount

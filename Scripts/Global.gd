@@ -411,6 +411,7 @@ func activate_double(property: Dictionary) -> void:
 	if property["has_condition"]:
 		for key in ["g_value", "f_value", "p_value"]:
 			property[key] *= 2
+	Sound.play("double")
 	action_used()
 
 # Raises the condition one level (value AND rent). Returns false if it can't be upgraded.
@@ -418,6 +419,7 @@ func activate_contractor(property: Dictionary) -> bool:
 	if not property.get("has_condition", false) or property["condition"] == "excellent":
 		return false
 	Fortunas.shift_condition(property, 1)
+	Sound.play("hammer")
 	action_used()
 	return true
 

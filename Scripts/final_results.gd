@@ -53,6 +53,8 @@ const HOLD_TIME := 3.6
 var _award_box: PanelContainer
 var _award_body: VBoxContainer
 var _award_title: Label
+var _award_faces: HBoxContainer
+const AvatarArt = preload("res://Scripts/avatar.gd")
 var _award_text: Label
 var _awards: Array = []   # [{title, text}]
 var _award_index := 0
@@ -89,6 +91,15 @@ func _tidy_layout() -> void:
 		button.add_theme_font_size_override("font_size", 36)
 	lobby_btn.text = "Back to Lobby"
 	quit_btn.text = "Main Menu"
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	card_vbox.add_child(scroll)
+	card_vbox.move_child(scroll, player_list.get_index())
+	player_list.reparent(scroll, false)
+	player_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	player_list.add_theme_constant_override("separation", 4)
+	card_vbox.add_theme_constant_override("separation", 16)
 	get_viewport().size_changed.connect(_keep_phone_width)
 	_keep_phone_width()
 
@@ -101,15 +112,6 @@ func _keep_phone_width() -> void:
 	var side := maxf(60.0, (width - MAX_WIDTH) / 2.0)
 	content.offset_left = side
 	content.offset_right = -side
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	card_vbox.add_child(scroll)
-	card_vbox.move_child(scroll, player_list.get_index())
-	player_list.reparent(scroll, false)
-	player_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	player_list.add_theme_constant_override("separation", 4)
-	card_vbox.add_theme_constant_override("separation", 16)
 
 
 ## ---- STANDINGS ----
@@ -133,13 +135,16 @@ func _add_standing(i: int, entry: Dictionary) -> void:
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 16)
+	row.add_child(AvatarArt.for_player(str(entry["name"]), 60))
 	var who := _label(str(entry["name"]), 32, INK)
+	who.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var line := Control.new()   # a thin rule joining the name to the money
 	line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	line.custom_minimum_size = Vector2(40, 0)
 	line.draw.connect(func(): line.draw_line(
 			Vector2(0, line.size.y * 0.6), Vector2(line.size.x, line.size.y * 0.6), Color(INK, 0.35), 2.0))
 	var net := _label("$%d Net" % int(entry["net_worth"]), 26, Color(INK, 0.8))
+	net.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(who)
 	row.add_child(line)
 	row.add_child(net)
@@ -178,7 +183,7 @@ func _build_awards(list: Array) -> void:
 	style.content_margin_top = 14
 	style.content_margin_bottom = 16
 	_award_box.add_theme_stylebox_override("panel", style)
-	_award_box.custom_minimum_size.y = 190   # room for two lines, so the box doesn't jump
+	_award_box.custom_minimum_size.y = 250   # room for the faces and two lines, so the box doesn't jump
 	var outer := VBoxContainer.new()
 	outer.add_theme_constant_override("separation", 4)
 	var header := _label("AWARDS", 18, Color(CREAM, 0.55))
@@ -188,6 +193,10 @@ func _build_awards(list: Array) -> void:
 	_award_body.add_theme_constant_override("separation", 6)
 	_award_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_award_body.alignment = BoxContainer.ALIGNMENT_CENTER
+	_award_faces = HBoxContainer.new()   # the winner(s), over the award's name
+	_award_faces.alignment = BoxContainer.ALIGNMENT_CENTER
+	_award_faces.add_theme_constant_override("separation", -8)
+	_award_body.add_child(_award_faces)
 	_award_title = _label("", 34, CREAM)
 	_award_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_award_text = _label("", 24, Color(CREAM, 0.9))
@@ -210,6 +219,10 @@ func _next_award() -> void:
 	_award_index += 1
 	_award_title.text = award["title"]
 	_award_text.text = award["text"]
+	for child in _award_faces.get_children():
+		child.queue_free()
+	for winner in award.get("who", []).slice(0, 4):
+		_award_faces.add_child(AvatarArt.for_player(str(winner), 64))
 	_award_body.modulate.a = 0.0
 	var tween := create_tween()
 	tween.tween_property(_award_body, "modulate:a", 1.0, FADE_TIME)
@@ -249,7 +262,7 @@ static func awards_for(list: Array) -> Array:
 		var text: String = award["text"].format({
 			"who": _join_names(winners), "n": n_text,
 			"s": "" if best == 1 else "s", "ies": "y" if best == 1 else "ies"})
-		out.append({"title": award["title"], "text": text})
+		out.append({"title": award["title"], "text": text, "who": winners})
 	return out
 
 static func _join_names(names: Array) -> String:

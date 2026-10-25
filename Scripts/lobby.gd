@@ -7,6 +7,10 @@ const TRANSITION_SCENE = preload("res://Scenes/transition.tscn")
 const TITLE_SCENE := "res://Scenes/main.tscn"
 const ROW_HEIGHT := 56
 const SETTINGS_POPUP = preload("res://Scripts/lobby_settings_popup.gd")
+const Avatar = preload("res://Scripts/avatar.gd")
+const AVATAR_EDITOR = preload("res://Scripts/avatar_editor.gd")
+const ICON_SIZE := 120
+const CARD_WIDTH := 130
 
 @onready var ui_menu_frame: Control = $"UI Menu Frame"
 @onready var room_key: Button = $Content/room_key
@@ -74,18 +78,13 @@ func _refresh() -> void:
 
 	for child in player_list.get_children():
 		child.queue_free()
-	for entry in list:
-		var row := Label.new()
-		row.custom_minimum_size.y = ROW_HEIGHT
-		row.add_theme_color_override("font_color", Color.BLACK)
-		row.add_theme_font_size_override("font_size", 24)
-		var text: String = entry["name"]
-		if entry["is_host"]:
-			text += "  (host)"
-		if entry["is_me"]:
-			text += "  - you"
-		row.text = text
-		player_list.add_child(row)
+	player_list.add_child(_player_grid(list))
+	var hint := Label.new()
+	hint.text = "Tap your character to change it"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15, 0.7))
+	hint.add_theme_font_size_override("font_size", 18)
+	player_list.add_child(hint)
 
 	if Network.is_host():
 		var enough := list.size() >= Network.MIN_PLAYERS_TO_START
@@ -95,6 +94,65 @@ func _refresh() -> void:
 		status.text = "Connecting to the host..."
 	else:
 		status.text = "Waiting for the host to start the game..."
+
+# Everyone as a card in a centred grid, 4 to a row:
+#     [character]
+#        Name
+#     host · you
+const COLUMNS := 4
+
+func _player_grid(list: Array) -> Control:
+	var rows := VBoxContainer.new()   # each row centred, so a short last row sits in the middle
+	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rows.add_theme_constant_override("separation", 18)
+	var row: HBoxContainer
+	for i in list.size():
+		if i % COLUMNS == 0:
+			row = HBoxContainer.new()
+			row.alignment = BoxContainer.ALIGNMENT_CENTER
+			row.add_theme_constant_override("separation", 10)
+			rows.add_child(row)
+		row.add_child(_player_card(list[i]))
+	return rows
+
+func _player_card(entry: Dictionary) -> Control:
+	var card := VBoxContainer.new()
+	card.custom_minimum_size.x = CARD_WIDTH
+	card.add_theme_constant_override("separation", 4)
+	var holder := CenterContainer.new()
+	holder.add_child(Avatar.for_player(entry["name"], ICON_SIZE))
+	card.add_child(holder)
+	var name_label := Label.new()
+	name_label.text = entry["name"]
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.add_theme_color_override("font_color", Color.BLACK)
+	name_label.add_theme_font_size_override("font_size", 24)
+	name_label.clip_text = true
+	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	card.add_child(name_label)
+	var tags := []
+	if entry["is_host"]:
+		tags.append("host")
+	if entry["is_me"]:
+		tags.append("you")
+	var tag_label := Label.new()   # always there, so every card is the same height
+	tag_label.text = "  ·  ".join(PackedStringArray(tags))
+	tag_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tag_label.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15, 0.75))
+	tag_label.add_theme_font_size_override("font_size", 17)
+	card.add_child(tag_label)
+	if entry["is_me"]:   # your own card: tap it to open the character maker
+		card.mouse_filter = Control.MOUSE_FILTER_STOP
+		card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		card.gui_input.connect(func(event: InputEvent):
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				_edit_character())
+	return card
+
+func _edit_character() -> void:
+	if _leaving or get_tree().root.find_children("*", "", false, false).any(func(n): return n.get_script() == AVATAR_EDITOR):
+		return
+	get_tree().root.add_child(AVATAR_EDITOR.new())
 
 func _on_room_key_pressed() -> void:
 	DisplayServer.clipboard_set(Network.room_key)

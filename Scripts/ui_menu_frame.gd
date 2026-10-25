@@ -66,6 +66,7 @@ func _ready() -> void:
 	settings_btn.pressed.connect(open_settings)
 	_build_waiting_bar()
 	Turns.waiting_changed.connect(_on_waiting_changed)
+	Network.players_changed.connect(_show_my_face)   # characters arrive / change
 	_on_waiting_changed(Turns.waiting_on)
 	refresh_labels()
 	_setup_banner_templates()
@@ -75,9 +76,34 @@ func _ready() -> void:
 func refresh_labels() -> void:
 	checking_bal.text = "$%d" % Global.CASH
 	player_name.text = str(Global.PLAYER)
+	_show_my_face()
 	actions_left.text = "%d Actions left" % Global.ACTIONS
 	round_number.text = "Round %d" % Global.ROUND
 	misc.text = "Expected Rent: $%d" % Global.expected_rent()
+
+# Your character, just left of your name in the header.
+const HEADER_FACE := 50
+var _my_face: Control
+var _face_hidden := false   # a title screen (lobby, results...): no header name
+
+func _show_my_face() -> void:
+	if _face_hidden or not Network.in_game or not AvatarArt.has_name(Global.PLAYER):
+		return
+	if not is_instance_valid(_my_face):
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		row.size_flags_vertical = player_name.size_flags_vertical
+		var column := player_name.get_parent()
+		column.add_child(row)
+		column.move_child(row, player_name.get_index())
+		player_name.reparent(row, false)
+		player_name.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		_my_face = AvatarArt.for_player(Global.PLAYER, HEADER_FACE)
+		row.add_child(_my_face)
+		row.move_child(_my_face, 0)
+	else:
+		AvatarArt.update(_my_face, AvatarArt.for_name(Global.PLAYER))
+	_my_face.visible = true
 
 func _on_cash_changed(new_value: int) -> void:
 	checking_bal.text = "$%d" % new_value
@@ -91,6 +117,9 @@ func _on_round_changed(new_value: int) -> void:
 
 func clear_ui() -> void:
 	player_name.text = ""
+	_face_hidden = true
+	if is_instance_valid(_my_face):
+		_my_face.visible = false
 	misc.text = ""
 	checking_bal.text = "Hello!"
 	round_number.text = ""
@@ -168,6 +197,7 @@ func run_animation(message: String, link: String = "") -> void:
 	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE   # plain banners never block taps
 	if Global.LINKS.has(link):
 		_make_tappable(banner, label, link)
+	_add_player_face(banner, message)
 	var y := _banner_rest.y + _active_banners.size() * BANNER_SPACING
 	banner.position = Vector2(_banner_hidden.x, y)
 	var spot := (anim_frame.get_parent() as Control).get_global_transform_with_canvas()
@@ -182,6 +212,29 @@ func run_animation(message: String, link: String = "") -> void:
 	tween.tween_interval(3.0 if Global.LINKS.has(link) else 1.6)
 	tween.tween_property(banner, "position:x", _banner_hidden.x, 0.48)
 	tween.finished.connect(_remove_from_stack.bind(banner, _active_banners, _banner_rest.y, BANNER_SPACING))
+
+# A banner about another player ("Erika is waiting on you!", "Sam sabotaged you") shows
+# their character over the bell.
+const AvatarArt = preload("res://Scripts/avatar.gd")
+
+func _add_player_face(banner: Control, message: String) -> void:
+	var who := other_player_in(message)
+	if who == "":
+		return
+	var face := AvatarArt.for_player(who, 76)
+	face.position = Vector2(14, (anim_frame.size.y - 76) / 2.0)
+	face.z_index = 3
+	banner.add_child(face)
+
+# The name of another player mentioned in `text` ("" if none). Longest names are tried
+# first, so "Sam" doesn't match inside "Samantha".
+static func other_player_in(text: String) -> String:
+	var names: Array = Network.avatars.keys()
+	names.sort_custom(func(a, b): return a.length() > b.length())
+	for player_name in names:
+		if player_name != Global.PLAYER and player_name != "" and text.contains(player_name):
+			return player_name
+	return ""
 
 func _make_tappable(banner: Control, label: Label, link: String) -> void:
 	label.offset_bottom = -22   # make room for the hint line
@@ -292,6 +345,8 @@ func _top_layer() -> CanvasLayer:
 const URGENT_BG := Color("c94040")
 const WAITING_BAR_BOTTOM := 200.0   # distance from the bottom of the screen
 var _waiting_style: StyleBoxFlat
+var _waiting_faces: HBoxContainer
+var _faces_for := []
 var _waiting_hint: Label
 
 func _build_waiting_bar() -> void:
@@ -333,6 +388,11 @@ func _build_waiting_bar() -> void:
 	var row := HBoxContainer.new()   # the message, and an × to put it away
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 6)
+	_waiting_faces = HBoxContainer.new()   # the characters of who we're waiting on
+	_waiting_faces.add_theme_constant_override("separation", -10)   # overlapping, like a stack
+	_waiting_faces.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_waiting_faces.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_waiting_faces)
 	row.add_child(lines)
 	var close := Button.new()
 	close.text = "×"
@@ -377,6 +437,7 @@ func _refresh_waiting_bar() -> void:
 		return
 	var names := Turns.waiting_on
 	if _urgent():
+		_show_waiting_faces([])
 		_waiting_bar.visible = true
 		_waiting_style.bg_color = URGENT_BG
 		_waiting_label.text = "Everyone is waiting on you! %ds" % ceili(Turns.countdown_left)
@@ -390,10 +451,22 @@ func _refresh_waiting_bar() -> void:
 	for n in names:
 		shown.append("%s (%ds)" % [n, ceili(Turns.countdown_left)] if n == Turns.countdown_name else str(n))
 	_waiting_label.text = "Turn ended. Waiting on: " + ", ".join(PackedStringArray(shown))
+	_show_waiting_faces(names)
 	var can_poke := not Turns.pokeable().is_empty()
 	_waiting_hint.visible = can_poke
 	_waiting_hint.text = "Tap to poke them"
 	_waiting_bar.mouse_filter = Control.MOUSE_FILTER_STOP if can_poke else Control.MOUSE_FILTER_IGNORE
+
+func _show_waiting_faces(names: Array) -> void:
+	var wanted := names.slice(0, 3)
+	if wanted == _faces_for:
+		return
+	_faces_for = wanted
+	for child in _waiting_faces.get_children():
+		child.queue_free()
+	for n in wanted:
+		_waiting_faces.add_child(AvatarArt.for_player(str(n), 46))
+	_waiting_faces.visible = not wanted.is_empty()
 
 func _process(_delta: float) -> void:
 	if Turns.countdown_name != "" and _waiting_bar and (_waiting_bar.visible or _urgent()):

@@ -30,6 +30,7 @@ const RELAY_URL := "wss://ad-valorem-relay.onrender.com/"
 const DEV_RELAY_URL := "ws://localhost:9080"
 
 var players: Dictionary = {}   # peer id -> display name (host's copy is the truth)
+var avatars: Dictionary = {}   # display name -> character [skin, face, accessory, top] (see avatar.gd)
 var room_key := ""
 var my_name := ""
 var in_game := false
@@ -125,6 +126,7 @@ func leave() -> void:
 	_peer = null
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	players.clear()
+	avatars.clear()
 	tokens.clear()
 	away.clear()
 	away_names.clear()
@@ -205,6 +207,7 @@ func _on_connect_timeout(peer: RelayPeer) -> void:
 func _on_room_hosted(key: String) -> void:
 	room_key = key
 	players = {1: my_name}
+	avatars = {my_name: my_avatar()}
 	tokens = {1: my_token}
 	room_ready.emit(key)
 	players_changed.emit()
@@ -242,7 +245,7 @@ func _end_session(message: String) -> void:
 func _on_connected_to_server() -> void:
 	if in_game:
 		return   # the host came back after a refresh; it already knows us (see _on_host_back)
-	_register_player.rpc_id(1, my_name, my_token)
+	_register_player.rpc_id(1, my_name, my_token, my_avatar())
 
 func _on_peer_disconnected(id: int) -> void:
 	if not multiplayer.is_server() or not players.has(id):
@@ -256,7 +259,7 @@ func _on_peer_disconnected(id: int) -> void:
 		away[token] = name
 		get_tree().create_timer(AWAY_GRACE).timeout.connect(_on_away_expired.bind(token))
 		_announce.rpc("%s lost connection. Waiting for them to come back..." % name)
-	_sync_players.rpc(players, away.values())
+	_sync_players.rpc(players, away.values(), avatars)
 
 func _on_away_expired(token: String) -> void:
 	if not away.has(token) or not is_host():
@@ -264,7 +267,7 @@ func _on_away_expired(token: String) -> void:
 	var name: String = away[token]
 	away.erase(token)
 	Turns.forget(token)
-	_sync_players.rpc(players, away.values())
+	_sync_players.rpc(players, away.values(), avatars)
 	_announce.rpc("%s left the game." % name)
 
 
@@ -280,6 +283,8 @@ func _restore_as_host() -> void:
 	var shared: Dictionary = snapshot["shared"]
 	var connected := _peer.get_peer_ids()
 	players = {1: snapshot["name"]}
+	avatars = shared.get("avatars", {}).duplicate()
+	avatars[snapshot["name"]] = my_avatar()
 	tokens = {1: my_token}
 	away = shared["away"].duplicate()
 	for id in shared["players"]:
@@ -294,7 +299,7 @@ func _restore_as_host() -> void:
 	for token in away:
 		get_tree().create_timer(AWAY_GRACE).timeout.connect(_on_away_expired.bind(token))
 	Turns.restore_finished(shared["finished"])
-	_sync_players.rpc(players, away.values())
+	_sync_players.rpc(players, away.values(), avatars)
 	Market.send_state_to_all()
 	_announce.rpc("The host is back.")
 	Turns.resume(Global.ROUND, snapshot["private"]["round"], snapshot["private"]["turn_done"])
@@ -367,7 +372,7 @@ func _hide_wait_overlay() -> void:
 ## ---- RPCs ----
 # Client -> host: "this is my name" (and my secret token, for reconnecting later).
 @rpc("any_peer", "reliable")
-func _register_player(player_name: String, token: String = "") -> void:
+func _register_player(player_name: String, token: String = "", avatar: Array = []) -> void:
 	if not multiplayer.is_server():
 		return
 	var id := multiplayer.get_remote_sender_id()
@@ -387,7 +392,9 @@ func _register_player(player_name: String, token: String = "") -> void:
 		players[id] = away[token]
 		tokens[id] = token
 		away.erase(token)
-		_sync_players.rpc(players, away.values())
+		if not avatar.is_empty():
+			avatars[players[id]] = AvatarArt.normalize(avatar)
+		_sync_players.rpc(players, away.values(), avatars)
 		_sync_settings.rpc_id(id, game_settings)
 		Market.send_state_to(id)
 		_resume_accepted.rpc_id(id, Global.ROUND, Turns.is_finished(token))
@@ -398,7 +405,8 @@ func _register_player(player_name: String, token: String = "") -> void:
 		return   # the relay already enforces this; this is a backstop
 	players[id] = _unique_name(clean_name(player_name))
 	tokens[id] = token
-	_sync_players.rpc(players, away.values())
+	avatars[players[id]] = AvatarArt.normalize(avatar) if not avatar.is_empty() else AvatarArt.random_code()
+	_sync_players.rpc(players, away.values(), avatars)
 	_sync_settings.rpc_id(id, game_settings)
 
 # Client -> host: "call me this instead" (from the settings pop-up).
@@ -409,18 +417,57 @@ func _rename_player(player_name: String) -> void:
 	var id := multiplayer.get_remote_sender_id()
 	if id == 0:
 		id = 1
+	var old_name: String = players.get(id, "")
+	var avatar = avatars.get(old_name, AvatarArt.random_code())
 	players.erase(id)
 	players[id] = _unique_name(clean_name(player_name))
-	_sync_players.rpc(players, away.values())
+	avatars.erase(old_name)
+	avatars[players[id]] = avatar
+	_sync_players.rpc(players, away.values(), avatars)
 
 # Host -> everyone (host included): the full player list, and who is reconnecting.
 @rpc("authority", "call_local", "reliable")
-func _sync_players(list: Dictionary, reconnecting: Array = []) -> void:
+func _sync_players(list: Dictionary, reconnecting: Array = [], avatar_list: Dictionary = {}) -> void:
 	players = list
 	away_names = reconnecting
+	avatars = avatar_list
 	if in_game:
 		Global.PLAYER = players.get(multiplayer.get_unique_id(), Global.PLAYER)
 	players_changed.emit()
+
+## ---- CHARACTERS ----
+const AvatarArt = preload("res://Scripts/avatar.gd")
+
+# This phone's character. The first time, a random one is made (and kept, so you look the
+# same next game until you change it in the lobby).
+func my_avatar() -> Array:
+	var saved = load_setting("player", "avatar", [])   # (ConfigFile won't take null as a default)
+	# Only a phone that has never had a character gets a random one. (Saved characters have
+	# six numbers now, older ones four: both are kept as they are.)
+	if not saved is Array or saved.size() < 4:
+		saved = AvatarArt.random_code()
+		save_setting("player", "avatar", saved)
+	return AvatarArt.normalize(saved)
+
+# Lobby editor: Save.
+func set_my_avatar(code: Array) -> void:
+	code = AvatarArt.normalize(code)
+	save_setting("player", "avatar", code)
+	if is_online():
+		_set_avatar.rpc_id(1, code)
+
+@rpc("any_peer", "call_local", "reliable")
+func _set_avatar(code: Array) -> void:
+	if not multiplayer.is_server():
+		return
+	var id := multiplayer.get_remote_sender_id()
+	if id == 0:
+		id = 1
+	if not players.has(id):
+		return
+	avatars[players[id]] = AvatarArt.normalize(code)
+	_sync_players.rpc(players, away.values(), avatars)
+
 
 ## ---- GAME SETTINGS ----
 # Returns why these settings can't be used, or "" if they're fine.
