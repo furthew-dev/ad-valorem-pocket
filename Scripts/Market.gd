@@ -53,7 +53,9 @@ func draw_fortuna() -> String:
 func setup_new_game() -> void:
 	Actions.reset_stock()
 	scale_stock(maxi(1, Network.players.size()))
-	Cards.reset_deck()
+	var settings: Dictionary = Network.game_settings
+	Cards.reset_deck(settings.get("base", true), settings.get("expansion", false))
+	Fortunas.expansion_enabled = settings.get("expansion", false)
 	Fortunas.generate_fortuna_deck()
 	_broadcast_all()
 
@@ -66,6 +68,8 @@ func scale_stock(players: int) -> void:
 	var factor := 1.0 + 0.25 * maxi(0, players - 4)
 	for key in Actions.all_actions:
 		var action: Dictionary = Actions.all_actions[key]
+		if key in Actions.SUITE_KEYS:
+			continue   # the Suites deck is always 4 + 4
 		if key in ONE_PER_PLAYER:
 			action["stock"] = players
 		else:

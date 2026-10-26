@@ -154,6 +154,7 @@ func process_new_round() -> void:
 	await get_tree().create_timer(0.75).timeout   # let Fortuna cash changes settle first
 
 	special_property()
+	Expansion.on_new_round()
 	# Fortuna resolves before rent, so "no rent next round" skips THIS collection.
 	var rent_earned = expected_rent()
 	for property in Cards.properties_owned:
@@ -163,6 +164,7 @@ func process_new_round() -> void:
 	if castle_bonus > 0:
 		await get_tree().create_timer(0.9).timeout   # after the rent notice
 		income(castle_bonus, "Castle Tours")
+	await Expansion.pay_gothic_rent()
 	updating_loan_balance()
 	round_progress["rent"] = true
 
@@ -331,7 +333,7 @@ func expected_rent() -> int:
 
 # Cash + property values + CDs - loans. Used for the final standings.
 func net_worth() -> int:
-	return CASH + equity() + Actions.get_CD_worth() - all_loans()
+	return CASH + equity() + Actions.get_CD_worth() + Expansion.token_worth() - all_loans()
 
 func equity() -> int:
 	var total = 0
@@ -429,6 +431,7 @@ var my_properties_app = {"app_color": "92868b", "app_anim": "my_properties", "ap
 var market_app = {"app_color": "b76051", "app_anim": "market", "app_url": "res://Scenes/market.tscn"}
 var bank_app = {"app_color": "5d6558", "app_anim": "bank", "app_url": "res://Scenes/bank_account.tscn"}
 var my_loans_app = {"app_color": "744145", "app_anim": "my_loans", "app_url": "res://Scenes/my_loans.tscn"}
+var environment_app = {"app_color": "5d6558", "app_anim": "", "app_url": "res://Scenes/environment.tscn"}
 var my_actions_app = {"app_color": "a78767", "app_anim": "my_actions", "app_url": "res://Scenes/my_actions.tscn"}
 var mystery = {"app_color": "534650", "app_anim": "mystery", "app_url": "res://Scenes/results.tscn"}
 var sold = {"app_color": "96514b", "app_anim": "sold", "app_url": "res://Scenes/results.tscn"}
@@ -440,13 +443,24 @@ var purchasing = {"app_color": "533c44", "app_anim": "purchasing", "app_url": "r
 ## ---- BACK BUTTON ----
 var tab_history: Array[String] = []
 
+# Each Back step also remembers which property was open, because some screens (My Loans,
+# My Actions, My Properties) clear the selection. Without it, Back to a property's page
+# showed an empty page.
+var _history_ids: Array = []
+
 func save_scene(current_scene: String) -> void:
 	tab_history.append(current_scene)
+	_history_ids.append(Cards.selected_id)
 
 func erase_scenes() -> void:
 	tab_history.clear()
+	_history_ids.clear()
 
 func go_back() -> void:
 	if tab_history.is_empty():
 		return
+	if _history_ids.size() == tab_history.size():
+		Cards.selected_id = _history_ids.pop_back()
+	else:
+		_history_ids.clear()
 	get_tree().change_scene_to_file(tab_history.pop_back())

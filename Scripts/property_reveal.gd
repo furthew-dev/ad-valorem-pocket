@@ -37,6 +37,7 @@ func setup() -> void:
 	if Global.build_lot_id != 0:
 		_setup_build_mode()
 		return
+	details.text = "Tap a property to choose it."
 	await Cards.return_revealed()   # anything left over from an interrupted visit
 	var reveal_count := 3 if Global.using_realtor else 1
 	var cards := await Cards.reveal(reveal_count)   # drawn from the shared deck
@@ -55,6 +56,9 @@ func _on_group_pressed(button: BaseButton) -> void:
 	Sound.play("switch")
 	selected_card = button.owner.card_data
 	_set_purchase_ready(true)
+	if build_lot.is_empty():   # what you're about to buy, in a line
+		details.text = "%s: $%d, rent $%d%s." % [selected_card["name"], selected_card["value"], selected_card["rent"],
+				"" if str(selected_card.get("condition", "")) == "" else ", %s condition" % selected_card["condition"]]
 
 
 ## ---- PURCHASE ----
@@ -176,6 +180,9 @@ func _build_selected() -> void:
 	Actions.consume("contractor")
 	Global.action_used()
 	var built := Cards.build_on_lot(build_lot, property_name, condition)
+	if build_lot.get("lot_kind", "") == "private_island" and str(built.get("region", "")) == "Beach":
+		Actions.actions_owned.append("skybnb")   # Private Island: a Beach property earns a free SkyBnB
+		Global.banner("Private Island: building a Beach property got you a free SkyBnB!")
 	if _purchase_loan != 0:
 		built["loan_number"] = _purchase_loan
 	Global.build_lot_id = 0

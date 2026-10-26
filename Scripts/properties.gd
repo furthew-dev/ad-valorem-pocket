@@ -26,6 +26,7 @@ var this_card_id := 0
 func setup_card(property_data: Dictionary) -> void:
 	this_card_id = property_data.get("id", 0)
 	property_name.text = str(property_data.get("name", "Unknown Property"))
+	_fit_name()
 	current_value.text = "$%d" % property_data.get("value", 0)
 	current_rent.text = "$%d" % property_data.get("rent", 0)
 
@@ -33,6 +34,7 @@ func setup_card(property_data: Dictionary) -> void:
 	if property_data.get("has_condition", false):
 		shown_condition = property_data.get("condition", "excellent")
 	condition.text = "Condition: " + shown_condition.capitalize()
+	_show_region(str(property_data.get("region", "")))
 	if Cards.is_lot(property_data):
 		condition.text = "Empty lot: build here"
 
@@ -47,6 +49,35 @@ func setup_card(property_data: Dictionary) -> void:
 	if art_path != "" and ResourceLoader.exists(art_path):
 		texture_rect.texture = Cards.round_icon(art_path)
 		texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED   # stay round in any box
+
+# Every row is the same width, so a long name gets a smaller font rather than a wider card.
+const NAME_WIDTH := 296.0
+func _fit_name() -> void:
+	property_name.clip_text = true
+	property_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	var font: Font = property_name.get_theme_font("font")
+	var size := property_name.get_theme_font_size("font_size")
+	while size > 20 and font.get_string_size(property_name.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > NAME_WIDTH:
+		size -= 1
+	property_name.add_theme_font_size_override("font_size", size)
+
+# Expansion: the region's picture between the property's value and rent ( $8  [pic]  $10 ).
+func _show_region(region: String) -> void:
+	if not Network.expansion_on() or region == "":
+		return
+	var row := current_value.get_parent() as HBoxContainer
+	var spacer: Control = row.get_child(current_value.get_index() + 1)
+	var icon := TextureRect.new()
+	icon.texture = Expansion.region_icon(region)
+	icon.tooltip_text = region
+	icon.custom_minimum_size = Vector2(spacer.custom_minimum_size.x, 40)   # takes the gap's place
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ColorTheme.keep(icon)
+	spacer.add_sibling(icon)
+	spacer.visible = false
 
 # Golden Lock: same panel, with a gold border around it.
 func _add_gold_border() -> void:

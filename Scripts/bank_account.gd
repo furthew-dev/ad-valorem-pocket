@@ -23,9 +23,25 @@ func _ready() -> void:
 	assets_bal.text = "$%d" % Global.equity()
 	investments_bal.text = "$%d" % Actions.get_CD_worth()
 	loan_bal.text = "$%d" % Global.all_loans()
+	_add_environment_line()
 	net_worth_bal.text = "$%d" % Global.net_worth()
 	if Turns.game_over:
 		_show_final_summary()
+
+# Expansion: "Environment Tokens (3)   $15", under Investments. Counted in net worth.
+func _add_environment_line() -> void:
+	if not Network.expansion_on():
+		return
+	var source: Control = investments_bal.get_parent()
+	var line: Control = source.duplicate(Node.DUPLICATE_GROUPS | Node.DUPLICATE_SCRIPTS)
+	line.name = "environment"
+	source.add_sibling(line)
+	for child in line.get_children():
+		if child is Label:
+			if child.name == "investments":
+				child.text = "Environment Tokens (%d)" % Expansion.tokens
+			else:
+				child.text = "$%d" % Expansion.token_worth()
 
 func _show_final_summary() -> void:
 	player_name.text = "Final Summary: %s" % Global.PLAYER

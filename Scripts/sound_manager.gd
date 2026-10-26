@@ -16,7 +16,8 @@ const SOUNDS := {
 	"cash_in": preload("res://Assets/sounds/cash_register.mp3"),   # money received
 	"cash_out": preload("res://Assets/sounds/coins_dropping.mp3"), # money paid / lost
 	"aww": preload("res://Assets/sounds/crowd_aww.mp3"),           # an unlucky Fortuna
-	"shield": preload("res://Assets/sounds/shield_block.mp3"),     # Insurance / Attorney / Just Say No blocks it
+	"shield": preload("res://Assets/sounds/shield_block.mp3"),     # Insurance / Just Say No blocks it
+	"gavel": preload("res://Assets/sounds/gavel.mp3"),             # an Attorney blocks it
 	"joker": preload("res://Assets/sounds/joker_laugh_sabotage.mp3"),  # you've been sabotaged
 	"thunder": preload("res://Assets/sounds/thunder_clap.mp3"),    # Flood
 	"trumpet_fail": preload("res://Assets/sounds/trumpet_fail.mp3"),  # the sale roll failed

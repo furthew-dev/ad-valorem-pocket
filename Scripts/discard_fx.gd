@@ -47,10 +47,11 @@ func _run(property: Dictionary, caption: String) -> void:
 	label.text = caption
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.position = Vector2(40, card.position.y + card.size.y + 30)
-	label.size = Vector2(size.x - 80, 120)
+	var width := minf(size.x - 80, 600.0)
+	label.position = Vector2((size.x - width) / 2, card.position.y + card.size.y + 24)
+	label.size = Vector2(width, 150)
 	label.add_theme_font_override("font", FONT)
-	label.add_theme_font_size_override("font_size", 52)
+	label.add_theme_font_size_override("font_size", _fit(caption, width, 150.0, 44))
 	label.add_theme_color_override("font_color", CREAM)
 	label.modulate.a = 0.0
 	dim.add_child(label)
@@ -86,6 +87,16 @@ func _run(property: Dictionary, caption: String) -> void:
 	await t.finished
 	queue_free()
 
+# The biggest font size (up to `largest`) at which `text` fits in a width x height box.
+static func _fit(text: String, width: float, height: float, largest: int) -> int:
+	var font_size := largest
+	while font_size > 22:
+		var box := FONT.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, width, font_size, -1, TextServer.BREAK_MANDATORY | TextServer.BREAK_WORD_BOUND)
+		if box.x <= width and box.y <= height:
+			break
+		font_size -= 2
+	return font_size
+
 func _make_card(property: Dictionary) -> Control:
 	var card := PanelContainer.new()
 	var style := StyleBoxFlat.new()
@@ -114,7 +125,7 @@ func _make_card(property: Dictionary) -> Control:
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.clip_text = true
 	name_label.add_theme_font_override("font", FONT)
-	name_label.add_theme_font_size_override("font_size", 56)
+	name_label.add_theme_font_size_override("font_size", _fit(name_label.text, 372.0, 64.0, 56))
 	name_label.add_theme_color_override("font_color", CREAM)
 	box.add_child(name_label)
 	return card

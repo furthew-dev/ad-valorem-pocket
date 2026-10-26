@@ -16,6 +16,7 @@ const MONEY_SIZE := Vector2(75, 75)
 const REASON_FONT_SIZE := 26
 const MONEY_POSITION := Vector2(8, 176)   # top-left of the screen, where income_loss sits in the scene
 const MAX_STACK := 4            # more than this wait for a free slot
+const BANNER_EXTRA_TIME := 2.0  # seconds every banner / money notice stays up beyond the minimum
 const WAITING_BG := Color(0.32549, 0.235294, 0.266667, 0.92)
 const SETTINGS_POPUP = preload("res://Scripts/settings_popup.gd")
 
@@ -209,7 +210,7 @@ func run_animation(message: String, link: String = "") -> void:
 
 	var tween := banner.create_tween()
 	tween.tween_property(banner, "position:x", _banner_rest.x, 0.42)
-	tween.tween_interval(3.0 if Global.LINKS.has(link) else 1.6)
+	tween.tween_interval((3.0 if Global.LINKS.has(link) else 1.6) + BANNER_EXTRA_TIME)
 	tween.tween_property(banner, "position:x", _banner_hidden.x, 0.48)
 	tween.finished.connect(_remove_from_stack.bind(banner, _active_banners, _banner_rest.y, BANNER_SPACING))
 
@@ -308,7 +309,7 @@ func run_income_loss(type: String, total: int, reason: String = "") -> void:
 
 	var tween := notice.create_tween()
 	tween.tween_property(notice, "modulate:a", 1.0, 0.36)
-	tween.tween_interval(1.6 if reason != "" else 1.3)   # a little longer when there's a reason to read
+	tween.tween_interval((1.6 if reason != "" else 1.3) + BANNER_EXTRA_TIME)   # a little longer when there's a reason to read
 	tween.tween_property(notice, "modulate:a", 0.0, 0.34)
 	tween.finished.connect(_remove_from_stack.bind(notice, _active_money, _money_origin.y, MONEY_SPACING))
 
@@ -436,16 +437,17 @@ func _refresh_waiting_bar() -> void:
 		_waiting_bar.visible = false
 		return
 	var names := Turns.waiting_on
-	if _urgent():
+	_waiting_was_urgent = _urgent()
+	if _waiting_was_urgent:
 		_show_waiting_faces([])
 		_waiting_bar.visible = true
-		_waiting_style.bg_color = URGENT_BG
+		_set_bar_colour(URGENT_BG)
 		_waiting_label.text = "Everyone is waiting on you! %ds" % ceili(Turns.countdown_left)
 		_waiting_hint.text = "Tap to go Home and end your turn"
 		_waiting_hint.visible = true
 		_waiting_bar.mouse_filter = Control.MOUSE_FILTER_STOP
 		return
-	_waiting_style.bg_color = WAITING_BG
+	_set_bar_colour(WAITING_BG)
 	_waiting_bar.visible = Turns.my_turn_done and not names.is_empty()
 	var shown := []
 	for n in names:
@@ -456,6 +458,13 @@ func _refresh_waiting_bar() -> void:
 	_waiting_hint.visible = can_poke
 	_waiting_hint.text = "Tap to poke them"
 	_waiting_bar.mouse_filter = Control.MOUSE_FILTER_STOP if can_poke else Control.MOUSE_FILTER_IGNORE
+
+var _waiting_was_urgent := false
+
+# StyleBox changes always trigger a redraw, even to the same colour, so only set it when it differs.
+func _set_bar_colour(colour: Color) -> void:
+	if _waiting_style.bg_color != colour:
+		_waiting_style.bg_color = colour
 
 func _show_waiting_faces(names: Array) -> void:
 	var wanted := names.slice(0, 3)
@@ -468,9 +477,16 @@ func _show_waiting_faces(names: Array) -> void:
 		_waiting_faces.add_child(AvatarArt.for_player(str(n), 46))
 	_waiting_faces.visible = not wanted.is_empty()
 
+var _bar_second := -1
+
 func _process(_delta: float) -> void:
 	if Turns.countdown_name != "" and _waiting_bar and (_waiting_bar.visible or _urgent()):
-		_refresh_waiting_bar()   # the seconds tick down
+		# The seconds tick down. Only touch the bar when the number changes: setting its
+		# colour or text every frame makes the phone redraw the whole screen 60 times a second.
+		var second := ceili(Turns.countdown_left)
+		if second != _bar_second or _urgent() != _waiting_was_urgent:
+			_bar_second = second
+			_refresh_waiting_bar()
 
 func _on_waiting_bar_input(event: InputEvent) -> void:
 	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):

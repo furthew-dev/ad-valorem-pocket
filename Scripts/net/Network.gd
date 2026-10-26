@@ -16,7 +16,8 @@ signal host_away(seconds: int)   # the host dropped; the relay holds the room fo
 signal host_back
 
 # Host-adjustable game settings (lobby > Game Settings). Synced to everyone.
-const DEFAULT_SETTINGS := {"start_cash": 20, "start_properties": 4, "end_goal": 200, "turn_timer": true}
+const DEFAULT_SETTINGS := {"start_cash": 20, "start_properties": 4, "end_goal": 200, "turn_timer": true,
+		"base": true, "expansion": false}
 const SETTING_LIMITS := {"start_cash": [0, 100], "start_properties": [0, 4], "end_goal": [100, 750]}
 
 const MAX_PLAYERS := 8
@@ -110,7 +111,8 @@ func start_game() -> void:
 		return   # in_game: Start was already pressed (a double tap must not deal twice)
 	_peer.lock_room()
 	Market.setup_new_game()   # fresh shared decks/stock, sent to everyone first
-	_begin_game.rpc()
+	var dealt := Expansion.deal_regions(ordered_players().map(func(e): return e["name"])) if expansion_on() else {}
+	_begin_game.rpc(dealt)
 
 # After a finished game: back to the lobby, and let new players join again.
 func return_to_lobby() -> void:
@@ -478,7 +480,13 @@ static func settings_problem(settings: Dictionary) -> String:
 			return "%s must be between %d and %d." % [key.capitalize(), limits[0], limits[1]]
 	if settings["start_cash"] >= settings["end_goal"]:
 		return "Starting cash must be less than the end goal."
+	if not settings.get("base", true) and not settings.get("expansion", false):
+		return "Turn on Base Edition, Expansion, or both."
 	return ""
+
+# Expansion Edition is on for this game (regions, environment tokens, its properties...).
+func expansion_on() -> bool:
+	return bool(game_settings.get("expansion", false))
 
 # Host only (lobby). Saved so the host gets the same settings next time.
 func set_game_settings(settings: Dictionary) -> String:
@@ -496,9 +504,10 @@ func _sync_settings(settings: Dictionary) -> void:
 
 # Host -> everyone: leave the lobby and start playing.
 @rpc("authority", "call_local", "reliable")
-func _begin_game() -> void:
+func _begin_game(dealt_regions: Dictionary = {}) -> void:
 	in_game = true
 	Global.PLAYER = players.get(multiplayer.get_unique_id(), my_name)
+	Expansion.start_game(dealt_regions)   # before the starting hand, so it can earn tokens
 	Fortunas.new_game()
 	game_starting.emit()
 	Global.start_game()   # draws the starting hand from the shared deck

@@ -105,6 +105,7 @@ func report() -> Dictionary:
 	out["priciest_name"] = priciest_name
 	out["interest_paid"] = Global.total_interest_paid
 	out["cd_worth"] = Actions.get_CD_worth()
+	out["env_tokens"] = Expansion.tokens if Network.expansion_on() else 0
 	out["portfolio"] = Global.equity()
 	out["cash"] = Global.CASH
 	out["debt"] = Global.all_loans()

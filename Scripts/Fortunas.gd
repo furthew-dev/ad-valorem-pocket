@@ -739,7 +739,8 @@ func _play_fortuna(saboteur_id: int) -> void:
 		return
 
 	var message: String = await resolve_fortuna(card)
-	Global.banner(message)
+	if message != "":
+		Global.banner(message)
 	fortuna_resolved.emit(card, message)
 
 # A card that hurts you (not a good one, not one you keep, not Swap where you choose).
@@ -809,7 +810,8 @@ func _resolve_for_saboteur(card_key: String, victim_name: String) -> void:
 	Global.banner("Sabotage paid off! %s drew %s for you." % [victim_name, card["name"]])
 	await show_card(card)
 	var message: String = await resolve_fortuna(card)
-	Global.banner(message)
+	if message != "":
+		Global.banner(message)
 	_busy = false
 
 # Our victim paid a penalty: the money comes to us.
@@ -894,7 +896,7 @@ func resolve_fortuna(card: Dictionary) -> String:
 	# Tornado is skipped because Insurance pays out on it instead of voiding it.
 	if target_rule != "all" and effect != "destroy_property_insured_payout":
 		if _try_void(card, target):
-			return "%s was voided by a protection token." % card["name"]
+			return ""   # the shield animation says it
 
 	# STEP 3: offer Just Say No against harmful cards
 	if not (effect in BENEFICIAL_EFFECTS or effect in NOT_BLOCKABLE):
@@ -910,6 +912,8 @@ func resolve_fortuna(card: Dictionary) -> String:
 		"pay_per_property":
 			var chargeable = 0
 			for p in _props():
+				if p.get("immune", false):
+					continue   # Historical Estate
 				if _try_void(card, p):   # protected properties are exempt (Pests -> Insurance)
 					continue
 				chargeable += 1
@@ -1006,8 +1010,8 @@ func resolve_fortuna(card: Dictionary) -> String:
 			return "Inheritance! Property limit +1. Build on it from My Properties with a Contractor."
 
 		"discard_environment_tokens":   # Cyber Attack (expansion)
-			# TODO: Environment Mat tokens don't exist in code yet. Clear them here.
-			return "Cyber Attack! Your Environment Mat tokens were discarded."
+			var lost := Expansion.wipe_tokens()
+			return "Cyber Attack! You lost %d Environment token%s." % [lost, "" if lost == 1 else "s"]
 
 		"auction_property":   # everyone bids live; see Scripts/auction.gd
 			if get_opponents().is_empty():
@@ -1045,7 +1049,7 @@ func resolve_fortuna(card: Dictionary) -> String:
 const NO_SWAP := "Don't swap"
 
 func _swap_with_opponent() -> String:
-	var mine := _props().filter(func(p): return not p.get("has_golden_lock", false))
+	var mine := _props().filter(func(p): return not p.get("has_golden_lock", false) and not p.get("immune", false))
 	if mine.is_empty():
 		return "Swap skipped: you have no properties to trade."
 	# Ask every opponent for their (swappable) properties.
@@ -1085,7 +1089,8 @@ func _accept_swap(their_id: int, incoming: Dictionary, from_name: String) -> Dic
 		if p["id"] == their_id and not p.get("has_golden_lock", false):
 			_props()[i] = incoming
 			DiscardFx.play(get_tree(), p, "%s took your %s in a swap" % [from_name, p["name"]])   # don't wait: they're waiting on our answer
-			Global.banner("%s swapped your %s for their %s (Swap Fortuna)." % [from_name, p["name"], incoming["name"]])
+			var how := "Cabin swap" if incoming.get("special", "") == "cabin" else "Swap Fortuna"
+			Global.banner("%s swapped your %s for their %s (%s)." % [from_name, p["name"], incoming["name"], how])
 			return p
 	return {}
 
@@ -1111,7 +1116,7 @@ func _peer_request(id: int, request: String, args: Array) -> void:
 	var result = null
 	match request:
 		"list_properties":
-			result = _props().filter(func(p): return not p.get("has_golden_lock", false))
+			result = _props().filter(func(p): return not p.get("has_golden_lock", false) and not p.get("immune", false))
 		"swap":
 			result = _accept_swap(args[0], args[1], Network.players.get(sender, "Someone"))
 	_peer_answer.rpc_id(sender, id, result)
@@ -1156,6 +1161,8 @@ func get_target_property(rule: String, needs_condition: bool = false, skip_locke
 	for p in _props():
 		if skip_locked and p.get("has_golden_lock", false):
 			continue   # immune -> the card moves on to the next property
+		if p.get("immune", false):
+			continue   # Historical Estate: immune to every Fortuna
 		if needs_condition and not p.get("has_condition", false):
 			continue   # fixed-value property -> card is null for it
 		if exclude_condition != "" and p.get("condition", "") == exclude_condition:
@@ -1186,6 +1193,9 @@ func set_condition(prop: Dictionary, level: String) -> void:
 func shift_condition(prop: Dictionary, steps: int) -> void:
 	if not prop.get("has_condition", false):
 		return
+	if prop.get("two_conditions", false):   # Traditional Japanese Home: poor <-> excellent only
+		set_condition(prop, "excellent" if steps > 0 else "poor")
+		return
 	var i = CONDITION_ORDER.find(prop["condition"])
 	i = clampi(i + steps, 0, CONDITION_ORDER.size() - 1)
 	set_condition(prop, CONDITION_ORDER[i])
@@ -1199,6 +1209,8 @@ func _remove_property(prop: Dictionary) -> void:
 
 
 ## ---- HELPERS: Attorney / Insurance / tokens ----
+const ShieldFx = preload("res://Scripts/shield_fx.gd")
+var _voided_by_shield := false
 # Returns true if a protection token voids the card. The token is used up (Attorney AND Insurance).
 # Cards with no target property (Lawsuit, Mold, Mad Renter, Swap): ANY property carrying the
 # matching token can void it.
@@ -1208,16 +1220,27 @@ func _try_void(card: Dictionary, prop) -> bool:
 		candidates = [prop]
 	else:
 		candidates = _props()
+	# Attorney: kept in your actions, it defends you automatically (and is used up).
+	if card["voidable_by_attorney"] and Actions.actions_owned.has("attorney"):
+		Actions.consume("attorney")
+		_shield_broke("attorney", card, prop if prop is Dictionary else {"name": "properties"})
+		return true
 	for p in candidates:
 		if card["voidable_by_attorney"] and p.get("has_attorney", false):
 			p["has_attorney"] = false
-			Sound.play("shield")
+			_shield_broke("attorney", card, p)
 			return true
 		if card["voidable_by_insurance"] and p.get("has_insurance", false):
 			p["has_insurance"] = false
-			Sound.play("shield")
+			_shield_broke("insurance", card, p)
 			return true
 	return false
+
+# The token is used up: the shield shatters on screen (with its sound) instead of a banner.
+func _shield_broke(kind: String, card: Dictionary, prop: Dictionary) -> void:
+	ShieldFx.play(get_tree(), kind, str(card.get("name", "")))
+	Activity.add("%s on your %s blocked %s (token used up)." % [kind.capitalize(), prop.get("name", "property"), card.get("name", "a Fortuna")], "info")
+	_voided_by_shield = true
 
 # Takes one token out of the shared supply, like the market does when you buy one.
 func _take_stock(key: String) -> bool:

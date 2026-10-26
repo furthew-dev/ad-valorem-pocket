@@ -46,8 +46,44 @@ func _let_taps_through(node: Node) -> void:
 		_let_taps_through(child)
 
 ## ---- REARRANGING APPS ----
+# Expansion Edition adds a seventh app, Environment, on a third row.
+var third_row: HBoxContainer
+
+func _rows() -> Array:
+	return [first_row, second_row] + ([third_row] if third_row else [])
+
+func _add_environment_tile() -> void:
+	if not Network.expansion_on():
+		return
+	third_row = HBoxContainer.new()
+	third_row.name = "third_row"
+	third_row.add_theme_constant_override("separation", 0)
+	second_row.add_sibling(third_row)
+	var source: Control = first_row.get_child(0)   # copy a tile's look (not its signals)
+	var tile: Control = source.duplicate(Node.DUPLICATE_GROUPS | Node.DUPLICATE_SCRIPTS)
+	tile.name = "environment"
+	third_row.add_child(tile)
+	var panel: Panel = tile.find_children("*", "Panel", true, false)[0]
+	panel.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW   # the picture takes the rounded corners
+	var picture: TextureRect = panel.find_children("*", "TextureRect", true, false)[0]
+	picture.texture = Expansion.region_texture(Expansion.my_region, true)
+	picture.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	var tint := ColorRect.new()   # a see-through wash in the theme's colour
+	tint.color = Color("533c44", 0.35)
+	tint.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(tint)
+	var label: Label = tile.find_children("*", "Label", true, false)[0]
+	label.text = "Environment"
+	label.add_theme_font_size_override("font_size", 28)
+	var button: Button = tile.find_children("*", "Button", true, false)[0]
+	button.pressed.connect(func(): _open_app(Global.environment_app, "environment"))
+
 func _setup_tiles() -> void:
-	for row in [first_row, second_row]:
+	_add_environment_tile()
+	for row in _rows():
 		for child in row.get_children():
 			if child is VBoxContainer:
 				_tiles.append(child)
@@ -64,7 +100,7 @@ func _tile_button(tile: Control) -> Button:
 # Slots are the six places apps can sit, in reading order.
 func _slots() -> Array:
 	var slots := []
-	for row in [first_row, second_row]:
+	for row in _rows():
 		for child in row.get_children():
 			if child is VBoxContainer:
 				slots.append([row, child.get_index()])
@@ -72,6 +108,12 @@ func _slots() -> Array:
 
 func _apply_saved_order() -> void:
 	var order: Array = Network.load_setting("home", "app_order", [])
+	# The Environment app only exists in Expansion games: fit the saved order to this game.
+	var has_env := _tiles.any(func(t): return String(t.name) == "environment")
+	if has_env and not order.has("environment"):
+		order.append("environment")
+	elif not has_env:
+		order.erase("environment")
 	if order.size() != _tiles.size():
 		return
 	var by_name := {}
@@ -91,7 +133,7 @@ func _apply_saved_order() -> void:
 
 func _save_order() -> void:
 	var order := []
-	for row in [first_row, second_row]:
+	for row in _rows():
 		for child in row.get_children():
 			if child is VBoxContainer:
 				order.append(String(child.name))

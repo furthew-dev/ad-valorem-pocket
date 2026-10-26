@@ -83,15 +83,6 @@ expand_mode = 1
 
 [node name="UI Menu Frame" parent="." instance=ExtResource("6_ianbu")]
 
-[node name="Label" type="Label" parent="UI Menu Frame"]
-layout_mode = 0
-size_flags_vertical = 2
-text = "player_name"
-
-[node name="Label2" type="Label" parent="UI Menu Frame"]
-layout_mode = 0
-size_flags_vertical = 10
-
 [node name="Apps" type="Panel" parent="."]
 custom_minimum_size = Vector2(500, 720)
 anchors_preset = 8

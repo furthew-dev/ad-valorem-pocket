@@ -36,6 +36,7 @@ const AWARDS := [
 	{"key": "peak_cash", "money": true, "title": "Money Bags", "text": "{who} once had {n} in cash at the same time."},
 	{"key": "fortuna_losses", "money": true, "title": "Disaster Magnet", "text": "{who} lost {n} to Fortunas and sabotage."},
 	{"key": "sabotage_income", "money": true, "title": "Ill-Gotten Gains", "text": "{who} pocketed {n} from the players they sabotaged."},
+	{"key": "env_tokens", "title": "Nature Lover", "text": "{who} earned {n} Environment token{s} in their own region."},
 	{"key": "expenses", "low": true, "money": true, "title": "Penny Pincher", "text": "{who} spent just {n} all game. Frugal!"},
 ]
 const FADE_TIME := 0.5

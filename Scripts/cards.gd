@@ -544,6 +544,97 @@ two_story_home,two_story_home,two_story_home,two_story_home,two_story_home,
 victorian_home,victorian_home,victorian_home,victorian_home,
 yurt,yurt,yurt,yurt]
 
+## ---- EXPANSION EDITION ----
+# Built into full templates in _ready (see _expansion_template). Columns:
+# name, copies in deck, region, skybnb?, double?, [value, rent] or {condition: [value, rent]},
+# art, description, extra keys.
+const EXP_ART := "res://Assets/expansion/expansion_property_icons/"
+const EXPANSION_DATA := [
+	["Cabin", 5, "Country", true, true, [12, 12], "cabin.jpg",
+		"As 1 action, swap this Cabin with another player's property that has no Insurance. Each Cabin can only be swapped once.", {"special": "cabin"}],
+	["Dome", 4, "Mountains", true, true, [15, 13], "dome.jpg",
+		"When you buy, receive or inherit a Dome, you get a free SkyBnB or Double to put on any property.", {"special": "dome"}],
+	["Gothic Mansion", 4, "City", false, true, [24, 0], "gothic_mansion.jpg",
+		"Rent: every other player pays you $1 for each property they own ($2 for each with a SkyBnB) every round.", {"special": "gothic"}],
+	["Haunted Mansion", 4, "City", true, true, {"excellent": [14, 13], "good": [16, 14], "fair": [18, 16], "poor": [20, 18]}, "haunted_mansion.jpg",
+		"The spookier the better: worth more in worse condition.", {}],
+	["Historical Estate", 5, "Mountains", true, true, {"excellent": [28, 24], "good": [24, 22], "fair": [18, 16], "poor": [12, 10]}, "historical_estate.jpg",
+		"Immune to all Fortunas. Takes 2 Contractors to improve by one condition.", {"special": "historical", "immune": true}],
+	["Hotel Resort", 4, "City", false, true, [60, 0], "hotel_resort.jpg",
+		"Collect up to 4 Hotel Suites: each costs $10 and a Contractor, and adds +$15 rent.", {"special": "suite_host", "suite_kind": "Hotel Suite"}],
+	["Luxury Cruise", 4, "Beach", false, true, [40, 0], "luxury_cruise.jpg",
+		"Collect up to 4 Cruise Suites: each costs $10 and a Contractor, and adds +$15 rent.", {"special": "suite_host", "suite_kind": "Cruise Suite"}],
+	["Hotel Suite", 4, "City", false, false, [0, 0], "cruise_resort_suites/for_hotel_resort/suite1.jpg",
+		"Earns $15 rent once added to a Hotel Resort you own. On its own it earns nothing.", {"special": "suite", "suite_for": "Hotel Resort",
+		"art_variants": ["cruise_resort_suites/for_hotel_resort/suite1.jpg", "cruise_resort_suites/for_hotel_resort/suite2.jpg",
+			"cruise_resort_suites/for_hotel_resort/suite3.jpg", "cruise_resort_suites/for_hotel_resort/suit4.jpg"]}],
+	["Cruise Suite", 4, "Beach", false, false, [0, 0], "cruise_resort_suites/for_luxury_cruise/beach_suite1.jpg",
+		"Earns $15 rent once added to a Luxury Cruise you own. On its own it earns nothing.", {"special": "suite", "suite_for": "Luxury Cruise",
+		"art_variants": ["cruise_resort_suites/for_luxury_cruise/beach_suite1.jpg", "cruise_resort_suites/for_luxury_cruise/beach_suite2.jpg",
+			"cruise_resort_suites/for_luxury_cruise/beach_suite3.jpg", "cruise_resort_suites/for_luxury_cruise/beach_suite5.jpg"]}],
+	["Mediterranean Villa", 7, "Beach", true, true, {"excellent": [16, 15], "good": [14, 13], "fair": [12, 11], "poor": [10, 9]}, "mediterranian_villa.jpg",
+		"Own two Villas and you get two free Certificates of Deposit.", {"special": "villa"}],
+	["Mountain Ranch", 4, "Country", true, true, {"excellent": [20, 18], "good": [18, 16], "fair": [16, 14], "poor": [14, 12]}, "mountain_ranch.jpg",
+		"While you own it, your Land, Inheritance and Private Island land is worth double, even with a property built on it.", {"special": "ranch"}],
+	["Nordic Cottage", 5, "Mountains", false, true, [8, 10], "nordichome3.jpg",
+		"You gain a free Sabotage every round you own this.", {"special": "nordic"}],
+	["Private Island", 4, "Beach", false, false, [15, 0], "private_island.jpg",
+		"Land. Use a Contractor to build any property here in any condition. Build a Beach property and you also get a free SkyBnB.", {"special": "island", "lot": "private_island"}],
+	["Renovated Farm House", 5, "Country", true, true, {"excellent": [15, 15], "good": [14, 14], "fair": [13, 11], "poor": [12, 10]}, "country_home.jpg",
+		"While you own it, Land Expansions cost half ($25 instead of $50).", {"special": "farm_house"}],
+	["Traditional Japanese Home", 5, "City", true, true, {"excellent": [18, 16], "good": [0, 0], "fair": [0, 0], "poor": [0, 0]}, "traditional_japanese_home.jpg",
+		"Always arrives in poor condition. A Contractor takes it straight to excellent.", {"special": "japanese", "two_conditions": true}],
+	["Tudor Manor", 4, "Country", true, true, {"excellent": [26, 24], "good": [22, 20], "fair": [18, 16], "poor": [14, 12]}, "tudor_manor.jpg",
+		"", {}],
+	["Volcano Reserve", 5, "Mountains", true, true, {"excellent": [22, 20], "good": [16, 14], "fair": [12, 10], "poor": [8, 6]}, "Volano.jpg",
+		"Prone to damage: it takes 2 Insurance tokens to insure it.", {"special": "volcano", "insurance_needed": 2}],
+]
+# "For sale" posters for the property picker (space top-right / bottom-left for the text).
+# A property not listed here uses its own picture.
+const EXP_LISTING_ART := "res://Assets/expansion/icons_for_the_market/"
+const EXP_LISTINGS := {
+	"Cabin": "cabin_listing.png", "Renovated Farm House": "renovated_listing.png",
+	"Dome": "dome_listing.png", "Gothic Mansion": "gothic_listing.png", "Haunted Mansion": "haunted_listing.png",
+	"Historical Estate": "historical_listing.png", "Hotel Resort": "resort_listing.png",
+	"Luxury Cruise": "cruise_listing.png", "Mediterranean Villa": "villa_listing.png",
+	"Mountain Ranch": "ranch_listing.png", "Nordic Cottage": "nors_listing.png",
+	"Private Island": "island_listing.png", "Traditional Japanese Home": "japanese_listing.png",
+	"Tudor Manor": "tudor_listing.png", "Volcano Reserve": "volcano_listing.png",
+}
+var _base_deck: Array = []
+var _expansion_deck: Array = []
+
+func _expansion_template(row: Array) -> Dictionary:
+	var template := {
+		"name": row[0], "region": row[2], "edition": "expansion",
+		"allow_skybnb": row[3], "allow_double": row[4],
+		"has_skybnb": false, "has_double": false, "has_golden_lock": false,
+		"has_attorney": false, "has_insurance": false, "has_loan": false,
+		"art": EXP_ART + row[6], "sale_art": EXP_ART + row[6], "description": row[7],
+	}
+	if EXP_LISTINGS.has(row[0]):
+		template["sale_art"] = EXP_LISTING_ART + EXP_LISTINGS[row[0]]
+	if row[5] is Dictionary:
+		var values := {}
+		var rents := {}
+		for level in row[5]:
+			values[level] = row[5][level][0]
+			rents[level] = row[5][level][1]
+		template["has_condition"] = true
+		template["condition"] = {"value": values, "rent": rents}
+	else:
+		template["has_condition"] = false
+		template["condition"] = "excellent"
+		template["value"] = row[5][0]
+		template["rent"] = row[5][1]
+	var extra: Dictionary = row[8]
+	for key in extra:
+		if key == "art_variants":
+			template[key] = extra[key].map(func(a): return EXP_ART + a)
+		else:
+			template[key] = extra[key]
+	return template
+
 var properties_owned: Array = []      # the player's hand (private)
 var properties_revealed: Array = []   # cards shown in property_reveal, not yet bought
 var selected_id := 0                  # id of the property being viewed / sold
@@ -555,12 +646,25 @@ var _full_deck: Array = []
 
 
 func _ready() -> void:
-	_full_deck = property_deck.duplicate()
+	_base_deck = property_deck.duplicate()
+	for template in _base_deck:
+		template["edition"] = "base"
+	for row in EXPANSION_DATA:
+		var template := _expansion_template(row)
+		if template.get("special", "") == "suite":
+			templates_by_name[template["name"]] = template
+			continue   # Suites have a deck of their own (Actions "hotel_suite" / "cruise_suite")
+		for i in row[1]:
+			_expansion_deck.append(template)
+	_full_deck = _base_deck + _expansion_deck
 	for template in _full_deck:
 		templates_by_name[template["name"]] = template
 
-func reset_deck() -> void:
-	property_deck = _full_deck.duplicate()
+# The shared deck for a new game, from the editions the host picked.
+func reset_deck(base: bool = true, expansion: bool = false) -> void:
+	property_deck = (_base_deck if base else []) + (_expansion_deck if expansion else [])
+	if property_deck.is_empty():
+		property_deck = _base_deck.duplicate()
 
 func set_deck_from_names(names: Array) -> void:
 	property_deck = names.map(func(n): return templates_by_name[n])
@@ -649,6 +753,7 @@ func make_lot(kind: String) -> Dictionary:
 		"name": info["name"], "art": info["art"], "sale_art": "",
 		"p_details": info["description"], "lot_kind": kind,
 		"value": info["value"], "e_value": info["value"],
+		"land_value": info["value"], "region": "",
 		"allow_double": false,
 	}, true)
 	return lot
@@ -663,6 +768,8 @@ func owns_land_expansion() -> bool:
 func buildable_names() -> Array:
 	var names := []
 	for template in property_deck:
+		if template.has("lot") or template.get("special", "") == "suite":
+			continue   # no land on land, and Suites only go on a Hotel / Cruise
 		if template["name"] != "Land" and not names.has(template["name"]):
 			names.append(template["name"])
 	names.sort()
@@ -679,11 +786,12 @@ func price_of(property_name: String, condition: String) -> int:
 # from the shared deck (Market.take_property). Every value tier gets the lot's value.
 func build_on_lot(lot: Dictionary, property_name: String, condition: String) -> Dictionary:
 	var property := _make_property(templates_by_name[property_name], condition)
-	var bonus: int = lot["value"]
+	var bonus: int = lot.get("land_value", lot["value"])
 	for key in ["value", "e_value", "g_value", "f_value", "p_value"]:
 		if property[key] is int:
 			property[key] += bonus
 	property["built_on"] = lot["lot_kind"]
+	property["land_value"] = bonus   # Mountain Ranch doubles this part
 	property["p_details"] = "%s\n\nBuilt on %s: +$%d value." % [property["p_details"], lot["name"], bonus]
 	var index := properties_owned.find(lot)
 	if index == -1:
@@ -709,8 +817,18 @@ func _make_property(template: Dictionary, condition: String) -> Dictionary:
 		"has_insurance": template["has_insurance"],
 		"is_new": false,
 		"round": 0,
-		"lot_kind": "land" if template["name"] == "Land" else "",
+		"lot_kind": "land" if template["name"] == "Land" else template.get("lot", ""),
+		"region": template.get("region", ""),
+		"edition": template.get("edition", "base"),
 	}
+	for key in ["special", "immune", "two_conditions", "suite_kind", "suite_for", "insurance_needed"]:
+		if template.has(key):
+			property[key] = template[key]
+	if template.has("art_variants"):
+		property["art"] = template["art_variants"].pick_random()
+		property["sale_art"] = property["art"]
+	if template.get("two_conditions", false):
+		condition = "poor"   # Traditional Japanese Home always arrives in poor condition
 	if has_condition(template):
 		var values: Dictionary = template["condition"]["value"]
 		var rents: Dictionary = template["condition"]["rent"]
@@ -738,6 +856,8 @@ func _make_property(template: Dictionary, condition: String) -> Dictionary:
 		})
 		if template["name"] == "Apartment":
 			roll_tenants(property)
+	if property["lot_kind"] != "":
+		property["land_value"] = property["value"]
 	return property
 
 
@@ -746,6 +866,7 @@ func _make_property(template: Dictionary, condition: String) -> Dictionary:
 # border. Use Cards.round_icon(property["art"]) instead of load(). Made once per picture.
 const ICON_BORDER_COLOR := Color("533c44")
 const ICON_BORDER_WIDTH := 0.045   # share of the picture's width
+const MAX_ICON_SIDE := 400
 
 var _round_icons: Dictionary = {}   # path -> ImageTexture
 var _icon_masks: Dictionary = {}    # size -> [mask Image, border ring Image]
@@ -768,6 +889,9 @@ func round_icon(path: String) -> Texture2D:
 	var side := mini(image.get_width(), image.get_height())
 	if image.get_width() != image.get_height():   # centre square
 		image = image.get_region(Rect2i((image.get_width() - side) / 2, (image.get_height() - side) / 2, side, side))
+	if side > MAX_ICON_SIDE:   # the expansion's big pictures: icons never show this large
+		image.resize(MAX_ICON_SIDE, MAX_ICON_SIDE, Image.INTERPOLATE_LANCZOS)
+		side = MAX_ICON_SIDE
 	var masks: Array = _masks_for(side)
 	var result := Image.create_empty(side, side, false, Image.FORMAT_RGBA8)
 	result.blit_rect_mask(image, masks[0], Rect2i(0, 0, side, side), Vector2i.ZERO)

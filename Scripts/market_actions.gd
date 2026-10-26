@@ -83,7 +83,7 @@ func _purchase_problem() -> String:
 		return "You are out of Actions."
 	if selected_action["stock"] <= 0:
 		return "%s is out of stock." % selected_action["name"]
-	if not Global.can_afford(selected_action["cost"]):
+	if not Global.can_afford(Actions.price_of(selected_action)):
 		return "You don't have enough funds."
 	if selected_action["name"] == "Land Expansion" and Cards.owns_land_expansion():
 		return "You cannot own more than one Land Expansion."
@@ -115,7 +115,7 @@ func _on_popup_confirm() -> void:
 		if is_instance_valid(card):
 			card.update_stock()
 		return
-	if not Global.spend(selected_action["cost"], str(selected_action.get("name", "Market"))):
+	if not Global.spend(Actions.price_of(selected_action), str(selected_action.get("name", "Market"))):
 		_buying_key = ""
 		_show_message("You don't have enough funds.")
 		return
@@ -136,7 +136,7 @@ func _on_popup_confirm() -> void:
 			Actions.actions_owned.append(key)
 	Global.action_used()
 
-	Activity.add("Bought %s for $%d" % [action_name, selected_action["cost"]], "info")
+	Activity.add("Bought %s for $%d" % [action_name, Actions.price_of(selected_action)], "info")
 	await _show_message("%s has been added to %s." % [action_name, where])
 	_buying_key = ""
 	if is_instance_valid(card):

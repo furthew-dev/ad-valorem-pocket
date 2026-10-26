@@ -13,10 +13,12 @@ const ROWS := [
 	["start_properties", "Starting Properties:"],
 	["end_goal", "End Goal $:"],
 ]
-const ROW_FONT := 38
+const ROW_FONT := 34
 
 var _boxes: Dictionary = {}   # key -> LineEdit
 var _timer_switch: InkSwitch
+var _base_switch: InkSwitch
+var _expansion_switch: InkSwitch
 var _buttons: Array = []
 var _error: Label
 
@@ -61,7 +63,7 @@ func _build() -> void:
 		line.add_theme_constant_override("separation", 10)
 		var name_label := _label(row[1], ROW_FONT)
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		name_label.custom_minimum_size.x = 270   # same width on every line, so the blanks line up
+		name_label.custom_minimum_size.x = 236   # same width on every line, so the blanks line up
 		line.add_child(name_label)
 		var field := LineEdit.new()
 		field.text = str(Network.game_settings.get(key, Network.DEFAULT_SETTINGS[key]))
@@ -69,7 +71,7 @@ func _build() -> void:
 		field.max_length = 3
 		field.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		field.custom_minimum_size = Vector2(90, 0)
+		field.custom_minimum_size = Vector2(84, 0)
 		field.add_theme_font_override("font", FONT)
 		field.add_theme_font_size_override("font_size", ROW_FONT)
 		field.add_theme_color_override("font_color", INK)
@@ -88,14 +90,18 @@ func _build() -> void:
 	# Last-player timer: when everyone else has ended their turn, the last player gets
 	# 30 seconds before their turn is ended for them.
 	var timer_line := HBoxContainer.new()
-	var timer_label := _label("30s Last-Turn Timer:", ROW_FONT)
+	var timer_label := _label("Last-Turn Timer (30s):", ROW_FONT)
 	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	timer_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # wraps instead of pushing the switch off the paper
 	timer_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	timer_line.add_child(timer_label)
 	_timer_switch = InkSwitch.new()
 	_timer_switch.button_pressed = Network.game_settings.get("turn_timer", true)
 	timer_line.add_child(_timer_switch)
 	box.add_child(timer_line)
+	# Editions: which properties are in the deck (Expansion also adds regions and its Fortunas).
+	_base_switch = _switch_line(box, "Base Edition:", Network.game_settings.get("base", true))
+	_expansion_switch = _switch_line(box, "Expansion:", Network.game_settings.get("expansion", false))
 
 	_error = _label("", 30)
 	_error.add_theme_color_override("font_color", ERROR_INK)
@@ -108,6 +114,19 @@ func _build() -> void:
 	buttons.add_child(_button("Cancel", _close))
 	box.add_child(buttons)
 	_fit_buttons.call_deferred()
+
+func _switch_line(box: VBoxContainer, text: String, on: bool) -> InkSwitch:
+	var line := HBoxContainer.new()
+	var label := _label(text, ROW_FONT)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(label)
+	var toggle := InkSwitch.new()
+	toggle.button_pressed = on
+	line.add_child(toggle)
+	box.add_child(line)
+	return toggle
 
 func _fit_buttons() -> void:
 	await get_tree().process_frame
@@ -155,6 +174,8 @@ func current_values() -> Dictionary:
 		var text: String = _boxes[key].text.strip_edges()
 		values[key] = int(text) if text.is_valid_int() else -1   # -1 fails the range check
 	values["turn_timer"] = _timer_switch.button_pressed
+	values["base"] = _base_switch.button_pressed
+	values["expansion"] = _expansion_switch.button_pressed
 	return values
 
 func _save() -> void:

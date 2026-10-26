@@ -24,16 +24,16 @@ const SKINS := [
 	["Bubblegum", Color("f2a3c4")], ["Pumpkin", Color("f0a04b")], ["Ghost", Color("e8e8ef")],
 ]
 const FACES := [
-	["Content", "expressions/12.png"], ["Cheerful", "expressions/13.png"],
+	["Funko", "expressions/12.png"], ["Cheerful", "expressions/13.png"],
 	["Starstruck", "expressions/14.png"], ["Jack-o'-Lantern", "expressions/15.png"],
-	["Mischief", "expressions/16.png"], ["Worried", "expressions/17.png"],
-	["Fuming", "expressions/18.png"], ["Unimpressed", "expressions/19.png"],
-	["Toothy Grin", "expressions/20.png"], ["Blissful", "expressions/21.png"],
-	["Goofy", "expressions/22.png"], ["Shocked", "expressions/23.png"],
+	["Mischief", "expressions/16.png"], ["Angry", "expressions/17.png"],
+	["Appalled", "expressions/18.png"], ["Unimpressed", "expressions/19.png"],
+	["Labubu Grin", "expressions/20.png"], ["Blissful", "expressions/21.png"],
+	["Goofy", "expressions/22.png"], ["Fuming", "expressions/23.png"],
 ]
 const ACCESSORIES := [
-	["None", ""], ["Aviators", "accessories/24.png"], ["Round Specs", "accessories/25.png"],
-	["Shutter Shades", "accessories/26.png"], ["Cracked Specs", "accessories/27.png"],
+	["None", ""], ["Aviators", "accessories/24.png"], ["Glasses", "accessories/25.png"],
+	["Shutter Shades", "accessories/26.png"], ["Cracked Glasses", "accessories/27.png"],
 	["Nerd Glasses", "accessories/28.png"], ["Disguise Kit", "accessories/29.png"],
 	["Elf Ears", "accessories/10.png"], ["Battle Scar", "accessories/11.png"],
 ]
@@ -145,7 +145,7 @@ static func make(code: Array, size: float, badge: bool = true) -> Control:
 	var skin := _layer(art, _skin_texture())
 	skin.self_modulate = SKINS[code[0]][1]
 	_layer(art, _texture(FACES[code[1]][1]))
-	_layer(art, _texture(ACCESSORIES[code[2]][1]))
+	_skin_tint(_layer(art, _texture(ACCESSORIES[code[2]][1])), code)
 	_dye(_layer(art, _texture(TOPS[code[3]][1])), code)
 	root.set_meta("avatar_code", code)
 	return root
@@ -157,6 +157,7 @@ static func update(icon: Control, code: Array) -> void:
 	art.get_child(0).self_modulate = SKINS[code[0]][1]
 	art.get_child(1).texture = _texture(FACES[code[1]][1])
 	art.get_child(2).texture = _texture(ACCESSORIES[code[2]][1])
+	_skin_tint(art.get_child(2), code)
 	art.get_child(3).texture = _texture(TOPS[code[3]][1])
 	_dye(art.get_child(3), code)
 	if icon.get_child_count() > 1:   # the badge
@@ -202,6 +203,34 @@ static func _dye(rect: TextureRect, code: Array) -> void:
 	var material := ShaderMaterial.new()
 	material.shader = _dye_shader
 	material.set_shader_parameter("dye", color)
+	rect.material = material
+
+# Elf Ears are drawn in the same grey as the head art: tint them to the skin colour
+# (the grey becomes exactly the skin; the darker inner line stays darker).
+const SKIN_PARTS := ["accessories/10.png"]
+const SKIN_GREY := 172.0 / 255.0
+const SKIN_SHADER := """
+shader_type canvas_item;
+uniform vec4 skin : source_color;
+uniform float grey = 0.675;
+void fragment() {
+	vec4 c = texture(TEXTURE, UV);
+	COLOR = vec4(clamp(skin.rgb * c.rgb / grey, 0.0, 1.0), c.a * COLOR.a);
+}
+"""
+static var _skin_shader: Shader
+
+static func _skin_tint(rect: TextureRect, code: Array) -> void:
+	if not ACCESSORIES[code[2]][1] in SKIN_PARTS:
+		rect.material = null
+		return
+	if _skin_shader == null:
+		_skin_shader = Shader.new()
+		_skin_shader.code = SKIN_SHADER
+	var material := ShaderMaterial.new()
+	material.shader = _skin_shader
+	material.set_shader_parameter("skin", SKINS[code[0]][1])
+	material.set_shader_parameter("grey", SKIN_GREY)
 	rect.material = material
 
 static func _texture(path: String) -> Texture2D:

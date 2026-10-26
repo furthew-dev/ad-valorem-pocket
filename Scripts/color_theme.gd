@@ -236,6 +236,14 @@ func _tint_texture(item: CanvasItem) -> void:
 		return
 	if item.material and not item.has_meta("ct_tint"):
 		return   # it has its own material: leave it alone
+	if item.has_meta("ct_as_ink"):   # see ink_icon()
+		var ink: String = "" if current == "default" else str(THEMES[current]["ink"])
+		var ink_material := ShaderMaterial.new()
+		ink_material.shader = _tint_shader
+		ink_material.set_shader_parameter("replace_color", Color(Color(ink) if ink != "" else Color.BLACK, 1.0))
+		item.material = ink_material
+		item.set_meta("ct_tint", true)
+		return
 	var base := _mono_color(texture)
 	var material: ShaderMaterial = null
 	if base != "" and current != "default":
@@ -255,6 +263,16 @@ func _tint_texture(item: CanvasItem) -> void:
 	elif item.has_meta("ct_tint"):
 		item.material = null
 		item.remove_meta("ct_tint")
+
+# One-colour icon art drawn like the black line icons beside it (black, or the theme's
+# ink colour on dark themes), whatever colour the picture itself is in. Used where card
+# art in a beige palette colour sits in a list of black icons (My Actions).
+func ink_icon(item: CanvasItem) -> void:
+	var texture: Texture2D = item.get("texture")
+	if texture == null or _mono_color(texture) == "":
+		return   # a photo or illustration: leave it
+	item.set_meta("ct_as_ink", true)
+	_tint_texture(item)
 
 # The colour (hex) covering most of a texture, if it's one-colour art; "" otherwise.
 func _mono_color(texture: Texture2D) -> String:
