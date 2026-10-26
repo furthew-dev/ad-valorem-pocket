@@ -351,6 +351,8 @@ func _end_game() -> void:
 	var report := {"name": Global.PLAYER, "net_worth": Global.net_worth(), "stats": Stats.report()}
 	if Network.is_online():
 		_report_final.rpc_id(1, report)
+		if multiplayer.is_server():
+			_results_deadline()
 	else:
 		_set_results([report])
 	await _play_curtain("Game Over", BANK_SCENE)   # bank_account.gd shows the summary + OK
@@ -363,14 +365,31 @@ func _report_final(report: Dictionary) -> void:
 	_final_reports[id if id != 0 else 1] = report
 	_check_final_reports()
 
-func _check_final_reports() -> void:
+func _check_final_reports(force: bool = false) -> void:
+	if _results_published:
+		return
 	for id in Network.players:
-		if not _final_reports.has(id):
+		if not _final_reports.has(id) and not force:
 			return
 	var list := []
 	for id in Network.players:
-		list.append(_final_reports[id])
+		if _final_reports.has(id):
+			list.append(_final_reports[id])
+	if list.is_empty():
+		return
+	_results_published = true
 	_publish_results.rpc(list)
+
+# Host: a phone that never sends its numbers (it dropped, or froze) mustn't leave
+# everyone staring at an empty results page. After a while, publish what we have.
+const RESULTS_WAIT := 12.0
+var _results_published := false
+
+func _results_deadline() -> void:
+	_results_published = false
+	await get_tree().create_timer(RESULTS_WAIT).timeout
+	if game_over and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		_check_final_reports(true)
 
 @rpc("authority", "call_local", "reliable")
 func _publish_results(list: Array) -> void:

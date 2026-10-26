@@ -667,7 +667,7 @@ func reset_deck(base: bool = true, expansion: bool = false) -> void:
 		property_deck = _base_deck.duplicate()
 
 func set_deck_from_names(names: Array) -> void:
-	property_deck = names.map(func(n): return templates_by_name[n])
+	property_deck = names.filter(func(n): return templates_by_name.has(n)).map(func(n): return templates_by_name[n])
 
 func reset_id() -> void:
 	selected_id = 0
@@ -707,7 +707,8 @@ func draw_into_hand(count: int) -> void:
 func reveal(count: int) -> Array:
 	var cards := []
 	for property_name in await Market.draw_properties(count):
-		cards.append(_make_property(templates_by_name[property_name], randomize_condition()))
+		if templates_by_name.has(property_name):   # (a name this copy of the game doesn't know is skipped)
+			cards.append(_make_property(templates_by_name[property_name], randomize_condition()))
 	properties_revealed.append_array(cards)
 	return cards
 

@@ -12,7 +12,7 @@ var attorney = {
 	"cost": 4,
 	"stock": 10,
 	"art": "res://Assets/icons/attorney_icon.png",
-	"description": "Protects the assigned Property from specific legal Fortuna cards."
+	"description": "Covers you against legal action taken against you: blocks the next legal Fortuna."
 }
 var certificate_of_deposit = {   # TODO: needs its own image
 	"name": "Certificate of Deposit",
@@ -130,7 +130,7 @@ const SUITE_KEYS := ["hotel_suite", "cruise_suite"]
 
 # "Details" in the Market: what each item does, in full.
 const DETAILS := {
-	"Attorney": "Keep it in your actions. The next legal Fortuna that hits you (Auction, either Lawsuit, Mold or Swap) is blocked automatically, and the Attorney is used up.",
+	"Attorney": "Covers you against legal action taken against you. Keep it in your actions: the next legal Fortuna that hits you (Auction, either Lawsuit, Mold or Swap) is blocked automatically, and the Attorney is used up.",
 	"Certificate of Deposit": "Savings for the end of the game: one is worth $50, a pair $110 ($10 bonus per pair). Counts toward your net worth.",
 	"Contractor": "Upgrade a property one condition level (1 action). Or build any property on Land, Inheritance, a Land Expansion or a Private Island, in the condition you choose (you pay that price). Expansion: also adds Suites to a Hotel Resort or Luxury Cruise. The Historical Estate needs 2.",
 	"Double": "Put it on a property to double its value (1 action). Some properties don't allow a Double.",

@@ -20,6 +20,14 @@ const DEFAULT_SETTINGS := {"start_cash": 20, "start_properties": 4, "end_goal": 
 		"base": true, "expansion": false}
 const SETTING_LIMITS := {"start_cash": [0, 100], "start_properties": [0, 4], "end_goal": [100, 750]}
 
+# Every phone in a room must run the same build. A phone that loaded an old cached copy
+# of the game used to join anyway and then broke in odd ways (missing properties, empty
+# deck, blank results...). build_id() is worked out from this label plus the game's data
+# and network messages, so any real change gives a new id even if this label isn't bumped.
+const GAME_VERSION := "2026.10.26"
+const OUTDATED_MESSAGE := "This phone and the host are running different versions of the game.\n\nReload the page on both phones (pull down to refresh, or close and reopen the tab), then try again."
+var _build_id := ""
+
 const MAX_PLAYERS := 8
 const MIN_PLAYERS_TO_START := 1   # 1 lets the host play solo; raise to 2 to require company
 const MAX_NAME_LENGTH := 12
@@ -247,7 +255,24 @@ func _end_session(message: String) -> void:
 func _on_connected_to_server() -> void:
 	if in_game:
 		return   # the host came back after a refresh; it already knows us (see _on_host_back)
-	_register_player.rpc_id(1, my_name, my_token, my_avatar())
+	_register_player.rpc_id(1, my_name, my_token, my_avatar(), build_id())
+
+func build_id() -> String:
+	if _build_id != "":
+		return _build_id
+	var parts := [GAME_VERSION]
+	parts.append(Cards.templates_by_name.keys())
+	parts.append(Actions.all_actions.keys())
+	parts.append(Fortunas.all_fortunas.keys())
+	parts.append(DEFAULT_SETTINGS.keys())
+	for node in [self, Market, Turns, Fortunas, Auction, Expansion, Global]:
+		var script: Script = node.get_script()
+		if script:
+			var calls: Array = script.get_rpc_config().keys().map(func(k): return str(k))
+			calls.sort()   # as Strings: StringNames sort by memory address, which differs per run
+			parts.append(calls)
+	_build_id = "%08x" % (str(parts).hash() & 0xffffffff)
+	return _build_id
 
 func _on_peer_disconnected(id: int) -> void:
 	if not multiplayer.is_server() or not players.has(id):
@@ -374,10 +399,14 @@ func _hide_wait_overlay() -> void:
 ## ---- RPCs ----
 # Client -> host: "this is my name" (and my secret token, for reconnecting later).
 @rpc("any_peer", "reliable")
-func _register_player(player_name: String, token: String = "", avatar: Array = []) -> void:
+func _register_player(player_name: String, token: String = "", avatar: Array = [], version: String = "") -> void:
 	if not multiplayer.is_server():
 		return
 	var id := multiplayer.get_remote_sender_id()
+	if version != build_id():   # an old (or newer) copy of the game: keep it out
+		_resume_rejected.rpc_id(id, OUTDATED_MESSAGE)
+		Global.banner("%s tried to join with a different version of the game. They need to reload the page." % clean_name(player_name))
+		return
 	if in_game:
 		if token != "" and tokens.get(id, "") == token:
 			return   # already back in
