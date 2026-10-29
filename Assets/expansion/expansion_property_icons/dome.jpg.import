@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/dome.jpg-6f2c97ed03c4acb1dd4221ee19e1035c.cte
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.8
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0

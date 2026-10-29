@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/resort_listing.png-f0916e13016a12cb7e483615d8
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.8
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0

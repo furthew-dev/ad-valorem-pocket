@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/beach_suite5.jpg-1fb8592f2a5db995f701f1af0f3b
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.8
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0

@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/suit4.jpg-a8991e191167353b785f59e653d6287f.ct
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.8
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0

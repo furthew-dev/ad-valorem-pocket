@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/cruise_listing.png-426a0c11f548748fb96d000dfe
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.8
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
