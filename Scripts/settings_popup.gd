@@ -121,6 +121,10 @@ func _build() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(spacer)
+	var report := _button("Report a Bug", _report_bug, false)
+	report.add_theme_font_size_override("font_size", 34)
+	box.add_child(report)
+	box.offset_top -= 50   # room for the extra line
 	box.add_child(_button("Close", _close))
 
 func _spacer(height: int) -> Control:
@@ -228,6 +232,29 @@ func _leave() -> void:
 		return
 	get_tree().change_scene_to_file(TITLE_SCENE)
 	queue_free()
+
+## ---- BUG REPORT ----
+# Opens the bug report form in a new browser tab. The game version and the screen the
+# player was on are filled in for them.
+const BUG_REPORT_URL := "https://furthew.com/bug-report/"
+
+func _report_bug() -> void:
+	Sound.play("click")
+	var screen := "title"
+	var scene := get_tree().current_scene
+	if scene and scene.scene_file_path != "":
+		screen = scene.scene_file_path.get_file().get_basename()
+	var url := "%s?v=%s&screen=%s" % [BUG_REPORT_URL, Network.APP_VERSION.uri_encode(), screen.uri_encode()]
+	if Network.in_game:
+		url += "&round=%d&expansion=%s" % [Global.ROUND, "1" if Network.expansion_on() else "0"]
+	if OS.has_feature("web"):
+		# A new tab, so the game keeps running here. If the browser blocks it, show the link.
+		var window := JavaScriptBridge.get_interface("window")
+		var tab = window.open(url, "_blank") if window else null
+		if tab == null:
+			Global.show_notice("Your browser blocked the new tab. To report a bug, visit:\n\nfurthew.com/bug-report")
+	else:
+		OS.shell_open(url)
 
 func _close() -> void:
 	Sound.play("back")

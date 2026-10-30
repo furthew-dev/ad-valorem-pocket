@@ -25,6 +25,7 @@ const SETTING_LIMITS := {"start_cash": [0, 100], "start_properties": [0, 4], "en
 # deck, blank results...). build_id() is worked out from this label plus the game's data
 # and network messages, so any real change gives a new id even if this label isn't bumped.
 const GAME_VERSION := "2026.10.26"
+const APP_VERSION := "0.9.2"   # shown to players and sent with bug reports
 const OUTDATED_MESSAGE := "This phone and the host are running different versions of the game.\n\nReload the page on both phones (pull down to refresh, or close and reopen the tab), then try again."
 var _build_id := ""
 
