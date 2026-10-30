@@ -87,11 +87,125 @@ func _ask(request: String, args: Array):
 	var id := _next_request_id
 	_pending[id] = [request, args]
 	_request.rpc_id(1, id, request, args)
+	_watch_for_lag(id)
 	while true:
 		var reply: Array = await _reply_received
 		if reply[0] == id:
 			_pending.erase(id)
+			_hide_processing()
 			return reply[1]
+
+## ---- "PROCESSING..." ----
+# A slow answer from the host (a busy phone, a weak connection) used to look like the
+# tap didn't register. If an answer takes longer than LAG_AFTER, the screen dims and
+# shows "Processing..." until it arrives, so the player waits instead of leaving.
+const LAG_AFTER := 0.4
+const ESCAPE_AFTER := 20.0   # after this long, a tap lets them stop waiting
+var _processing: CanvasLayer
+var _processing_label: Label
+var _processing_hint: Label
+
+func _watch_for_lag(id: int) -> void:
+	await get_tree().create_timer(LAG_AFTER).timeout
+	if _pending.has(id):
+		_show_processing(id)
+
+func _show_processing(id: int) -> void:
+	if _processing == null:
+		_build_processing()
+	if _processing.visible:
+		return
+	_processing.visible = true
+	_processing_hint.visible = false
+	var dots := 0
+	var started := Time.get_ticks_msec()
+	while is_instance_valid(_processing) and _processing.visible:
+		dots = (dots + 1) % 4
+		_processing_label.text = "Processing" + ".".repeat(dots)
+		if (Time.get_ticks_msec() - started) / 1000.0 > ESCAPE_AFTER and not _processing_hint.visible:
+			_processing_hint.visible = true
+		await get_tree().create_timer(0.4).timeout
+
+func _hide_processing() -> void:
+	if _processing and _pending.is_empty():
+		_processing.visible = false
+
+func _build_processing() -> void:
+	_processing = CanvasLayer.new()
+	_processing.layer = 105   # over screens, pop-ups and menus
+	add_child(_processing)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.45)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP   # the player waits for the answer
+	dim.gui_input.connect(func(event: InputEvent):
+		if _processing_hint.visible and event is InputEventMouseButton and event.pressed:
+			_processing.visible = false)
+	_processing.add_child(dim)
+	var card := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("2e2328")
+	style.border_color = Color("ddcf99")
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(26)
+	style.content_margin_left = 40
+	style.content_margin_right = 40
+	style.content_margin_top = 22
+	style.content_margin_bottom = 22
+	card.add_theme_stylebox_override("panel", style)
+	card.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	card.grow_vertical = Control.GROW_DIRECTION_BOTH
+	card.custom_minimum_size = Vector2(380, 0)
+	dim.add_child(card)
+	var box := VBoxContainer.new()
+	card.add_child(box)
+	_processing_label = Label.new()
+	_processing_label.add_theme_font_override("font", preload("res://Assets/fonts/Comfortaa-Regular.ttf"))
+	_processing_label.add_theme_font_size_override("font_size", 40)
+	_processing_label.add_theme_color_override("font_color", Color("f6f2e1"))
+	_processing_label.custom_minimum_size.x = 300   # the dots don't make it jump
+	box.add_child(_processing_label)
+	_processing_hint = Label.new()
+	_processing_hint.text = "Still waiting on the host.\nTap to stop waiting."
+	_processing_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_processing_hint.add_theme_font_size_override("font_size", 24)
+	_processing_hint.add_theme_color_override("font_color", Color("ddcf99"))
+	box.add_child(_processing_hint)
+	for node in _processing.find_children("*", "", true, false):
+		ColorTheme.keep(node)
+	_processing.visible = false
+
+
+## ---- BUYING FROM THE ACTIONS MARKET ----
+# The whole purchase runs here (an autoload), not on the Market screen: leaving the
+# screen while the host is slow to answer no longer drops a purchase half-way (stock
+# taken, but no token and no charge). Returns {"ok", "message"}.
+func purchase_action(key: String) -> Dictionary:
+	var action: Dictionary = Actions.all_actions[key]
+	var action_name: String = action["name"]
+	var price: int = Actions.price_of(action)
+	if not await buy_action(key):
+		return {"ok": false, "message": "Sorry, %s just sold out." % action_name}
+	if not Global.spend(price, action_name):
+		Global.remove_cash(price, action_name)   # cash dropped while asking the host: charge it anyway
+	Stats.add("actions_bought")
+	if key == "certificate_of_deposit":
+		Stats.add("investments")
+	var where := "your inventory"
+	match key:
+		"llc":
+			Actions.llc_added()   # must run before the append below
+			Actions.actions_owned.append(key)
+		"land_expansion":   # an empty lot in My Properties, not a token
+			Global.PROPERTY_CAPACITY += 1
+			Cards.properties_owned.append(Cards.make_lot("land_expansion"))
+			where = "My Properties. Build on it with a Contractor"
+		_:
+			Actions.actions_owned.append(key)
+	Global.action_used()
+	Activity.add("Bought %s for $%d" % [action_name, price], "info")
+	return {"ok": true, "message": "%s has been added to %s." % [action_name, where]}
 
 # The host dropped and came back: ask again for anything still unanswered.
 func resend_pending() -> void:

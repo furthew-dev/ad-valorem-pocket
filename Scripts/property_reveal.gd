@@ -26,7 +26,10 @@ var _loan_offer_open := false    # the "take a loan?" question or the loan form 
 var _purchase_loan := 0          # number of the loan taken on this screen to pay for the purchase
 
 
+var _actions_on_entry := 0   # backing out must never cost an action
+
 func _ready() -> void:
+	_actions_on_entry = Global.ACTIONS
 	button_group.pressed.connect(_on_group_pressed)
 	ui_menu_frame.disable_buttons()
 	Global.erase_scenes()
@@ -206,9 +209,11 @@ func _on_cancel_confirmed() -> void:
 		Cards.selected_id = build_lot["id"]
 		get_tree().change_scene_to_file("res://Scenes/property_info.tscn")
 		return
+	if Global.ACTIONS < _actions_on_entry:   # nothing was bought: give back any action taken
+		Global.ACTIONS = _actions_on_entry
 	if Global.using_realtor:
 		Global.remove_cash(REALTOR_FINE, "Realtor Fee")
 		Actions.consume("realtor")
 		await Global.show_notice("Realtor fined you $%d" % REALTOR_FINE)
-	await Cards.return_revealed()   # back into the shared deck
+	Cards.return_revealed()   # back into the shared deck (no need to wait for the host)
 	get_tree().change_scene_to_file("res://Scenes/my_properties.tscn")

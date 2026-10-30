@@ -32,6 +32,42 @@ func _ready() -> void:
 	_add_sort_button()
 	_build_list()
 
+## ---- CAPACITY ("Capacity 3 / 5 Properties") ----
+# 4 to start; each Land Expansion and Inheritance adds one. Empty lots count, as they do
+# when buying. Shown in the header band so players know if they can keep buying.
+var capacity_pill: PanelContainer   # (the tutorial points at it)
+
+func capacity_text() -> String:
+	return "Capacity  %d / %d Properties" % [Cards.properties_owned.size(), Global.PROPERTY_CAPACITY]
+
+func _add_capacity_label() -> void:
+	var full := Cards.properties_owned.size() >= Global.PROPERTY_CAPACITY
+	capacity_pill = PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("2e2328") if not full else Color("793c44")
+	style.border_color = Color("ddcf99")
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(30)
+	style.content_margin_left = 30
+	style.content_margin_right = 30
+	style.content_margin_top = 8
+	style.content_margin_bottom = 10
+	capacity_pill.add_theme_stylebox_override("panel", style)
+	capacity_pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	capacity_pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var label := Label.new()
+	label.text = capacity_text() + ("  ·  Full" if full else "")
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_override("font", preload("res://Assets/fonts/Comfortaa-Regular.ttf"))
+	label.add_theme_font_size_override("font_size", 28)
+	label.add_theme_color_override("font_color", Color("f6f2e1"))
+	capacity_pill.add_child(label)
+	var centre := CenterContainer.new()   # top of the list (the header band sits under the frame)
+	centre.custom_minimum_size = Vector2(0, 76)
+	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	centre.add_child(capacity_pill)
+	list_of_properties.add_child(centre)
+
 ## ---- SORTING ----
 func _add_sort_button() -> void:
 	# Sits in the empty space to the right of the (centred) property cards, under the header.
@@ -82,6 +118,7 @@ func _exit_tree() -> void:
 func _build_list() -> void:
 	for child in list_of_properties.get_children():
 		child.queue_free()
+	_add_capacity_label()
 	for property_data in _sorted_properties():
 		var card_instance = PROPERTY_CARD_SCENE.instantiate()
 		list_of_properties.add_child(card_instance)

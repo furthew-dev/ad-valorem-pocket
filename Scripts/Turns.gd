@@ -134,6 +134,16 @@ func _update_countdown(still_tokens: Array, still_names: Array) -> void:
 	_force_deadline = 0.0
 	_sync_countdown.rpc(str(still_names[0]).trim_suffix(" (reconnecting)"), LAST_PLAYER_TIME)
 
+# Host: the timer was switched on/off mid-game (Settings). Off stops a running countdown;
+# on starts one if a single player is still playing.
+func timer_setting_changed() -> void:
+	if not (Network.is_online() and multiplayer.is_server()):
+		return
+	if not Network.game_settings.get("turn_timer", true):
+		_stop_countdown()
+	else:
+		resync_waiting()
+
 func _stop_countdown() -> void:
 	if _countdown_token == "" and countdown_name == "":
 		return

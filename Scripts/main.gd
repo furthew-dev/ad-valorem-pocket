@@ -29,6 +29,7 @@ func _ready() -> void:
 	Network.room_ready.connect(_on_room_ready)
 	Network.connection_failed.connect(_on_connection_failed)
 	Network.resumed.connect(_on_resumed)
+	_offer_tour.call_deferred()
 
 
 func _process(delta: float) -> void:
@@ -143,6 +144,15 @@ func _on_connection_failed(message: String) -> void:
 
 
 ## ---- HELPERS ----
+# First time on this phone: offer the guided tour (once; it's in How to Play later).
+func _offer_tour() -> void:
+	var Tutorial = load("res://Scripts/tutorial.gd")
+	if Tutorial.seen() or Network.load_setting("tutorial", "offered", false):
+		return
+	Network.save_setting("tutorial", "offered", true)
+	var popup := _new_popup("New to Ad Valorem?\nTake a quick guided tour of the game.", "Take the tour", "Not now")
+	popup.left_pressed.connect(func(): Tutorial.start(get_tree()))
+
 func _new_popup(text: String, left: String, right: String) -> Node:
 	var popup = POPUP_SCENE.instantiate()
 	add_child(popup)

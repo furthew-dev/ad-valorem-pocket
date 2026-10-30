@@ -101,43 +101,22 @@ func _on_popup_confirm() -> void:
 		_show_message(problem)
 		return
 
-	var action_name: String = selected_action["name"]
 	var key := _key_of(selected_action)
 	var card := selected_card
 	_buying_key = key
 	buy.disabled = true
-	var granted := await Market.buy_action(key)   # the host owns the shared stock
+	var result: Dictionary = await Market.purchase_action(key)   # finishes even if this screen closes
+	if not is_inside_tree():
+		return
 	buy.disabled = false
-	if not granted:
+	if not result["ok"]:
 		_buying_key = ""
 		Sound.play("error")
-		_show_message("Sorry, %s just sold out." % action_name)
+		_show_message(result["message"])
 		if is_instance_valid(card):
 			card.update_stock()
 		return
-	if not Global.spend(Actions.price_of(selected_action), str(selected_action.get("name", "Market"))):
-		_buying_key = ""
-		_show_message("You don't have enough funds.")
-		return
-
-	Stats.add("actions_bought")
-	if key == "certificate_of_deposit":
-		Stats.add("investments")
-	var where := "your inventory"
-	match key:
-		"llc":
-			Actions.llc_added()   # must run before the append below
-			Actions.actions_owned.append(key)
-		"land_expansion":   # an empty lot in My Properties, not a token
-			Global.PROPERTY_CAPACITY += 1
-			Cards.properties_owned.append(Cards.make_lot("land_expansion"))
-			where = "My Properties. Build on it with a Contractor"
-		_:
-			Actions.actions_owned.append(key)
-	Global.action_used()
-
-	Activity.add("Bought %s for $%d" % [action_name, Actions.price_of(selected_action)], "info")
-	await _show_message("%s has been added to %s." % [action_name, where])
+	await _show_message(result["message"])
 	_buying_key = ""
 	if is_instance_valid(card):
 		card.update_stock()   # animate once the pop-up is out of the way

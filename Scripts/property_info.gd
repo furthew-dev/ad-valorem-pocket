@@ -70,6 +70,7 @@ func _ready() -> void:
 	_add_build_button()
 	_add_special_button()
 	_add_insurance_controls()
+	_style_sell_button()
 	setup_card()
 
 # Fills every label from current_property. Safe to call again after a token is used,
@@ -204,6 +205,91 @@ func _layout_token_buttons() -> void:
 	if is_inside_tree():
 		await get_tree().process_frame
 	_laying_out = false
+	_jiggle_tokens(shown)
+
+## ---- "USE ME" JIGGLE ----
+# Add SkyBnB / Double / Insurance buttons that can be used right now give a little wiggle
+# every couple of seconds, so it's obvious the token in your inventory can go here.
+var _jiggles: Array = []
+
+func _jiggle_tokens(shown: Array) -> void:
+	for tween in _jiggles:
+		if tween and tween.is_valid():
+			tween.kill()
+	_jiggles.clear()
+	for i in shown.size():
+		var panel: Control = shown[i]
+		panel.rotation = 0.0
+		panel.pivot_offset = panel.size / 2.0
+		var tween := panel.create_tween().set_loops()
+		tween.tween_interval(1.8 + i * 0.25)   # staggered, so they don't move in lockstep
+		for angle in [0.07, -0.07, 0.05, -0.04, 0.02, 0.0]:
+			tween.tween_property(panel, "rotation", angle, 0.06)
+		_jiggles.append(tween)
+
+## ---- SELL BUTTON ----
+# A rounded terracotta button with a money bag, instead of the small grey square
+# that sat over the token buttons.
+const SELL_ICON := preload("res://Assets/icons/sell_icon.png")
+const CREAM_SHADER := """
+shader_type canvas_item;
+uniform vec4 tint : source_color;
+void fragment() { COLOR = vec4(tint.rgb, texture(TEXTURE, UV).a * COLOR.a); }
+"""
+
+func _style_sell_button() -> void:
+	var panel: Panel = $CanvasLayer/Sell
+	panel.custom_minimum_size = Vector2.ZERO
+	# Beside the property's picture (top right), clear of the token buttons below.
+	panel.offset_left = -196
+	panel.offset_right = -18
+	panel.offset_top = 412
+	panel.offset_bottom = 490
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("b76051")
+	style.border_color = Color("f6f2e1")
+	style.set_border_width_all(4)
+	style.set_corner_radius_all(41)
+	style.shadow_color = Color(0, 0, 0, 0.35)
+	style.shadow_size = 8
+	style.shadow_offset = Vector2(0, 5)
+	panel.add_theme_stylebox_override("panel", style)
+	var label: Label = panel.get_node("Label")
+	label.text = ""
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(row)
+	panel.move_child(row, 0)   # under the (invisible) button that takes the tap
+	var icon := TextureRect.new()
+	icon.texture = SELL_ICON
+	icon.custom_minimum_size = Vector2(40, 40)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var shader := Shader.new()
+	shader.code = CREAM_SHADER
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	material.set_shader_parameter("tint", Color("f6f2e1"))
+	icon.material = material
+	icon.set_meta("ct_skip", true)
+	row.add_child(icon)
+	var text := Label.new()
+	text.text = "Sell"
+	text.add_theme_font_override("font", preload("res://Assets/fonts/Comfortaa-Regular.ttf"))
+	text.add_theme_font_size_override("font_size", 38)
+	text.add_theme_color_override("font_color", Color("f6f2e1"))
+	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(text)
+	sell.pressed.connect(func():   # a quick press-down feel
+		panel.pivot_offset = panel.size / 2.0
+		var pop := panel.create_tween()
+		pop.tween_property(panel, "scale", Vector2(0.92, 0.92), 0.06)
+		pop.tween_property(panel, "scale", Vector2.ONE, 0.08))
 
 func _add_build_button() -> void:
 	_build_btn = Button.new()

@@ -11,6 +11,7 @@ const INK := Color(0.1, 0.1, 0.1)
 var _name_field: LineEdit
 var _sound_toggle: InkSwitch
 var _theme_button: Button
+var _timer_toggle: InkSwitch
 
 
 func _ready() -> void:
@@ -83,6 +84,28 @@ func _build() -> void:
 	_sound_toggle.toggled.connect(_on_sound_toggled)
 	sound_row.add_child(_sound_toggle)
 	box.add_child(sound_row)
+
+	# --- Last-player timer (in a game; only the host can change it) ---
+	if Network.in_game and Network.is_online():
+		var timer_row := HBoxContainer.new()
+		var timer_label := _label("Last-Turn Timer", 40)
+		timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		timer_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		timer_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		timer_row.add_child(timer_label)
+		_timer_toggle = InkSwitch.new()
+		_timer_toggle.button_pressed = Network.game_settings.get("turn_timer", true)
+		if Network.is_host():
+			_timer_toggle.toggled.connect(_on_timer_toggled)
+		else:
+			_timer_toggle.disabled = true
+			_timer_toggle.modulate.a = 0.5
+		timer_row.add_child(_timer_toggle)
+		box.add_child(timer_row)
+		var note := _label("30 seconds for the last player each round." if Network.is_host() else "Only the host can change this.", 26)
+		note.modulate.a = 0.7
+		box.add_child(note)
+		box.offset_top -= 80   # two more lines: start higher so Close stays on the paper
 
 	# --- Theme (tap to try the next one) ---
 	_theme_button = _button(_theme_text(), _next_theme)
@@ -160,6 +183,15 @@ func _next_theme() -> void:
 	Sound.play("switch")
 	ColorTheme.set_theme(ColorTheme.next_theme())
 	_theme_button.text = _theme_text()
+
+# Host: switch the last-player countdown on or off for everyone, right now.
+func _on_timer_toggled(on: bool) -> void:
+	Sound.play("switch")
+	var settings: Dictionary = Network.game_settings.duplicate()
+	settings["turn_timer"] = on
+	Network.set_game_settings(settings)
+	Turns.timer_setting_changed()
+	Global.banner("Last-turn timer %s." % ("on" if on else "off"))
 
 func _on_sound_toggled(on: bool) -> void:
 	Sound.set_enabled(on)

@@ -120,7 +120,19 @@ func _make_page(index: int) -> Control:
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(body)
+	if index == PAGES.size() - 1:   # the walkthrough, from the last page
+		var tour := _button("Take the guided tour", _start_tour)
+		tour.add_theme_font_size_override("font_size", 40)
+		tour.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		box.add_child(tour)
 	return sheet
+
+func _start_tour() -> void:
+	if _busy:
+		return
+	_busy = true
+	queue_free()
+	load("res://Scripts/tutorial.gd").start(get_tree())
 
 func _show_page(index: int) -> void:
 	_index = index
