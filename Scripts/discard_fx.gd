@@ -12,6 +12,7 @@ const CARD_COLOR := Color("533c44")
 const BIN_COLOR := Color("8a7a70")
 
 var _done := false
+const TRASH_SOUND_LEAD := 0.55 - 0.18   # drop time minus the thud's offset in the sound
 
 
 static func play(tree: SceneTree, property: Dictionary, caption: String = "") -> void:
@@ -72,6 +73,8 @@ func _run(property: Dictionary, caption: String) -> void:
 	t.tween_property(bin, "lid_angle", -50.0, 0.2)
 	t.tween_property(label, "modulate:a", 0.0, 0.2)
 	var drop_to := Vector2(bin.position.x + bin.size.x / 2 - card.size.x / 2, bin.position.y - card.size.y / 2 + 60)
+	# The sound's thud comes 0.18 s in; start it so the thud lands as the card does.
+	t.tween_callback(func(): get_tree().create_timer(TRASH_SOUND_LEAD).timeout.connect(Sound.play.bind("trash")))
 	t.tween_property(card, "position", drop_to, 0.55).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	t.parallel().tween_property(card, "scale", Vector2(0.12, 0.12), 0.55).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	t.parallel().tween_property(card, "rotation_degrees", 260.0, 0.55)

@@ -71,6 +71,7 @@ func _ready() -> void:
 	_add_special_button()
 	_add_insurance_controls()
 	_style_sell_button()
+	_style_token_buttons()
 	setup_card()
 
 # Fills every label from current_property. Safe to call again after a token is used,
@@ -171,7 +172,7 @@ func _add_insurance_controls() -> void:
 # Each label shrinks until its text fits inside its button.
 const TOKEN_FONT_SIZE := 45
 const TOKEN_FONT_MIN := 18
-const TOKEN_TEXT_PADDING := 24
+const TOKEN_TEXT_PADDING := 12
 var _laying_out := false
 
 func _layout_token_buttons() -> void:
@@ -192,16 +193,25 @@ func _layout_token_buttons() -> void:
 		var separation := row.get_theme_constant("separation")
 		var width := minf(300.0, (available - separation * (shown.size() - 1)) / shown.size())
 		row.alignment = BoxContainer.ALIGNMENT_CENTER if shown.size() > 1 else BoxContainer.ALIGNMENT_BEGIN
+		for panel in shown:   # three in a row: just the token's name, so the text stays readable
+			var token_name: String = {addskybnb: "SkyBnB", adddouble: "Double", addinsurance: "Insurance"}.get(panel, "")
+			if token_name != "":
+				(panel.get_child(0) as Label).text = token_name if shown.size() > 2 else "Add " + token_name
 		for panel in shown:
 			panel.custom_minimum_size.x = width
 			panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if shown.size() > 1 else Control.SIZE_SHRINK_BEGIN
 			var label: Label = panel.get_child(0)
 			var font := label.get_theme_font("font")
 			var size := TOKEN_FONT_SIZE
-			while size > TOKEN_FONT_MIN and font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > width - TOKEN_TEXT_PADDING:
+			while size > TOKEN_FONT_MIN and font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > width - TOKEN_TEXT_PADDING - label.offset_left:
 				size -= 1
 			label.add_theme_font_size_override("font_size", size)
 			label.clip_text = true
+		var smallest := TOKEN_FONT_SIZE   # one size for the whole row, so they match
+		for panel in shown:
+			smallest = mini(smallest, (panel.get_child(0) as Label).get_theme_font_size("font_size"))
+		for panel in shown:
+			(panel.get_child(0) as Label).add_theme_font_size_override("font_size", smallest)
 	if is_inside_tree():
 		await get_tree().process_frame
 	_laying_out = false
@@ -227,6 +237,51 @@ func _jiggle_tokens(shown: Array) -> void:
 			tween.tween_property(panel, "rotation", angle, 0.06)
 		_jiggles.append(tween)
 
+## ---- ADD SKYBNB / DOUBLE / INSURANCE BUTTONS ----
+# Rounded pills in the theme's sage with a cream border, a soft shadow and the token's
+# own icon on the left, like the Sell button.
+const TOKEN_ICONS := {"skybnb": "res://Assets/icons/skybnb_icon.png", "double": "res://Assets/icons/double_icon.png",
+		"insurance": "res://Assets/icons/insurance_icon.png"}
+const TOKEN_ICON_SIZE := 40.0
+
+func _style_token_buttons() -> void:
+	var cream_shader := Shader.new()
+	cream_shader.code = CREAM_SHADER
+	for pair in [[addskybnb, "skybnb"], [adddouble, "double"], [addinsurance, "insurance"]]:
+		var panel: Panel = pair[0]
+		if panel == null:
+			continue
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color("5d6558")
+		style.border_color = Color("ddcf99")
+		style.set_border_width_all(3)
+		style.set_corner_radius_all(45)
+		style.shadow_color = Color(0, 0, 0, 0.3)
+		style.shadow_size = 6
+		style.shadow_offset = Vector2(0, 4)
+		panel.add_theme_stylebox_override("panel", style)
+		var label: Label = panel.get_child(0)
+		label.offset_left = TOKEN_ICON_SIZE + 12   # the text sits right of the icon
+		label.offset_right = -10
+		label.add_theme_color_override("font_color", Color("f6f2e1"))
+		var icon := TextureRect.new()
+		icon.texture = load(TOKEN_ICONS[pair[1]])
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.anchor_top = 0.5
+		icon.anchor_bottom = 0.5
+		icon.offset_left = 16
+		icon.offset_right = 16 + TOKEN_ICON_SIZE
+		icon.offset_top = -TOKEN_ICON_SIZE / 2.0
+		icon.offset_bottom = TOKEN_ICON_SIZE / 2.0
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var material := ShaderMaterial.new()
+		material.shader = cream_shader
+		material.set_shader_parameter("tint", Color("f6f2e1"))
+		icon.material = material
+		icon.set_meta("ct_skip", true)
+		panel.add_child(icon)
+
 ## ---- SELL BUTTON ----
 # A rounded terracotta button with a money bag, instead of the small grey square
 # that sat over the token buttons.
@@ -240,11 +295,12 @@ void fragment() { COLOR = vec4(tint.rgb, texture(TEXTURE, UV).a * COLOR.a); }
 func _style_sell_button() -> void:
 	var panel: Panel = $CanvasLayer/Sell
 	panel.custom_minimum_size = Vector2.ZERO
-	# Beside the property's picture (top right), clear of the token buttons below.
-	panel.offset_left = -196
-	panel.offset_right = -18
-	panel.offset_top = 412
-	panel.offset_bottom = 490
+	# Top left, beside the property's picture: clear of the SkyBnB / Double badges (which sit
+	# either side of the picture lower down) and of the Contractor on the right.
+	panel.offset_left = -702
+	panel.offset_right = -524
+	panel.offset_top = 206
+	panel.offset_bottom = 284
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color("b76051")
 	style.border_color = Color("f6f2e1")
