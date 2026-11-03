@@ -36,6 +36,7 @@ ColorTheme="*res://Scripts/color_theme.gd"
 Stats="*res://Scripts/Stats.gd"
 Activity="*res://Scripts/activity_log.gd"
 Expansion="*res://Scripts/expansion.gd"
+DebugMonitor="*res://Scripts/debug_monitor.gd"
 
 [display]
 
