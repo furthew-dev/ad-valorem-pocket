@@ -895,7 +895,7 @@ func _make_property(template: Dictionary, condition: String) -> Dictionary:
 # border. Use Cards.round_icon(property["art"]) instead of load(). Made once per picture.
 const ICON_BORDER_COLOR := Color("533c44")
 const ICON_BORDER_WIDTH := 0.045   # share of the picture's width
-const MAX_ICON_SIDE := 400
+const MAX_ICON_SIDE := 300   # the biggest a round icon is ever drawn (property details, sell, discard)
 
 var _round_icons: Dictionary = {}   # path -> ImageTexture
 var _icon_masks: Dictionary = {}    # size -> [mask Image, border ring Image]
@@ -918,7 +918,7 @@ func round_icon(path: String) -> Texture2D:
 	var side := mini(image.get_width(), image.get_height())
 	if image.get_width() != image.get_height():   # centre square
 		image = image.get_region(Rect2i((image.get_width() - side) / 2, (image.get_height() - side) / 2, side, side))
-	if side > MAX_ICON_SIDE:   # the expansion's big pictures: icons never show this large
+	if side > MAX_ICON_SIDE:   # bigger than any screen shows it: shrink before caching
 		image.resize(MAX_ICON_SIDE, MAX_ICON_SIDE, Image.INTERPOLATE_LANCZOS)
 		side = MAX_ICON_SIDE
 	var masks: Array = _masks_for(side)
