@@ -119,6 +119,8 @@ func setup_card() -> void:
 			node.visible = false
 		for node in [excellent_condition, good_condition, fair_condition, poor_condition, contractor]:
 			node.visible = false
+		for label in [e_value, e_rent]:   # one value and one rent: show them big
+			label.add_theme_font_size_override("font_size", 58)
 		# Hotel Resort / Luxury Cruise: the Contractor builds a Suite instead.
 		contractor.visible = _can_add_suite(details) and Actions.actions_owned.has("contractor")
 		_nudge_contractor()
@@ -139,6 +141,7 @@ func setup_card() -> void:
 	_build_btn.visible = Cards.is_lot(details)
 	_show_suites.call_deferred()
 	_layout_token_buttons.call_deferred()
+	_fit_details_card.call_deferred()
 
 	var art_path: String = details["art"]
 	if art_path != "" and ResourceLoader.exists(art_path):
@@ -601,6 +604,103 @@ func _has_action_left() -> bool:
 # Bought (or built) with a loan: say what's still owed on it, with a button to My Loans.
 var _loan_button: Button
 
+## ---- KEEPING THE DETAILS CARD TIDY ----
+# Long descriptions (an Apartment bought with a loan: tenants, the loan line and its button)
+# used to make the card's contents taller than the card, so the Value / Rent heading poked
+# out above it. The card now grows into the free space below it, then the description
+# text shrinks, then the picture, until everything fits inside the card.
+const CARD_MIN_HEIGHT := 550.0
+const TEXT_SIZE := 24
+const TEXT_MIN := 17
+const ICON_MIN := 210.0
+
+func _fit_details_card() -> void:
+	await get_tree().process_frame
+	if not is_inside_tree():
+		return
+	var card: Control = get_node("CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel")
+	var contents: Control = card.get_child(0)
+	var column: Control = get_node("CanvasLayer/Panel/VBoxContainer")
+	contents.grow_vertical = Control.GROW_DIRECTION_END   # never up past the card's top edge
+	text_edit.add_theme_font_size_override("font_size", TEXT_SIZE)
+	property_icon.custom_minimum_size.y = 300
+	for attempt in 12:
+		var needed := contents.get_combined_minimum_size().y - 16.0
+		var room := column.size.y - property_icon.custom_minimum_size.y - 30.0
+		card.custom_minimum_size.y = clampf(needed, CARD_MIN_HEIGHT, maxf(room, CARD_MIN_HEIGHT))
+		if needed <= room:
+			break
+		var text_size := text_edit.get_theme_font_size("font_size")
+		if text_size > TEXT_MIN:
+			text_edit.add_theme_font_size_override("font_size", text_size - 2)
+		elif property_icon.custom_minimum_size.y > ICON_MIN:
+			property_icon.custom_minimum_size.y = maxf(ICON_MIN, property_icon.custom_minimum_size.y - 30.0)
+		else:
+			break
+		await get_tree().process_frame
+		if not is_inside_tree():
+			return
+
+## ---- BUBBLE POP (a token just went on) ----
+# The SkyBnB / Double / Insurance badge pops in like a bubble: it swells past full size
+# and settles with a wobble, a ring ripples out from it and a few small bubbles float up.
+func _bubble_pop(badge: Control) -> void:
+	badge.modulate.a = 0.0   # hidden until its row has put it in place
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not is_instance_valid(badge) or not badge.visible:
+		return
+	badge.modulate.a = 1.0
+	Sound.play("double")
+	var centre := badge.size / 2.0
+	badge.pivot_offset = centre
+	badge.scale = Vector2(0.2, 0.2)
+	var pop := badge.create_tween()
+	pop.tween_property(badge, "scale", Vector2(1.25, 1.25), 0.18).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	pop.tween_property(badge, "scale", Vector2(0.9, 1.08), 0.1)
+	pop.tween_property(badge, "scale", Vector2(1.06, 0.95), 0.1)
+	pop.tween_property(badge, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_SINE)
+	# The ripple: a thin ring that grows and fades.
+	var ring := Panel.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0)
+	style.border_color = Color("f6f2e1")
+	style.set_border_width_all(4)
+	style.set_corner_radius_all(200)
+	ring.add_theme_stylebox_override("panel", style)
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.size = badge.size
+	ring.pivot_offset = centre
+	ring.set_meta("ct_skip", true)
+	badge.add_child(ring)
+	var ripple := ring.create_tween().set_parallel(true)
+	ripple.tween_property(ring, "scale", Vector2(1.9, 1.9), 0.55).set_ease(Tween.EASE_OUT)
+	ripple.tween_property(ring, "modulate:a", 0.0, 0.55)
+	ripple.chain().tween_callback(ring.queue_free)
+	# A few little bubbles drifting up and popping.
+	for i in 5:
+		var bubble := Panel.new()
+		var b_style := StyleBoxFlat.new()
+		b_style.bg_color = Color(1, 1, 1, 0.25)
+		b_style.border_color = Color(1, 1, 1, 0.8)
+		b_style.set_border_width_all(2)
+		b_style.set_corner_radius_all(40)
+		bubble.add_theme_stylebox_override("panel", b_style)
+		var d := randf_range(12.0, 24.0)
+		bubble.size = Vector2(d, d)
+		bubble.pivot_offset = bubble.size / 2.0
+		bubble.position = centre + Vector2(randf_range(-30, 30), randf_range(0, 25)) - bubble.size / 2.0
+		bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bubble.set_meta("ct_skip", true)
+		badge.add_child(bubble)
+		var rise := bubble.create_tween().set_parallel(true)
+		var time := randf_range(0.5, 0.8)
+		rise.tween_property(bubble, "position:y", bubble.position.y - randf_range(70, 110), time).set_ease(Tween.EASE_OUT).set_delay(i * 0.05)
+		rise.tween_property(bubble, "position:x", bubble.position.x + randf_range(-18, 18), time).set_delay(i * 0.05)
+		rise.tween_property(bubble, "scale", Vector2(1.5, 1.5), 0.08).set_delay(i * 0.05 + time - 0.08)
+		rise.tween_property(bubble, "modulate:a", 0.0, 0.08).set_delay(i * 0.05 + time - 0.08)
+		rise.chain().tween_callback(bubble.queue_free)
+
 func _show_purchase_loan(details: Dictionary) -> void:
 	var loan: Dictionary = {}
 	for l in Global.loans:
@@ -649,6 +749,7 @@ func _on_add_double_pressed() -> void:
 	Actions.consume("double")
 	Global.banner("Double applied. Value doubled.")
 	_refresh(before)
+	_bubble_pop.call_deferred(double_status)
 
 func _on_add_skybnb_pressed() -> void:
 	if not _has_action_left():
@@ -658,6 +759,7 @@ func _on_add_skybnb_pressed() -> void:
 	Actions.consume("skybnb")
 	Global.banner("SkyBnB applied. Rent doubled.")
 	_refresh(before)
+	_bubble_pop.call_deferred(skybnb_status)
 
 # A Contractor could upgrade this property: the hammer gives a little shake every couple
 # of seconds and an "Upgrade?" tag (like the money notices) sits beside it. Tapping
@@ -742,6 +844,7 @@ func _on_add_insurance_pressed() -> void:
 	Sound.play("continue")
 	Global.banner("%s is insured." % current_property["name"])
 	_refresh()
+	_bubble_pop.call_deferred(insurance_status)
 
 func _on_sell_pressed() -> void:
 	if not _still_owned():

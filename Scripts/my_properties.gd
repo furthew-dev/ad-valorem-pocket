@@ -62,6 +62,7 @@ func _add_capacity_label() -> void:
 	label.add_theme_font_size_override("font_size", 28)
 	label.add_theme_color_override("font_color", Color("f6f2e1"))
 	capacity_pill.add_child(label)
+	ColorTheme.keep(label)   # cream on the dark pill in every theme (Rosey / Retro turned it dark)
 	var centre := CenterContainer.new()   # top of the list (the header band sits under the frame)
 	centre.custom_minimum_size = Vector2(0, 76)
 	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE

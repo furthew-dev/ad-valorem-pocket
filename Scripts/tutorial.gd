@@ -14,6 +14,9 @@ const CREAM := Color("f6f2e1")
 const GOLD := Color("ddcf99")
 const DIM := Color(0, 0, 0, 0.62)
 const TITLE_SCENE := "res://Scenes/main.tscn"
+const PRACTICE_ACTIONS := 6
+const PRACTICE_LOAN := 30
+const PRACTICE_DECK := ["Duplex", "Condo", "Yurt", "Mobile Home"]   # cheap, so the practice purchase is affordable
 const POPUP_SCRIPTS := ["pop_up.gd", "choice_menu.gd", "settings_popup.gd", "avatar_editor.gd"]
 
 var _steps: Array = []
@@ -64,7 +67,10 @@ func _setup_practice_game() -> void:
 		Cards.properties_owned.append(Cards._make_property(Cards.templates_by_name[pick[0]], pick[1]))
 	Actions.actions_owned.append("contractor")
 	Global.CASH = 60
-	Global.ACTIONS = Global.A_CAPACITY
+	Global.ACTIONS = PRACTICE_ACTIONS   # enough to buy, sell and pay a loan in one go
+	Cards.property_deck = Cards._full_deck.filter(func(t): return t["name"] in PRACTICE_DECK)
+	Global.loans.clear()
+	Global.take_loan(PRACTICE_LOAN)   # an old loan to pay off in the Bank
 	Activity.clear()
 	get_tree().change_scene_to_file("res://Scenes/home_screen.tscn")
 	await get_tree().create_timer(0.6).timeout
@@ -100,7 +106,7 @@ func _make_steps() -> Array:
 			"target": _frame_part.bind("misc")},
 		{"title": "Round", "text": "Everyone plays each round at the same time. When all players have ended their turn, a new round begins.",
 			"target": _frame_part.bind("round_number")},
-		{"title": "Actions", "text": "Each purchase or upgrade uses 1 Action. You get 3 every round (5 with an LLC).",
+		{"title": "Actions", "text": "Buying, selling, upgrading and paying a loan each use 1 Action. You get 3 every round (5 with an LLC).\n\nFor this practice you have 6.",
 			"target": _frame_part.bind("actions_left")},
 		# 2. My Properties
 		{"title": "My Properties", "text": "Let's look at what you own. Tap My Properties.",
@@ -138,27 +144,53 @@ func _make_steps() -> Array:
 			"target": _scene_node.bind("CanvasLayer/Panel/VBoxContainer/MarginContainer/options/buttons/actions"), "do": _scene_is.bind("market_actions")},
 		{"title": "Buy a Listing Agent", "text": "Tap Listing Agent, then BUY, then Yes.",
 			"target": _listing_agent_target, "do": _owns_listing_agent},
-		# 8. Back to selling
-		{"title": "Now you have one", "text": "Back on the Sell page, the Listing Agent option is now available. Pick it when you sell for a 5 in 6 chance. It's used up either way.",
-			"enter": _open_sell_page, "target": _sell_choice.bind("Realtor")},
-		# 9. Buying property
-		{"title": "Buying property", "text": "In the Market, Real Estate is where you buy property.\n\nBuy Solo shows you one random listing.",
-			"enter": _open_scene.bind("res://Scenes/realtor_or_random.tscn"), "target": _buy_choice.bind("Private Purchase")},
-		{"title": "Realtor", "text": "Use Realtor shows you three listings to choose from. Buy a Realtor in the Market's Actions, like the Listing Agent.",
+		# 8. Selling, all the way through
+		{"title": "Sell a property", "text": "Let's sell your Two Story Home. The Listing Agent is available now: tap its Select, then tap Sell.",
+			"enter": _open_sell_page, "target": _sell_target, "do": _scene_is.bind("results")},
+		{"title": "Sold!", "text": "The die decides: 1 to 5 sells with a Listing Agent, only 1 or 2 on your own (this practice sale always works). The Listing Agent is used up, and the property's value is added to your cash.\n\nTap OK.",
+			"target": _scene_node.bind("app_color/Panel2/Panel/VBoxContainer/ok_button"), "do": _scene_is.bind("my_properties")},
+		{"title": "Room for more", "text": "The Two Story Home is gone, so you have room for another property. Let's buy one.",
+			"target": _capacity_pill},
+		# 9. Buying, all the way through
+		{"title": "Go Home", "text": "Tap Home.",
+			"target": _frame_part.bind("home_btn"), "do": _scene_is.bind("home_screen")},
+		{"title": "The Market", "text": "Tap the Market.",
+			"target": _tile.bind("market_button"), "do": _scene_is.bind("market")},
+		{"title": "Real Estate", "text": "Real Estate is where you buy property. Tap it.",
+			"target": _scene_node.bind("CanvasLayer/Panel/VBoxContainer/MarginContainer/options/button_icons/real_estate"), "do": _scene_is.bind("realtor_or_random")},
+		{"title": "Use Realtor", "text": "A Realtor shows you three listings to choose from. You'd need to buy one in Market > Actions first.",
 			"target": _buy_choice.bind("Realtor")},
-		# 10-11. The Bank
+		{"title": "Buy Solo", "text": "Buy Solo shows you one random listing, no Realtor needed. Tap its Select.",
+			"target": _buy_choice.bind("Private Purchase"), "do": _solo_chosen},
+		{"title": "Proceed", "text": "Tap Proceed to see the listing.",
+			"target": _scene_node.bind("CanvasLayer/Panel/VBoxContainer/list_of_properties/MarginContainer2/Panel/MarginContainer/VBoxContainer/proceed"), "do": _scene_is.bind("property_reveal")},
+		{"title": "The listing", "text": "Here's what came up: its price, rent and condition. Tap it to choose it.",
+			"target": _first_listing, "do": _listing_chosen},
+		{"title": "Purchase", "text": "Tap Purchase. You pay the price and use 1 Action. Short of cash? The game offers you a loan to cover it.",
+			"target": _scene_node.bind("CanvasLayer/Panel/VBoxContainer/revealed_properties/MarginContainer2/Panel/MarginContainer/VBoxContainer/HBoxContainer/Purchase"),
+			"do": _scene_is.bind("my_properties")},
+		{"title": "It's yours", "text": "Your new property is in My Properties now. It pays rent from the start of next round.",
+			"target": _newest_row},
+		# 10-11. The Bank, and paying off a loan
 		{"title": "Go Home", "text": "Tap Home.",
 			"target": _frame_part.bind("home_btn"), "do": _scene_is.bind("home_screen")},
 		{"title": "The Bank", "text": "Tap the Bank.",
 			"target": _tile.bind("bank_button"), "do": _scene_is.bind("bank_account")},
 		{"title": "Your account", "text": "Your cash, the value of your properties, your savings and anything you owe. Together they make your net worth: the highest net worth wins.",
 			"target": _scene_node.bind("CanvasLayer/Panel/VBoxContainer/Panel2")},
-		{"title": "Loans", "text": "Short on cash when you buy? The game offers you a loan. Loans grow 10% every round, and you can't win while you owe anything. Pay them off here.",
-			"target": _scene_node.bind("CanvasLayer/Panel/VBoxContainer/Panel3")},
+		{"title": "You owe $%d" % PRACTICE_LOAN, "text": "You have a loan from earlier: it shows under Loans. Loans grow 10% every round, and you can't win while you owe anything.",
+			"target": _scene_node.bind("CanvasLayer/Panel/VBoxContainer/Panel2/VBoxContainer/loans")},
+		{"title": "Pay it off", "text": "Tap Make Payment.",
+			"target": _scene_node.bind("CanvasLayer/Panel/VBoxContainer/Panel3"), "do": _scene_is.bind("my_loans")},
+		{"title": "My Loans", "text": "Each loan shows what you owe and the interest coming next round. Tap Make Payment on it.",
+			"target": _loan_part.bind("pay_button"), "do": _loan_open},
+		{"title": "Pay", "text": "The full balance is filled in (you can type less to pay part of it). Tap Pay. It uses 1 Action.",
+			"target": _loan_part.bind("panel"), "do": _loans_paid},
+		{"title": "Debt free!", "text": "Loan paid off. Keep an eye on loans: the interest adds up fast."},
 		# 12. The other apps
 		{"title": "Go Home", "text": "Tap Home.",
 			"target": _frame_part.bind("home_btn"), "do": _scene_is.bind("home_screen")},
-		{"title": "My Loans", "text": "Every loan you've taken, what you owe on it, and where you pay it back.",
+		{"title": "My Loans", "text": "My Loans is always here on Home too, for paying loans back.",
 			"target": _tile.bind("my_loans_button")},
 		{"title": "My Actions", "text": "The tokens you own (Sabotage, Insurance, Contractor...) and the lucky cards you keep. Tap one to use it.",
 			"target": _tile.bind("actions_button")},
@@ -255,6 +287,75 @@ func _listing_agent_target() -> Control:
 			return row
 	return null
 
+# The Listing Agent box until it's picked, then the Sell button.
+func _sell_target() -> Control:
+	var scene := _scene()
+	if scene == null or not _scene_is("sell_property"):
+		return null
+	if scene.using_agent and not scene.sell_btn.disabled:
+		return scene.sell_btn.get_parent()
+	return _sell_choice("Realtor")
+
+func _solo_chosen() -> bool:
+	var scene := _scene()
+	return scene != null and _scene_is("realtor_or_random") and not scene.proceed_btn.disabled and not Global.using_realtor
+
+func _first_listing() -> Control:
+	var scene := _scene()
+	if scene == null or not _scene_is("property_reveal") or scene.list_of_properties.get_child_count() == 0:
+		return null
+	return scene.list_of_properties.get_child(0) as Control
+
+func _listing_chosen() -> bool:
+	var scene := _scene()
+	return scene != null and _scene_is("property_reveal") and not scene.selected_card.is_empty()
+
+# The property just bought (last in the list), scrolled into view.
+func _newest_row() -> Control:
+	var scene := _scene()
+	if scene == null or not _scene_is("my_properties") or Cards.properties_owned.is_empty():
+		return null
+	var wanted = Cards.properties_owned[-1]["id"]
+	for row in scene.list_of_properties.get_children():
+		if row.has_method("setup_card") and not row.is_queued_for_deletion() and row.this_card_id == wanted:
+			if _scrolled_for != _index:
+				_scrolled_for = _index
+				var scroll: Node = scene.list_of_properties.get_parent()
+				while scroll and not scroll is ScrollContainer:
+					scroll = scroll.get_parent()
+				if scroll:
+					scroll.ensure_control_visible.call_deferred(row)
+			return row.get("panel") as Control   # the row itself is a zero-width holder
+	return null
+
+func _loan_row() -> Node:
+	var scene := _scene()
+	if scene == null or not _scene_is("my_loans"):
+		return null
+	for row in scene.list_of_loans.get_children():
+		if not row.is_queued_for_deletion():
+			return row
+	return null
+
+# "pay_button": the row's Make Payment; "panel": the payment box that opens under it.
+func _loan_part(part: String) -> Control:
+	var row := _loan_row()
+	if row == null:
+		return null
+	return row.make_pymt_btn.get_parent() if part == "pay_button" else row.pay.get_parent()
+
+func _loan_open() -> bool:
+	var row := _loan_row()
+	return row != null and row.make_payment.visible
+
+func _loans_paid() -> bool:
+	return Global.loans.is_empty()
+
+# The SOLD / purchasing animation is playing: let it be seen, undimmed.
+func _transition_playing() -> bool:
+	var scene := _scene()
+	return scene != null and scene.get_children().any(func(n): return _script_name(n) == "transition.gd")
+
 func _owns_listing_agent() -> bool:
 	return Actions.actions_owned.has("listing_agent") and not _popup_open()
 
@@ -334,7 +435,7 @@ func _target() -> Control:
 func _update_hole(force: bool = false) -> void:
 	var step: Dictionary = _steps[_index]
 	var acting: bool = step.has("do")
-	var popup := acting and _popup_open()
+	var popup := (acting and _popup_open()) or _transition_playing()
 	var target := _target()
 	var rect := Rect2()
 	if target:

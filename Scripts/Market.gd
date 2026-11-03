@@ -54,7 +54,7 @@ func setup_new_game() -> void:
 	Actions.reset_stock()
 	scale_stock(maxi(1, Network.players.size()))
 	var settings: Dictionary = Network.game_settings
-	Cards.reset_deck(settings.get("base", true), settings.get("expansion", false))
+	Cards.reset_deck(settings.get("base", true), settings.get("expansion", false), settings.get("deck_picks", []))
 	Fortunas.expansion_enabled = settings.get("expansion", false)
 	Fortunas.generate_fortuna_deck()
 	_broadcast_all()

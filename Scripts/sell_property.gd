@@ -93,6 +93,8 @@ func _on_sell_btn_pressed() -> void:
 		return
 	Sound.play("dice")
 	var roll := randi_range(1, 6)
+	if get_tree().root.has_node("Tutorial"):
+		roll = 1   # the guided tour's practice sale always sells
 	var odds := AGENT_SALE_ODDS if using_agent else PRIVATE_SALE_ODDS
 	if using_agent:
 		Actions.consume("listing_agent")

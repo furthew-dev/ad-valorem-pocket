@@ -21,6 +21,8 @@ var _base_switch: InkSwitch
 var _expansion_switch: InkSwitch
 var _buttons: Array = []
 var _error: Label
+var _deck_picks: Array = []   # [] = random deck
+var _deck_button: Button
 
 
 func _ready() -> void:
@@ -102,6 +104,26 @@ func _build() -> void:
 	# Editions: which properties are in the deck (Expansion also adds regions and its Fortunas).
 	_base_switch = _switch_line(box, "Base Edition:", Network.game_settings.get("base", true))
 	_expansion_switch = _switch_line(box, "Expansion:", Network.game_settings.get("expansion", false))
+	# Property deck: 20 kinds of property per game, picked at random (10 + 10 with both
+	# editions) or chosen by the host.
+	_deck_picks = Network.game_settings.get("deck_picks", []).duplicate()
+	var deck_line := HBoxContainer.new()
+	deck_line.add_theme_constant_override("separation", 10)
+	var deck_label := _label("Property Deck:", ROW_FONT)
+	deck_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	deck_line.add_child(deck_label)
+	_deck_button = Button.new()
+	_deck_button.focus_mode = Control.FOCUS_NONE
+	_deck_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_deck_button.add_theme_font_override("font", FONT)
+	_deck_button.add_theme_font_size_override("font_size", 32)
+	InkBox.apply(_deck_button, INK)
+	_deck_button.pressed.connect(_open_deck_picker)
+	deck_line.add_child(_deck_button)
+	box.add_child(deck_line)
+	for toggle in [_base_switch, _expansion_switch]:
+		toggle.toggled.connect(func(_on): _update_deck_button())
+	_update_deck_button()
 
 	_error = _label("", 30)
 	_error.add_theme_color_override("font_color", ERROR_INK)
@@ -127,6 +149,32 @@ func _switch_line(box: VBoxContainer, text: String, on: bool) -> InkSwitch:
 	line.add_child(toggle)
 	box.add_child(line)
 	return toggle
+
+func _editions() -> Array:
+	var base: bool = _base_switch.button_pressed
+	var expansion: bool = _expansion_switch.button_pressed
+	if not base and not expansion:
+		base = true
+	return [base, expansion]
+
+# Keeps only picks that are still possible with the editions switched on.
+func _update_deck_button() -> void:
+	var editions := _editions()
+	var target := Cards.deck_target(editions[0], editions[1])
+	var allowed := Cards.deck_kinds(editions[0], editions[1])
+	var valid := _deck_picks.filter(func(n): return n in allowed)
+	if valid.size() != target:
+		_deck_picks = []
+	_deck_button.text = "Random" if _deck_picks.is_empty() else "Custom (%d)" % _deck_picks.size()
+
+func _open_deck_picker() -> void:
+	var editions := _editions()
+	var picker = load("res://Scripts/deck_picker.gd").open(get_tree(), editions[0], editions[1], _deck_picks)
+	var picks: Array = await picker.chosen
+	if not is_instance_valid(self):
+		return
+	_deck_picks = picks
+	_update_deck_button()
 
 func _fit_buttons() -> void:
 	await get_tree().process_frame
@@ -176,6 +224,8 @@ func current_values() -> Dictionary:
 	values["turn_timer"] = _timer_switch.button_pressed
 	values["base"] = _base_switch.button_pressed
 	values["expansion"] = _expansion_switch.button_pressed
+	_update_deck_button()
+	values["deck_picks"] = _deck_picks.duplicate()
 	return values
 
 func _save() -> void:

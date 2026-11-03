@@ -17,7 +17,7 @@ signal host_back
 
 # Host-adjustable game settings (lobby > Game Settings). Synced to everyone.
 const DEFAULT_SETTINGS := {"start_cash": 20, "start_properties": 4, "end_goal": 200, "turn_timer": true,
-		"base": true, "expansion": false}
+		"base": true, "expansion": false, "deck_picks": []}
 const SETTING_LIMITS := {"start_cash": [0, 100], "start_properties": [0, 4], "end_goal": [100, 750]}
 
 # Every phone in a room must run the same build. A phone that loaded an old cached copy
@@ -512,6 +512,14 @@ static func settings_problem(settings: Dictionary) -> String:
 		return "Starting cash must be less than the end goal."
 	if not settings.get("base", true) and not settings.get("expansion", false):
 		return "Turn on Base Edition, Expansion, or both."
+	var picks: Array = settings.get("deck_picks", [])
+	if not picks.is_empty():
+		var base: bool = settings.get("base", true)
+		var expansion: bool = settings.get("expansion", false)
+		var allowed := Cards.deck_kinds(base, expansion)
+		var target := Cards.deck_target(base, expansion)
+		if picks.any(func(n): return not n in allowed) or picks.size() != target:
+			return "Your custom property deck needs exactly %d properties from the editions that are on. Tap Property Deck to fix it." % target
 	return ""
 
 # Expansion Edition is on for this game (regions, environment tokens, its properties...).

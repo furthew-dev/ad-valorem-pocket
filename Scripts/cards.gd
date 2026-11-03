@@ -661,10 +661,38 @@ func _ready() -> void:
 		templates_by_name[template["name"]] = template
 
 # The shared deck for a new game, from the editions the host picked.
-func reset_deck(base: bool = true, expansion: bool = false) -> void:
-	property_deck = (_base_deck if base else []) + (_expansion_deck if expansion else [])
-	if property_deck.is_empty():
-		property_deck = _base_deck.duplicate()
+# At most DECK_TYPES kinds of property per game (each with its usual number of cards).
+# picks: the host's own choice of kinds (Game Settings > Property Deck > Custom);
+# empty = random: one edition on its own gives up to 20 of its kinds, both editions give
+# 10 random kinds from each.
+const DECK_TYPES := 20
+
+func reset_deck(base: bool = true, expansion: bool = false, picks: Array = []) -> void:
+	if not base and not expansion:
+		base = true
+	var kinds: Array = picks.filter(func(n): return templates_by_name.has(n) and n in deck_kinds(base, expansion))
+	if kinds.is_empty():
+		var base_kinds := deck_kinds(true, false)
+		var exp_kinds := deck_kinds(false, true)
+		base_kinds.shuffle()
+		exp_kinds.shuffle()
+		if base and expansion:
+			kinds = base_kinds.slice(0, DECK_TYPES / 2) + exp_kinds.slice(0, DECK_TYPES / 2)
+		else:
+			kinds = (base_kinds if base else exp_kinds).slice(0, DECK_TYPES)
+	property_deck = _full_deck.filter(func(t): return t["name"] in kinds)
+
+# The kinds of property (names, deck order) the chosen editions can use.
+func deck_kinds(base: bool, expansion: bool) -> Array:
+	var names := []
+	for template in (_base_deck if base else []) + (_expansion_deck if expansion else []):
+		if not names.has(template["name"]):
+			names.append(template["name"])
+	return names
+
+# How many kinds a custom deck must have with these editions (20, or all of them if fewer).
+func deck_target(base: bool, expansion: bool) -> int:
+	return mini(DECK_TYPES, deck_kinds(base, expansion).size())
 
 func set_deck_from_names(names: Array) -> void:
 	property_deck = names.filter(func(n): return templates_by_name.has(n)).map(func(n): return templates_by_name[n])
