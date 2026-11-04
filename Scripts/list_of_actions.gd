@@ -21,6 +21,9 @@ func setup_card(data: Dictionary, count: int = 1) -> void:
 	if art_path != "" and ResourceLoader.exists(art_path):
 		texture_rect.texture = load(art_path)
 		ColorTheme.ink_icon(texture_rect)   # Fortuna card art matches the black token icons
+	else:   # never show the scene's placeholder token (it made LLC look like another token)
+		texture_rect.texture = null
+		push_warning("No picture for action '%s' at %s" % [action_data.get("name", "?"), art_path])
 	count_label.text = "x%d" % count
 	count_panel.visible = count > 1   # hidden when there's only one
 	_fit_height()

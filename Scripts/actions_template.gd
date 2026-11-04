@@ -19,6 +19,9 @@ func setup_card(action_data: Dictionary, group: ButtonGroup) -> void:
 	var art_path: String = action_data.get("art", "")
 	if art_path != "" and ResourceLoader.exists(art_path):
 		item_icon.texture = load(art_path)
+	else:   # never show the scene's placeholder token (it made LLC look like another token)
+		item_icon.texture = null
+		push_warning("No picture for action '%s' at %s" % [action_data.get("name", "?"), art_path])
 	title.text = str(action_data.get("name", "Unknown action"))
 	cost.text = "$%d" % Actions.price_of(action_data)
 	_set_shown_stock(action_data.get("stock", 0))
