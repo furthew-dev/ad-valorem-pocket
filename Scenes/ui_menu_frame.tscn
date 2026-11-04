@@ -140,7 +140,6 @@ offset_bottom = 176.0
 grow_horizontal = 2
 grow_vertical = 2
 texture = ExtResource("7_mbcbk")
-region_rect = Rect2(-0.153915, 0, 1000.15, 240)
 
 [node name="text" type="Label" parent="Panel2/Banner/anim_frame"]
 z_index = 2
