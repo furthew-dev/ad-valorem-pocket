@@ -1,7 +1,7 @@
 extends CanvasLayer
 ## Full-screen app transition. run_animation(color, anim, destination) plays the animation
-## and then changes to `destination`. "sold" / "failed" play the "question" lead-in first;
-## `on_reveal` runs the moment the result shows (right after the lead-in).
+## and then changes to `destination`. `on_reveal` runs the moment the animation starts.
+## (Selling no longer uses it: that's the die, Scripts/dice_roll.gd.)
 ##
 ## Each animation's frames live in their own file (Assets/SpriteSheets/frames/<name>.tres)
 ## and only the ones being played are loaded. (They used to all sit in this scene, so
@@ -21,18 +21,10 @@ func run_animation(color: String, anim: String, destination: String, on_reveal :
 		push_error("transition.run_animation: empty animation name")
 		return
 	app_color.color = Color(color)
-	if anim == "purchasing":
-		animation.scale = Vector2.ONE
 	var frames := _frames(anim)   # load before anything plays, so there's no hitch later
 	if frames == null:
 		get_tree().change_scene_to_file(destination)
 		return
-	if anim in ["sold", "failed"]:
-		var lead_in := _frames("question")
-		if lead_in:
-			animation.sprite_frames = lead_in
-			animation.play("question")
-			await animation.animation_finished
 	animation.sprite_frames = frames
 	animation.play(anim)
 	if on_reveal.is_valid():

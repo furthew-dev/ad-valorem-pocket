@@ -92,9 +92,7 @@ func setup_card() -> void:
 	text_edit.text = str(details["p_details"])
 	if details.get("has_golden_lock", false):
 		text_edit.text += "\n\nGolden Lock: protected from harm and can't be sold."
-	if details["name"] == "Apartment" and details.has("tenants") and Cards.properties_owned.has(details):
-		var tenants: int = details["tenants"]
-		text_edit.text += "\n\nThis round: %d tenant%s, $%d rent." % [tenants, "" if tenants == 1 else "s", details["rent"]]
+	_show_tenants(details)
 	text_edit.text += _expansion_notes(details)
 	_show_purchase_loan(details)
 	_show_special_button(details)
@@ -192,10 +190,12 @@ func _layout_token_buttons() -> void:
 	if not is_inside_tree():
 		return   # the player already left this screen
 	var available: float = (row.get_parent() as Control).size.x
+	if $CanvasLayer/Sell.visible:
+		available -= SELL_ROOM   # the round Sell button sits over the row's right end
 	if not shown.is_empty() and available > 0:
 		var separation := row.get_theme_constant("separation")
 		var width := minf(300.0, (available - separation * (shown.size() - 1)) / shown.size())
-		row.alignment = BoxContainer.ALIGNMENT_CENTER if shown.size() > 1 else BoxContainer.ALIGNMENT_BEGIN
+		row.alignment = BoxContainer.ALIGNMENT_BEGIN
 		for panel in shown:   # three in a row: just the token's name, so the text stays readable
 			var token_name: String = {addskybnb: "SkyBnB", adddouble: "Double", addinsurance: "Insurance"}.get(panel, "")
 			if token_name != "":
@@ -295,39 +295,70 @@ uniform vec4 tint : source_color;
 void fragment() { COLOR = vec4(tint.rgb, texture(TEXTURE, UV).a * COLOR.a); }
 """
 
+const SELL_SIZE := 112.0   # the round Sell button, bottom right (where it first was)
+const SELL_ROOM := 128.0   # how much of the token row's right end it needs
+
+# Apartment you own: this round's tenants, first thing in the description (so it's never
+# below the fold) and under the rent figure: "6 tenants x $3".
+func _show_tenants(details: Dictionary) -> void:
+	var caption: Label = e_rent.get_node_or_null("tenants")
+	var owned: bool = details["name"] == "Apartment" and details.has("tenants") and Cards.properties_owned.has(details)
+	if not owned:
+		if caption:
+			caption.visible = false
+		return
+	var tenants := int(details["tenants"])
+	var plural := "" if tenants == 1 else "s"
+	text_edit.text = "This round: %d tenant%s, $%d rent.\n\n%s" % [tenants, plural, int(details["rent"]), text_edit.text]
+	if caption == null:
+		caption = Label.new()
+		caption.name = "tenants"
+		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		caption.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+		caption.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		caption.offset_top = -4
+		caption.offset_bottom = 30
+		caption.add_theme_font_size_override("font_size", 22)
+		caption.modulate.a = 0.85
+		caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		e_rent.add_child(caption)
+	caption.visible = true
+	var each := 3 * (2 if details.get("has_double", false) else 1)
+	caption.text = "%d tenant%s x $%d" % [tenants, plural, each]
+
 func _style_sell_button() -> void:
 	var panel: Panel = $CanvasLayer/Sell
 	panel.custom_minimum_size = Vector2.ZERO
-	# Top left, beside the property's picture: clear of the SkyBnB / Double badges (which sit
-	# either side of the picture lower down) and of the Contractor on the right.
-	panel.offset_left = -702
-	panel.offset_right = -524
-	panel.offset_top = 206
-	panel.offset_bottom = 284
+	# Bottom right, over the card's corner just above the menu bar. The token buttons
+	# (Add SkyBnB / Insurance / Double) stop short of it: see _layout_token_buttons.
+	panel.offset_right = -10
+	panel.offset_left = -10 - SELL_SIZE
+	panel.offset_bottom = 1118
+	panel.offset_top = 1118 - SELL_SIZE
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color("b76051")
 	style.border_color = Color("f6f2e1")
 	style.set_border_width_all(4)
-	style.set_corner_radius_all(41)
+	style.set_corner_radius_all(int(SELL_SIZE / 2.0))
 	style.shadow_color = Color(0, 0, 0, 0.35)
 	style.shadow_size = 8
 	style.shadow_offset = Vector2(0, 5)
 	panel.add_theme_stylebox_override("panel", style)
 	var label: Label = panel.get_node("Label")
 	label.text = ""
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 12)
-	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(row)
-	panel.move_child(row, 0)   # under the (invisible) button that takes the tap
+	var column := VBoxContainer.new()
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", -2)
+	column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(column)
+	panel.move_child(column, 0)   # under the (invisible) button that takes the tap
 	var icon := TextureRect.new()
 	icon.texture = SELL_ICON
-	icon.custom_minimum_size = Vector2(40, 40)
+	icon.custom_minimum_size = Vector2(44, 44)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var shader := Shader.new()
 	shader.code = CREAM_SHADER
@@ -336,14 +367,15 @@ func _style_sell_button() -> void:
 	material.set_shader_parameter("tint", Color("f6f2e1"))
 	icon.material = material
 	icon.set_meta("ct_skip", true)
-	row.add_child(icon)
+	column.add_child(icon)
 	var text := Label.new()
 	text.text = "Sell"
+	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	text.add_theme_font_override("font", preload("res://Assets/fonts/Comfortaa-Regular.ttf"))
-	text.add_theme_font_size_override("font_size", 38)
+	text.add_theme_font_size_override("font_size", 28)
 	text.add_theme_color_override("font_color", Color("f6f2e1"))
 	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(text)
+	column.add_child(text)
 	sell.pressed.connect(func():   # a quick press-down feel
 		panel.pivot_offset = panel.size / 2.0
 		var pop := panel.create_tween()

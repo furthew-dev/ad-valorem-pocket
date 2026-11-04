@@ -44,8 +44,8 @@ const REGIONS := {
 		1: [Color8(228, 216, 203), "ebceb0"],   # the cup
 		2: [Color8(153, 117, 109), "b76051"],   # pencils
 	},
-	"coffee_mug": {
-		1: [Color8(195, 134, 127), "e16257"],   # the mug
+	"mug": {
+		1: [Color8(159, 161, 137), "7b7e63"],   # the mug (not the coffee)
 	},
 	"paper": {
 		1: [Color8(200, 168, 130), "c2855f"],   # the pencil

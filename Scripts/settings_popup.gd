@@ -2,7 +2,7 @@ extends CanvasLayer
 ## Settings pop-up, opened from the settings button in the UI frame.
 ## Change your name, turn sounds on/off, and leave the lobby / game.
 
-const PAPER = preload("res://Assets/icons/pop_up.png")
+const PaperArt = preload("res://Scripts/paper_art.gd")   # the taped-paper card (drawn, not a picture)
 const FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
 const POPUP_SCENE = preload("res://Scenes/pop_up.tscn")
 const TITLE_SCENE := "res://Scenes/main.tscn"
@@ -25,9 +25,7 @@ func _build() -> void:
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
 
-	var paper := TextureRect.new()
-	paper.texture = PAPER
-	paper.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	var paper := PaperArt.make()
 	paper.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	paper.offset_left = -280
 	paper.offset_right = 270
@@ -239,7 +237,6 @@ func _leave() -> void:
 const BUG_REPORT_URL := "https://furthew.com/bug-report/"
 
 func _report_bug() -> void:
-	Sound.play("click")
 	var screen := "title"
 	var scene := get_tree().current_scene
 	if scene and scene.scene_file_path != "":
@@ -247,14 +244,7 @@ func _report_bug() -> void:
 	var url := "%s?v=%s&screen=%s" % [BUG_REPORT_URL, Network.APP_VERSION.uri_encode(), screen.uri_encode()]
 	if Network.in_game:
 		url += "&round=%d&expansion=%s" % [Global.ROUND, "1" if Network.expansion_on() else "0"]
-	if OS.has_feature("web"):
-		# A new tab, so the game keeps running here. If the browser blocks it, show the link.
-		var window := JavaScriptBridge.get_interface("window")
-		var tab = window.open(url, "_blank") if window else null
-		if tab == null:
-			Global.show_notice("Your browser blocked the new tab. To report a bug, visit:\n\nfurthew.com/bug-report")
-	else:
-		OS.shell_open(url)
+	Global.open_web(url, "furthew.com/bug-report")
 
 func _close() -> void:
 	Sound.play("back")

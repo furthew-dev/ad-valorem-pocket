@@ -7,7 +7,7 @@ extends CanvasLayer
 
 signal chosen(picks: Array)
 
-const PAPER = preload("res://Assets/icons/pop_up.png")
+const PaperArt = preload("res://Scripts/paper_art.gd")   # the taped-paper card (drawn, not a picture)
 const FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
 const BODY_FONT = preload("res://Assets/fonts/Comfortaa-Regular.ttf")
 const INK := Color(0.1, 0.1, 0.1)
@@ -47,9 +47,7 @@ func _build() -> void:
 	dim.color = Color(0, 0, 0, 0.55)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
-	var paper := TextureRect.new()
-	paper.texture = PAPER
-	paper.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	var paper := PaperArt.make()
 	paper.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	paper.offset_left = -SIZE.x / 2.0
 	paper.offset_right = SIZE.x / 2.0

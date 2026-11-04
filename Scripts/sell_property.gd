@@ -1,11 +1,9 @@
 extends Node2D
-## Sell the selected property (Cards.selected_id). Private sale sells on a 1-2 (of 6);
-## a Listing Agent sells on a 1-5 and is used up either way.
+## Sell the selected property (Cards.selected_id) by rolling the die (dice_roll.gd):
+## SOLD on 2 of its 6 faces on your own, 5 of 6 with a Listing Agent (used up either way).
 
 const SELECT := "CanvasLayer/Panel/VBoxContainer/list_of_properties/MarginContainer2/Panel/MarginContainer/VBoxContainer/"
-const TRANSITION_SCENE = preload("res://Scenes/transition.tscn")
-const PRIVATE_SALE_ODDS := 2   # sells on a roll of this or lower
-const AGENT_SALE_ODDS := 5
+const DiceRoll = preload("res://Scripts/dice_roll.gd")
 
 @onready var property_icon: TextureRect = $CanvasLayer/Panel/VBoxContainer/list_of_properties/property_icon
 @onready var realtor_emblem: Panel = $CanvasLayer/Panel/realtor_emblem
@@ -91,37 +89,25 @@ func _on_sell_btn_pressed() -> void:
 	if Global.ACTIONS <= 0:
 		Global.error("You are out of Actions. End your turn for more.", "home")
 		return
-	Sound.play("dice")
-	var roll := randi_range(1, 6)
-	if get_tree().root.has_node("Tutorial"):
-		roll = 1   # the guided tour's practice sale always sells
-	var odds := AGENT_SALE_ODDS if using_agent else PRIVATE_SALE_ODDS
-	if using_agent:
-		Actions.consume("listing_agent")
-	Global.SOLD = roll <= odds
-	print("Rolled %d, sold: %s" % [roll, Global.SOLD])
-	var sale_name: String = str(_selected_property().get("name", "Property"))
-	var how := "Listing Agent" if using_agent else "private sale"
-	if Global.SOLD:
-		Activity.add("Sold %s by %s (rolled %d)" % [sale_name, how, roll], "info")
-	else:
-		Activity.add("%s didn't sell by %s (rolled %d)" % [sale_name, how, roll], "error")
-	var price := 0
-	if Global.SOLD:
-		var property := _selected_property()
-		price = property["value"]
-		Cards.properties_owned.erase(property)
-	sell_btn.disabled = true   # no double taps while the animation plays
-	var transition = TRANSITION_SCENE.instantiate()
-	add_child(transition)
-	transition.run_animation(Global.mystery.app_color, "sold" if Global.SOLD else "failed",
-			Global.mystery.app_url, _on_result_revealed.bind(price))
+	sell_btn.disabled = true   # no double taps
+	Sound.play("continue")
+	DiceRoll.open(get_tree(), using_agent, _settle_sale.bind(using_agent))
 
-# The "?" lead-in has finished and SOLD / FAILED is showing: the money (with its cash
-# register) arrives now, or the crowd groans.
-func _on_result_revealed(price: int) -> void:
-	if Global.SOLD:
-		Stats.add("sales")
-		Global.add_cash(price, "Property Sale")
-	else:
-		Sound.play("aww")
+# The die has landed (dice_roll.gd): apply the sale. Returns the banner's message and any
+# cash; the die screen then goes to My Properties and shows them there.
+func _settle_sale(sold: bool, agent: bool) -> Dictionary:
+	var property := _selected_property()
+	var sale_name: String = str(property.get("name", "your property"))
+	if agent:
+		Actions.consume("listing_agent")
+	Global.action_used()
+	if property.is_empty():   # lost while the die was rolling (a swap, a disaster...)
+		return {"message": "Your property was gone before the sale went through.", "cash": 0}
+	Global.SOLD = sold
+	if not sold:
+		var note := " Your Listing Agent is used up." if agent else ""
+		return {"message": "%s didn't sell.%s" % [sale_name, note], "cash": 0}
+	var price: int = property["value"]
+	Cards.properties_owned.erase(property)
+	Stats.add("sales")
+	return {"message": "SOLD! %s sold for $%d." % [sale_name, price], "cash": price}

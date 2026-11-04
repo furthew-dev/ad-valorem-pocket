@@ -12,7 +12,7 @@ extends CanvasLayer
 ## Save keeps it on this phone (for every game from now on) and shows it to everyone.
 
 const Avatar = preload("res://Scripts/avatar.gd")
-const PAPER = preload("res://Assets/icons/pop_up.png")
+const PaperArt = preload("res://Scripts/paper_art.gd")   # the taped-paper card (drawn, not a picture)
 const FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
 const INK := Color(0.1, 0.1, 0.1)
 const PREVIEW_SIZE := 180.0
@@ -36,9 +36,7 @@ func _build() -> void:
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
 
-	var paper := TextureRect.new()
-	paper.texture = PAPER
-	paper.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	var paper := PaperArt.make()
 	paper.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	paper.offset_left = -300
 	paper.offset_right = 300

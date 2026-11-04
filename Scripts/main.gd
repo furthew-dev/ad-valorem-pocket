@@ -13,16 +13,18 @@ const LOBBY_SCENE := "res://Scenes/lobby.tscn"
 
 var _waiting_popup: Node = null
 
-# The coffee steam redraws the whole screen 20 times a second. Left on the title screen,
-# that keeps the phone working for nothing, so it rests after a while and wakes on a tap.
+# The coffee steam (Scripts/mug_steam.gd) redraws the screen 20 times a second. Left on the
+# title screen, that keeps the phone working for nothing, so it rests after a while and
+# wakes on a tap. (The old sprite-sheet mug is kept in _vault/coffee_mug_animation.)
 const STEAM_REST_AFTER := 20.0
-@onready var _steam: AnimatedSprite2D = $"CanvasLayer/Options Panel/coffee_mug/AnimatedSprite2D"
+@onready var _steam: Node2D = $"CanvasLayer/Options Panel/desk_mug/Steam"
 var _idle_time := 0.0
 
 
 func _ready() -> void:
 	ui_menu_frame.clear_ui()
 	ui_menu_frame.show_title("Ad Valorem Pocket Edition", "Main Menu")
+	ui_menu_frame.show_subscribe_bar()
 	_theme_art()
 	ColorTheme.theme_changed.connect(func(_key): _theme_art())
 	_add_how_to_play()
@@ -54,7 +56,7 @@ func _theme_art() -> void:
 	MenuArtTheme.apply(options.get_node("TextureRect"), "pin_board")
 	MenuArtTheme.apply(options.get_node("TextureRect2"), "paper")
 	MenuArtTheme.apply(options.get_node("TextureRect3"), "pencil_holder")
-	MenuArtTheme.apply(_steam, "coffee_mug")
+	MenuArtTheme.apply(options.get_node("desk_mug/Mug"), "mug")
 
 # The "How to Play" notepad: an invisible button over the pad (where it sits in paper.png).
 var _how_to_play: Node = null

@@ -92,6 +92,9 @@ func _tidy_layout() -> void:
 		button.add_theme_font_size_override("font_size", 36)
 	lobby_btn.text = "Back to Lobby"
 	quit_btn.text = "Main Menu"
+	var subscribe := Global.subscribe_button("Enjoyed it? Get Kickstarter updates")
+	subscribe.add_theme_font_size_override("font_size", 28)
+	content.add_child(subscribe)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED

@@ -26,11 +26,15 @@ func _ready() -> void:
 		Global.banner("%s added to inventory." % added)
 	Global.new_property = false
 	Global.new_property_name = ""
+	var arrived := Global.new_property_id
+	Global.new_property_id = 0
 	if Global.assigning_token == "golden_lock":
 		Global.banner("Choose a property to protect with the Golden Lock.")
 	_sort_mode = Network.load_setting("my_properties", "sort", "")
 	_add_sort_button()
 	_build_list()
+	if arrived != 0:
+		_slide_in.call_deferred(arrived)
 
 ## ---- CAPACITY ("Capacity 3 / 5 Properties") ----
 # 4 to start; each Land Expansion and Inheritance adds one. Empty lots count, as they do
@@ -126,6 +130,57 @@ func _build_list() -> void:
 		card_instance.setup_card(property_data)
 		card_instance.assign_requested.connect(_on_assign_requested.bind(property_data))
 
+
+## ---- A NEW PROPERTY ARRIVES ----
+# Just bought (or built): its row slides in from the right with a little bounce and a
+# gold glow, so it's clear what was added. (This replaced the purchasing animation.)
+func _slide_in(property_id: int) -> void:
+	var row: Control = null
+	for child in list_of_properties.get_children():
+		if child.get("this_card_id") == property_id and not child.is_queued_for_deletion():
+			row = child
+	if row == null:
+		return
+	var panel: Control = row.get("panel")
+	if panel == null:
+		return
+	var rest := panel.position
+	panel.position.x = rest.x + 720
+	panel.modulate.a = 0.0
+	await get_tree().process_frame   # laid out: now it can be scrolled to
+	if not is_instance_valid(row):
+		return
+	var scroll := list_of_properties.get_parent() as ScrollContainer
+	if scroll:
+		scroll.ensure_control_visible(row)
+	var slide := panel.create_tween().set_parallel(true)
+	slide.tween_property(panel, "position:x", rest.x, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	slide.tween_property(panel, "modulate:a", 1.0, 0.2)
+	await slide.finished
+	if not is_instance_valid(panel):
+		return
+	Sound.play("switch")
+	var glow := Panel.new()   # a gold ring that pulses twice and fades
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0)
+	style.border_color = Color("ddcf99")
+	style.set_border_width_all(5)
+	style.set_corner_radius_all(34)
+	style.expand_margin_left = 6
+	style.expand_margin_right = 6
+	style.expand_margin_top = 6
+	style.expand_margin_bottom = 6
+	glow.add_theme_stylebox_override("panel", style)
+	glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ColorTheme.keep(glow)
+	panel.add_child(glow)
+	var pulse := glow.create_tween()
+	for i in 2:
+		pulse.tween_property(glow, "modulate:a", 0.25, 0.28)
+		pulse.tween_property(glow, "modulate:a", 1.0, 0.28)
+	pulse.tween_property(glow, "modulate:a", 0.0, 0.5)
+	pulse.tween_callback(glow.queue_free)
 
 ## ---- GOLDEN LOCK ----
 func _on_assign_requested(property: Dictionary) -> void:

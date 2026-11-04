@@ -1007,6 +1007,7 @@ func resolve_fortuna(card: Dictionary) -> String:
 			Cards.properties_owned.append(lot)
 			Global.new_property = true
 			Global.new_property_name = lot["name"]
+			Global.new_property_id = lot.get("id", 0)
 			return "Inheritance! Property limit +1. Build on it from My Properties with a Contractor."
 
 		"discard_environment_tokens":   # Cyber Attack (expansion)

@@ -78,6 +78,7 @@ func refresh_labels() -> void:
 	checking_bal.text = "$%d" % Global.CASH
 	player_name.text = str(Global.PLAYER)
 	_show_my_face()
+	_show_region()
 	actions_left.text = "%d Actions left" % Global.ACTIONS
 	round_number.text = "Round %d" % Global.ROUND
 	misc.text = "Expected Rent: $%d" % Global.expected_rent()
@@ -106,6 +107,53 @@ func _show_my_face() -> void:
 		AvatarArt.update(_my_face, AvatarArt.for_name(Global.PLAYER))
 	_my_face.visible = true
 
+# Expansion: your region's round picture just left of "Round N", on every screen, so you
+# always know which environment you're in. Tap it to open the Environment app.
+const REGION_ICON := 40
+var _region_icon: TextureButton
+
+func _show_region() -> void:
+	var show := not _face_hidden and Network.in_game and Network.expansion_on() and Expansion.my_region != ""
+	if not show:
+		if is_instance_valid(_region_icon):
+			_region_icon.visible = false
+		return
+	if not is_instance_valid(_region_icon):
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_END
+		row.add_theme_constant_override("separation", 8)
+		row.size_flags_vertical = round_number.size_flags_vertical
+		var column := round_number.get_parent()
+		column.add_child(row)
+		column.move_child(row, round_number.get_index())
+		round_number.reparent(row, false)
+		round_number.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		_region_icon = TextureButton.new()
+		_region_icon.ignore_texture_size = true
+		_region_icon.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+		_region_icon.custom_minimum_size = Vector2(REGION_ICON, REGION_ICON)
+		_region_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		_region_icon.focus_mode = Control.FOCUS_NONE
+		_region_icon.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		_region_icon.tooltip_text = "Your environment"
+		_region_icon.pressed.connect(func(): Global.open_link("environment"))
+		ColorTheme.keep(_region_icon)   # a picture: never recoloured
+		row.add_child(_region_icon)
+		row.move_child(_region_icon, 0)
+	_region_icon.texture_normal = Expansion.region_icon(Expansion.my_region)
+	_region_icon.visible = true
+
+# The title screen: no Back / Home / Settings, just "Get Kickstarter updates".
+func show_subscribe_bar() -> void:
+	var bar: HBoxContainer = $Panel/MarginContainer/vbox/bottom_menu
+	for child in bar.get_children():
+		child.visible = false
+	var button := Global.subscribe_button()
+	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bar.add_child(button)
+	bar.alignment = BoxContainer.ALIGNMENT_CENTER
+
 func _on_cash_changed(new_value: int) -> void:
 	checking_bal.text = "$%d" % new_value
 
@@ -121,6 +169,8 @@ func clear_ui() -> void:
 	_face_hidden = true
 	if is_instance_valid(_my_face):
 		_my_face.visible = false
+	if is_instance_valid(_region_icon):
+		_region_icon.visible = false
 	misc.text = ""
 	checking_bal.text = "Hello!"
 	round_number.text = ""

@@ -131,9 +131,9 @@ func _make_steps() -> Array:
 		# 6. Selling
 		{"title": "Selling", "text": "Need cash? You can sell a property. Tap Sell.",
 			"target": _scene_node.bind("CanvasLayer/Sell"), "do": _scene_is.bind("sell_property")},
-		{"title": "Private sale", "text": "Sell it yourself: a die is rolled and it only sells on a 1 or 2. Free, but risky.",
+		{"title": "Private sale", "text": "Sell it yourself: you roll a die with SOLD on only 2 of its 6 sides. Free, but risky.",
 			"target": _sell_choice.bind("Private Sale")},
-		{"title": "Listing Agent", "text": "A Listing Agent sells it on a 1 to 5, much safer. You don't have one yet, so let's buy one.",
+		{"title": "Listing Agent", "text": "With a Listing Agent, 5 of the 6 sides say SOLD: much safer. You don't have one yet, so let's buy one.",
 			"target": _sell_choice.bind("Realtor")},
 		# 7. The Market
 		{"title": "Go Home", "text": "Tap Home.",
@@ -146,10 +146,10 @@ func _make_steps() -> Array:
 			"target": _listing_agent_target, "do": _owns_listing_agent},
 		# 8. Selling, all the way through
 		{"title": "Sell a property", "text": "Let's sell your Two Story Home. The Listing Agent is available now: tap its Select, then tap Sell.",
-			"enter": _open_sell_page, "target": _sell_target, "do": _scene_is.bind("results")},
-		{"title": "Sold!", "text": "The die decides: 1 to 5 sells with a Listing Agent, only 1 or 2 on your own (this practice sale always works). The Listing Agent is used up, and the property's value is added to your cash.\n\nTap OK.",
-			"target": _scene_node.bind("app_color/Panel2/Panel/VBoxContainer/ok_button"), "do": _scene_is.bind("my_properties")},
-		{"title": "Room for more", "text": "The Two Story Home is gone, so you have room for another property. Let's buy one.",
+			"enter": _open_sell_page, "target": _sell_target, "do": _dice_open},
+		{"title": "Roll the die", "text": "With your Listing Agent, 5 of the die's 6 sides say SOLD. Tap Roll (or the tray) to throw it.\n\nIn this practice a FAIL just lets you roll again.",
+			"target": _dice_part.bind("roll"), "do": _scene_is.bind("my_properties")},
+		{"title": "Room for more", "text": "Sold! The result shows in the banner, the property's value went into your cash, and the Listing Agent is used up.\n\nThe Two Story Home is gone, so you have room for another property. Let's buy one.",
 			"target": _capacity_pill},
 		# 9. Buying, all the way through
 		{"title": "Go Home", "text": "Tap Home.",
@@ -351,8 +351,24 @@ func _loan_open() -> bool:
 func _loans_paid() -> bool:
 	return Global.loans.is_empty()
 
-# The SOLD / purchasing animation is playing: let it be seen, undimmed.
+# The die screen (dice_roll.gd), and its Roll button.
+func _dice() -> Node:
+	return get_tree().root.get_node_or_null("DiceRoll")
+
+func _dice_open() -> bool:
+	return _dice() != null
+
+func _dice_part(part: String) -> Control:
+	var dice := _dice()
+	if dice == null or part != "roll":
+		return null
+	return dice._roll_button if dice._roll_button.visible and not dice._roll_button.disabled else null
+
+# An app animation is playing, or the die is rolling: let it be seen, undimmed.
 func _transition_playing() -> bool:
+	var dice := _dice()
+	if dice != null and (dice._rolling or dice._done):
+		return true
 	var scene := _scene()
 	return scene != null and scene.get_children().any(func(n): return _script_name(n) == "transition.gd")
 

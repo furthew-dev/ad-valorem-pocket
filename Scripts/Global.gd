@@ -21,10 +21,11 @@ var interest_rate := 0.1
 var loans: Array = []
 var total_interest_paid := 0
 
-var SOLD := false            # result of the last sale attempt (read by results.gd)
+var SOLD := false            # result of the last sale attempt (set by sell_property.gd)
 var using_realtor := false   # set by buy_property.gd, read by property_reveal.gd
 var new_property := false    # my_properties shows "<name> added to inventory" when true
 var new_property_name := ""  # ...with this name (defaults to the last card in the hand)
+var new_property_id := 0      # ...and slides this one into the list (0 = none)
 var build_lot_id := 0        # set while property_reveal is building on an empty lot
 var assigning_token := ""    # e.g. "golden_lock": My Properties is picking a property for it
 var new_loan := false
@@ -83,6 +84,7 @@ const LINKS := {
 	"market": ["res://Scenes/market_actions.tscn", "the Market"],
 	"my_properties": ["res://Scenes/my_properties.tscn", "My Properties"],
 	"my_actions": ["res://Scenes/my_actions.tscn", "My Actions"],
+	"environment": ["res://Scenes/environment.tscn", "your Environment"],
 	"my_loans": ["res://Scenes/my_loans.tscn", "My Loans"],
 	"home": ["res://Scenes/home_screen.tscn", "Home"],   # "Tap to open Home"
 }
@@ -106,6 +108,49 @@ func income_loss(type: String, total: int, reason: String = "") -> void:
 	animation_requested.emit(type, total, reason)
 
 # Shows the standard pop-up with a single OK button and waits until it is closed.
+## ---- WEB LINKS ----
+const SUBSCRIBE_URL := "https://furthew.com/subscribe/"
+
+# Opens a web page in a new tab (the game keeps running here). If the browser blocks the
+# tab, the address is shown instead so the player can type it.
+func open_web(url: String, shown_as: String) -> void:
+	Sound.play("click")
+	if OS.has_feature("web"):
+		var window := JavaScriptBridge.get_interface("window")
+		var tab = window.open(url, "_blank") if window else null
+		if tab == null:
+			show_notice("Your browser blocked the new tab. Visit:\n\n%s" % shown_as)
+	else:
+		OS.shell_open(url)
+
+# "Get Kickstarter updates": the title screen's bar and the final results.
+func subscribe_button(text: String = "Get Kickstarter updates") -> Button:
+	var button := Button.new()
+	button.text = text
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size = Vector2(0, 88)
+	button.add_theme_font_override("font", preload("res://Assets/fonts/Comfortaa-Bold.ttf"))
+	button.add_theme_font_size_override("font_size", 32)
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color("b76051")
+	normal.border_color = Color("f6f2e1")
+	normal.set_border_width_all(4)
+	normal.set_corner_radius_all(44)
+	normal.content_margin_left = 28
+	normal.content_margin_right = 28
+	normal.shadow_color = Color(0, 0, 0, 0.3)
+	normal.shadow_size = 6
+	normal.shadow_offset = Vector2(0, 4)
+	var pressed: StyleBoxFlat = normal.duplicate()
+	pressed.bg_color = Color("96514b")
+	for state in ["normal", "hover", "focus"]:
+		button.add_theme_stylebox_override(state, normal)
+	button.add_theme_stylebox_override("pressed", pressed)
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		button.add_theme_color_override(state, Color("f6f2e1"))
+	button.pressed.connect(open_web.bind(SUBSCRIBE_URL, "furthew.com/subscribe"))
+	return button
+
 func show_notice(message: String) -> void:
 	Activity.add(message, "notice")
 	var popup = POPUP_SCENE.instantiate()
@@ -433,11 +478,7 @@ var bank_app = {"app_color": "5d6558", "app_anim": "bank", "app_url": "res://Sce
 var my_loans_app = {"app_color": "744145", "app_anim": "my_loans", "app_url": "res://Scenes/my_loans.tscn"}
 var environment_app = {"app_color": "5d6558", "app_anim": "", "app_url": "res://Scenes/environment.tscn"}
 var my_actions_app = {"app_color": "a78767", "app_anim": "my_actions", "app_url": "res://Scenes/my_actions.tscn"}
-var mystery = {"app_color": "534650", "app_anim": "mystery", "app_url": "res://Scenes/results.tscn"}
-var sold = {"app_color": "96514b", "app_anim": "sold", "app_url": "res://Scenes/results.tscn"}
-var failed = {"app_color": "96514b", "app_anim": "failed", "app_url": "res://Scenes/results.tscn"}
 var intro = {"app_color": "533c44", "app_anim": "intro", "app_url": "res://Scenes/home_screen.tscn"}
-var purchasing = {"app_color": "533c44", "app_anim": "purchasing", "app_url": "res://Scenes/my_properties.tscn"}
 
 
 ## ---- BACK BUTTON ----

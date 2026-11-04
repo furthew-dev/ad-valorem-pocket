@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Texture2D" path="res://Assets/main_menu/mug.png" id="1_mug"]
+[ext_resource type="Script" path="res://Scripts/mug_steam.gd" id="2_steam"]
+
+[node name="desk_mug" type="Node2D"]
+
+[node name="Mug" type="Sprite2D" parent="."]
+position = Vector2(297.5, 359.6)
+scale = Vector2(0.648, 0.648)
+texture = ExtResource("1_mug")
+
+[node name="Steam" type="Node2D" parent="."]
+position = Vector2(278, 298)
+script = ExtResource("2_steam")

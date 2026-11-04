@@ -6,7 +6,7 @@
 [ext_resource type="Texture2D" uid="uid://bc8f1kr4buise" path="res://Assets/main_menu/pin_board.png" id="3_21xkr"]
 [ext_resource type="Texture2D" uid="uid://cdws8elwpbsqi" path="res://Assets/main_menu/paper.png" id="3_kry3j"]
 [ext_resource type="Texture2D" uid="uid://cfw86pj36kjmj" path="res://Assets/main_menu/pencil_holder.png" id="4_21xkr"]
-[ext_resource type="PackedScene" uid="uid://ho7vrpcp051v" path="res://Scenes/coffee_mug.tscn" id="4_jjvhh"]
+[ext_resource type="PackedScene" path="res://Scenes/desk_mug.tscn" id="4_jjvhh"]
 [ext_resource type="FontFile" uid="uid://wvvnuw372tbf" path="res://Assets/fonts/Handwriting-Regular.otf" id="6_d1ilt"]
 [ext_resource type="Theme" uid="uid://cpv1xk05fldxg" path="res://handwriting.tres" id="8_ynf5e"]
 
@@ -83,7 +83,7 @@ scale = Vector2(3.03187, 4.66964)
 texture = ExtResource("4_21xkr")
 expand_mode = 1
 
-[node name="coffee_mug" parent="CanvasLayer/Options Panel" instance=ExtResource("4_jjvhh")]
+[node name="desk_mug" parent="CanvasLayer/Options Panel" instance=ExtResource("4_jjvhh")]
 position = Vector2(288, 296)
 scale = Vector2(1.00164, 1)
 

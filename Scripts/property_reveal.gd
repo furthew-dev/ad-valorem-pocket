@@ -8,7 +8,6 @@ const LISTING_SCENE = preload("res://Scenes/listed_property_template.tscn")
 const LOAN_SCENE = preload("res://Scenes/loan.tscn")
 const CHOICE_MENU = preload("res://Scripts/choice_menu.gd")
 const CANCEL := "Cancel"
-const TRANSITION_SCENE = preload("res://Scenes/transition.tscn")
 const REALTOR_FINE := 3
 
 const VBOX := "CanvasLayer/Panel/VBoxContainer/revealed_properties/MarginContainer2/Panel/MarginContainer/VBoxContainer/"
@@ -101,11 +100,9 @@ func _on_purchase_btn_pressed() -> void:
 	if _purchase_loan != 0:
 		selected_card["loan_number"] = _purchase_loan   # property details shows what's still owed
 	Cards.properties_owned.append(selected_card)
+	Global.new_property_id = selected_card.get("id", 0)
 	Cards.return_revealed()
-
-	var transition = TRANSITION_SCENE.instantiate()
-	add_child(transition)
-	transition.run_animation(Global.purchasing.app_color, Global.purchasing.app_anim, Global.purchasing.app_url)
+	_bought_animation(selected_card)
 
 func _yes_take_loan(amount: int = -1) -> void:
 	_loan_offer_open = true
@@ -191,10 +188,51 @@ func _build_selected() -> void:
 	Global.build_lot_id = 0
 	Global.new_property = true
 	Global.new_property_name = "%s (built on %s)" % [built["name"], build_lot["name"]]
-	var transition = TRANSITION_SCENE.instantiate()
-	add_child(transition)
-	transition.run_animation(Global.purchasing.app_color, Global.purchasing.app_anim, Global.purchasing.app_url)
+	Global.new_property_id = built.get("id", 0)
+	_bought_animation(selected_card)
 
+
+## ---- BOUGHT ----
+# A quick "it's yours" before My Properties: the chosen card pops with a stamp, then lifts
+# off toward the list (where my_properties.gd slides it in). Replaces the old full-screen
+# purchasing animation (now in _vault/purchasing_animation).
+const BOUGHT_TIME := 1.05
+const BOUGHT_HOLD := 0.5   # the stamped card stays put this long before it lifts off
+func _bought_animation(card: Dictionary) -> void:
+	var listing: Control = null
+	for child in list_of_properties.get_children():
+		if child.get("card_data") == card:
+			listing = child
+	if listing:
+		var stamp := Label.new()
+		stamp.text = "Purchased!"
+		stamp.add_theme_font_override("font", preload("res://Assets/fonts/Handwriting-Regular.otf"))
+		stamp.add_theme_font_size_override("font_size", 52)
+		stamp.add_theme_color_override("font_color", Color("f6f2e1"))
+		stamp.add_theme_color_override("font_outline_color", Color("533c44"))
+		stamp.add_theme_constant_override("outline_size", 14)
+		stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		stamp.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		stamp.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		stamp.rotation = -0.18
+		stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		listing.add_child(stamp)
+		stamp.pivot_offset = listing.size / 2.0
+		stamp.scale = Vector2(2.2, 2.2)
+		stamp.modulate.a = 0.0
+		var press := stamp.create_tween().set_parallel(true)
+		press.tween_property(stamp, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		press.tween_property(stamp, "modulate:a", 1.0, 0.12)
+		listing.pivot_offset = listing.size / 2.0
+		var lift := listing.create_tween()
+		lift.tween_property(listing, "scale", Vector2(1.06, 1.06), 0.16).set_delay(0.12)   # the stamp lands
+		lift.tween_interval(BOUGHT_HOLD)
+		lift.tween_property(listing, "scale", Vector2(0.55, 0.55), 0.27).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+		lift.parallel().tween_property(listing, "modulate:a", 0.0, 0.27)
+		lift.parallel().tween_property(listing, "position:y", listing.position.y - 160, 0.27)
+	await get_tree().create_timer(BOUGHT_TIME).timeout
+	if is_inside_tree():
+		get_tree().change_scene_to_file("res://Scenes/my_properties.tscn")
 
 ## ---- CANCEL ----
 func _on_cancel_btn_pressed() -> void:

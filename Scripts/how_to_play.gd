@@ -4,7 +4,7 @@ extends CanvasLayer
 ## page folds over at the spine), Close (or a tap outside) shrinks it back to the pad.
 ##     HowToPlay.open(get_tree(), notepad_control)
 
-const PAPER = preload("res://Assets/icons/pop_up.png")
+const PaperArt = preload("res://Scripts/paper_art.gd")   # the taped-paper card (drawn, not a picture)
 const FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
 const BODY_FONT = preload("res://Assets/fonts/Comfortaa-Regular.ttf")
 const INK := Color(0.1, 0.1, 0.1)
@@ -55,9 +55,7 @@ func _build() -> void:
 			_close())
 	add_child(_dim)
 
-	_book = TextureRect.new()
-	_book.texture = PAPER
-	_book.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_book = PaperArt.make()
 	_book.size = BOOK_SIZE
 	_book.mouse_filter = Control.MOUSE_FILTER_STOP
 	_dim.add_child(_book)
