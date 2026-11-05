@@ -25,6 +25,13 @@ func _ready() -> void:
 	ui_menu_frame.clear_ui()
 	ui_menu_frame.show_title("Ad Valorem Pocket Edition", "Main Menu")
 	ui_menu_frame.show_subscribe_bar()
+	# The desk pictures (cork board, notepad, pencil cup) are full-screen layers above the
+	# menu bar: let taps through them, so the bar's button works. The sticky notes and the
+	# How to Play pad are buttons of their own and still take their taps.
+	var options: Control = $"CanvasLayer/Options Panel"
+	options.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for picture in ["TextureRect", "TextureRect2", "TextureRect3"]:
+		(options.get_node(picture) as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_theme_art()
 	ColorTheme.theme_changed.connect(func(_key): _theme_art())
 	_add_how_to_play()

@@ -12,7 +12,7 @@ config_version=5
 
 config/name="Ad Valorem Pocket"
 run/main_scene="uid://dqkipi5fd2c3r"
-config/features=PackedStringArray("4.4", "GL Compatibility")
+config/features=PackedStringArray("4.5", "GL Compatibility")
 run/max_fps=60
 run/low_processor_mode=true
 boot_splash/bg_color=Color(0.286275, 0.203922, 0.239216, 1)

@@ -124,7 +124,8 @@ func _build_ui() -> void:
 	tray.add_child(view)
 	_viewport = SubViewport.new()
 	_viewport.own_world_3d = true
-	_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA   # smooth edges without the extra buffers MSAA needs
+	# No anti-aliasing: the Compatibility renderer has no FXAA (Godot 4.5 reports it as an
+	# error), and MSAA costs ~6 MB here. The matte die on felt looks clean without it.
 	view.add_child(_viewport)
 
 
