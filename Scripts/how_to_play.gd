@@ -56,6 +56,7 @@ func _build() -> void:
 	add_child(_dim)
 
 	_book = PaperArt.make()
+	_book.auto_fit = false   # it animates its own size and place: see _open_animation
 	_book.size = BOOK_SIZE
 	_book.mouse_filter = Control.MOUSE_FILTER_STOP
 	_dim.add_child(_book)
@@ -207,9 +208,11 @@ func _open_animation() -> void:
 	_book.rotation = -0.3
 	_book.modulate.a = 0.0
 	_dim.color.a = 0.0
+	# Where it settles: between the top bar and the menu bar (a little smaller if need be).
+	var room := PaperArt.fit(BOOK_SIZE.y, screen.y)
 	var tween := create_tween().set_parallel(true)
-	tween.tween_property(_book, "position", (screen - BOOK_SIZE) / 2.0, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(_book, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_book, "position", Vector2(screen.x / 2.0, room["centre_y"]) - BOOK_SIZE / 2.0, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_book, "scale", Vector2.ONE * room["scale"], 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(_book, "rotation", 0.0, 0.35)
 	tween.tween_property(_book, "modulate:a", 1.0, 0.15)
 	tween.tween_property(_dim, "color:a", 0.5, 0.3)

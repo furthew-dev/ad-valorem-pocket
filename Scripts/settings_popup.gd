@@ -205,9 +205,7 @@ func _leave_text() -> String:
 		return "Leave Game" if Network.is_online() else "Quit to Title"
 	if Network.is_online():
 		return "Leave Lobby"
-	if OS.has_feature("web"):
-		return ""   # a browser tab can't quit itself
-	return "Quit Game"
+	return ""   # the title screen: nothing to leave (and a browser tab can't quit itself)
 
 func _confirm_leave() -> void:
 	var question := "Are you sure?"

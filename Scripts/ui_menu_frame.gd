@@ -143,15 +143,17 @@ func _show_region() -> void:
 	_region_icon.texture_normal = Expansion.region_icon(Expansion.my_region)
 	_region_icon.visible = true
 
-# The title screen: no Back / Home / Settings, just "Get Kickstarter updates".
+# The title screen: no Back / Home, just "Get Kickstarter updates" and Settings (sound,
+# themes, bug reports).
 func show_subscribe_bar() -> void:
 	var bar: HBoxContainer = $Panel/MarginContainer/vbox/bottom_menu
 	for child in bar.get_children():
-		child.visible = false
+		child.visible = child.name == "settings"
 	var button := Global.subscribe_button()
-	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	bar.add_child(button)
+	bar.move_child(button, 0)
 	bar.alignment = BoxContainer.ALIGNMENT_CENTER
 
 func _on_cash_changed(new_value: int) -> void:
