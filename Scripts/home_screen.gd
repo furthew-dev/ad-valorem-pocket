@@ -11,7 +11,7 @@ const AppLaunch = preload("res://Scripts/app_launch.gd")
 
 var current_scene := "res://Scenes/home_screen.tscn"
 
-const HOLD_TIME := 0.35      # seconds held still before an app lifts up
+const HOLD_TIME := 0.5       # seconds held still before an app lifts up (a phone's long-press)
 const DRAG_START := 24.0     # ...or start moving this far (pixels) to pick it up at once
 
 @onready var first_row: HBoxContainer = $"Apps/Apps Container/first_row"
@@ -141,7 +141,10 @@ func _save_order() -> void:
 
 func _on_tile_down(tile: Control) -> void:
 	_pressed_tile = tile
-	_press_pos = get_viewport().get_mouse_position()
+	# Where the finger went down: from the press itself (_input sees it first). The viewport's
+	# mouse position can be stale for a touch, which made a tap's tiny wobble look like a
+	# long drag and picked the app up instead of opening it.
+	_press_pos = _swipe_start
 	_press_time = 0.0
 
 func _process(delta: float) -> void:

@@ -418,6 +418,8 @@ func _go_to(index: int) -> void:
 	_bubble.modulate.a = 0.0
 	_bubble.create_tween().tween_property(_bubble, "modulate:a", 1.0, 0.25)
 	Sound.play("notify")
+	_step_time = 0.0
+	_arrow.visible = false
 	_update_hole(true)
 
 func _on_next() -> void:
@@ -430,6 +432,8 @@ func _process(delta: float) -> void:
 	if not _running or _index < 0 or _index >= _steps.size():
 		return
 	_update_hole()
+	_step_time += delta
+	_update_arrow()
 	var step: Dictionary = _steps[_index]
 	if step.has("do"):
 		_check_clock -= delta
@@ -467,9 +471,40 @@ func _update_hole(force: bool = false) -> void:
 		_bubble.set_meta("for", rect)
 		_place_bubble.call_deferred(rect)
 
+# The tip sits at the bottom of the screen (over the menu bar). It only moves up when the
+# spot to tap is down there too (Home, the menu button...) or would be under it.
+const BUBBLE_MARGIN := 14.0
+const TOP_BAR := 150.0
+const ARROW_ROOM := 120.0   # between a raised tip and its spot, where the arrow goes
+# A step that needs a tap: after ARROW_AFTER seconds, an arrow bobs next to the spot,
+# pointing at it (from above, or from below when the spot is near the top).
+const ARROW_AFTER := 3.0
+var _step_time := 0.0
+var _arrow: Node2D
+
+func _update_arrow() -> void:
+	var step: Dictionary = _steps[_index]
+	var hole: Rect2 = _bubble.get_meta("for", Rect2())
+	var show: bool = step.has("do") and _step_time >= ARROW_AFTER and hole.size != Vector2.ZERO and _ring.visible
+	if not show:
+		_arrow.visible = false
+		return
+	if not _arrow.visible:
+		_arrow.visible = true
+		_arrow.modulate.a = 0.0
+		_arrow.create_tween().tween_property(_arrow, "modulate:a", 1.0, 0.25)
+	var bob := absf(sin(_step_time * 5.0)) * 16.0
+	var from_below := hole.position.y < TOP_BAR + 120.0
+	if from_below:
+		_arrow.position = Vector2(hole.get_center().x, hole.end.y + 8.0 + bob)
+		_arrow.rotation = PI   # points up
+	else:
+		_arrow.position = Vector2(hole.get_center().x, hole.position.y - 8.0 - bob)
+		_arrow.rotation = 0.0  # points down
+
 func _place_bubble(hole: Rect2) -> void:
 	var screen := get_viewport().get_visible_rect().size
-	var width := minf(screen.x - 48.0, 660.0)
+	var width := minf(screen.x - 32.0, 680.0)
 	_bubble.custom_minimum_size.x = width
 	_bubble.size = Vector2(width, 0)
 	_bubble.reset_size()   # shrink to this step's text
@@ -477,17 +512,13 @@ func _place_bubble(hole: Rect2) -> void:
 	_bubble.reset_size()
 	var height := _bubble.size.y
 	var x := (screen.x - width) / 2.0
-	var y: float
+	var y := screen.y - height - BUBBLE_MARGIN   # the bottom
 	if _index >= 0 and _index < _steps.size() and _steps[_index].get("at", "") == "top":
-		y = 150.0   # out of the way of a pop-up in the middle
-	elif hole.size == Vector2.ZERO:
-		y = (screen.y - height) / 2.0
-	elif hole.end.y + 24.0 + height < screen.y - 210.0:
-		y = hole.end.y + 24.0           # below the spot
-	elif hole.position.y - 24.0 - height > 150.0:
-		y = hole.position.y - 24.0 - height   # above it
-	else:
-		y = clampf(screen.y - 230.0 - height, 150.0, screen.y - height)
+		y = TOP_BAR   # out of the way of a pop-up in the middle
+	elif hole.size != Vector2.ZERO and hole.end.y + 12.0 > y:   # the spot is under the tip
+		y = hole.position.y - ARROW_ROOM - height               # above the spot, leaving room for the arrow
+		if y < TOP_BAR:
+			y = TOP_BAR
 	_bubble.position = Vector2(x, y)
 
 func _skip() -> void:
@@ -528,6 +559,10 @@ func _build() -> void:
 	var pulse := _ring.create_tween().set_loops()   # a slow glow so the spot is easy to find
 	pulse.tween_property(_ring, "modulate:a", 0.35, 0.7)
 	pulse.tween_property(_ring, "modulate:a", 1.0, 0.7)
+
+	_arrow = _Arrow.new()
+	_arrow.visible = false
+	add_child(_arrow)
 
 	_bubble = PanelContainer.new()
 	var style := StyleBoxFlat.new()
@@ -601,6 +636,16 @@ func _button(text: String, action: Callable, solid: bool) -> Button:
 
 # The dimmed screen with a clear spot. In "do" steps taps inside the spot go through
 # to the game underneath (and nowhere else); otherwise every tap stops here.
+# A chunky arrow pointing down, its tip at (0, 0): gold with a dark outline.
+class _Arrow extends Node2D:
+	const SHAPE := [Vector2(0, 0), Vector2(-38, -42), Vector2(-15, -42), Vector2(-15, -92), Vector2(15, -92), Vector2(15, -42), Vector2(38, -42)]
+	func _draw() -> void:
+		var points := PackedVector2Array(SHAPE)
+		draw_colored_polygon(points, Color("ddcf99"))
+		var outline := points.duplicate()
+		outline.append(points[0])
+		draw_polyline(outline, Color("2a2229"), 5.0, true)
+
 class _Shade extends Control:
 	var hole := Rect2()
 	var blocking := true

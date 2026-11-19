@@ -63,6 +63,16 @@ func _ready() -> void:
 	if not handwriting.fallbacks.has(FALLBACK_FONT):
 		handwriting.fallbacks = handwriting.fallbacks + [FALLBACK_FONT]
 	_start_castle_sharing()
+	get_tree().node_added.connect(_on_node_added)
+
+# Every scrolling list ignores finger movement smaller than TAP_SLOP before it starts to
+# scroll. Godot's default is 0, so on touch screens (Android especially) the tiny wobble
+# of an ordinary tap turned it into a scroll and the tap on a property, listing or
+# action was cancelled.
+const TAP_SLOP := 20
+func _on_node_added(node: Node) -> void:
+	if node is ScrollContainer:
+		node.scroll_deadzone = TAP_SLOP
 
 
 ## ---- UI HELPERS ----
