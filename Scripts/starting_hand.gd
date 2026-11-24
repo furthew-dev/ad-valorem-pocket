@@ -68,6 +68,7 @@ func _build() -> void:
 	_hint = _label(_hint_text(), 26, BODY_FONT, Color(CREAM, 0.85))
 	_hint.position = Vector2(30, 262)
 	_hint.size = Vector2(SCREEN.x - 60, 40)
+	_hint.clip_text = true
 	_dim.add_child(_hint)
 
 	for i in _hand.size():
@@ -207,8 +208,8 @@ func _make_face(property: Dictionary) -> Control:
 	face.add_child(icon)
 
 	var name_label := _label(str(property.get("name", "Property")), 30, FONT, INK)
-	name_label.position = Vector2(10, 214)
-	name_label.size = Vector2(CARD.x - 20, 70)
+	name_label.position = Vector2(10, 212)
+	name_label.size = Vector2(CARD.x - 20, 60)
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	face.add_child(name_label)
@@ -217,7 +218,7 @@ func _make_face(property: Dictionary) -> Control:
 	if Cards.is_lot(property):
 		numbers = "Value $%d   ·   Build here" % int(property.get("value", 0))
 	var numbers_label := _label(numbers, 21, BODY_FONT, Color(INK, 0.85))
-	numbers_label.position = Vector2(6, 290)
+	numbers_label.position = Vector2(6, 274)
 	numbers_label.size = Vector2(CARD.x - 12, 30)
 	face.add_child(numbers_label)
 
@@ -233,7 +234,7 @@ func _make_face(property: Dictionary) -> Control:
 
 	var stamp := _label(look[2], 30, FONT, colour.darkened(0.15))   # pops on when opened
 	stamp.name = "stamp"
-	stamp.position = Vector2(0, CARD.y - 46)
+	stamp.position = Vector2(0, CARD.y - 48)
 	stamp.size = Vector2(CARD.x, 40)
 	stamp.pivot_offset = stamp.size / 2.0
 	stamp.rotation = -0.08
@@ -245,7 +246,6 @@ func _make_face(property: Dictionary) -> Control:
 ## ---- ARRIVING ----
 # The envelopes slide in from below, one after another.
 func _arrive() -> void:
-	_busy = true
 	_dim.modulate.a = 0.0
 	create_tween().tween_property(_dim, "modulate:a", 1.0, 0.25)
 	Sound.play("open")
@@ -257,8 +257,6 @@ func _arrive() -> void:
 		var slide := card.create_tween().set_parallel(true)
 		slide.tween_property(card, "position:y", rest.y, 0.45).set_delay(0.1 * i).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		slide.tween_property(card, "rotation", randf_range(-0.04, 0.04), 0.45).set_delay(0.1 * i)
-	await get_tree().create_timer(0.45 + 0.1 * _cards.size()).timeout
-	_busy = false
 
 
 ## ---- OPENING ----
@@ -323,7 +321,7 @@ func _on_open_all() -> void:
 	_busy = false
 
 func _all_open() -> void:
-	_hint.text = "Welcome to the market! They'll earn rent every round."
+	_hint.text = "Welcome to the market! They pay rent every round."
 	var hide := _open_all.create_tween()
 	hide.tween_property(_open_all, "modulate:a", 0.0, 0.15)
 	hide.tween_callback(func(): _open_all.visible = false)

@@ -252,7 +252,7 @@ func has_fortuna() -> void:
 
 func _draw_required_fortuna(message: String) -> void:
 	await show_notice(message)
-	await Fortunas.play_fortuna()
+	await Fortunas.play_fortuna(0, true)   # with the shuffled-deck reveal (fortuna_draw.gd)
 
 # Specials are Apartment, Terraced House and Castle.
 func special_property() -> void:

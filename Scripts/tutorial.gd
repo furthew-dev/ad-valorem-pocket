@@ -147,7 +147,7 @@ func _make_steps() -> Array:
 		# 8. Selling, all the way through
 		{"title": "Sell a property", "text": "Let's sell your Two Story Home. The Listing Agent is available now: tap its Select, then tap Sell.",
 			"enter": _open_sell_page, "target": _sell_target, "do": _dice_open},
-		{"title": "Roll the die", "text": "With your Listing Agent, 5 of the die's 6 sides say SOLD. Tap Roll (or the tray) to throw it.\n\nIn this practice a FAIL just lets you roll again.",
+		{"title": "Roll the die", "text": "With your Listing Agent, 5 of the die's 6 sides say SOLD. Press on the tray, pull back (down), and let go to throw it. The further you pull, the harder it flies.\n\nIn this practice a FAIL just lets you throw again.",
 			"target": _dice_part.bind("roll"), "do": _scene_is.bind("my_properties")},
 		{"title": "Room for more", "text": "Sold! The result shows in the banner, the property's value went into your cash, and the Listing Agent is used up.\n\nThe Two Story Home is gone, so you have room for another property. Let's buy one.",
 			"target": _capacity_pill},
@@ -351,7 +351,7 @@ func _loan_open() -> bool:
 func _loans_paid() -> bool:
 	return Global.loans.is_empty()
 
-# The die screen (dice_roll.gd), and its Roll button.
+# The die screen (dice_roll.gd), and its tray (press, pull back, let go).
 func _dice() -> Node:
 	return get_tree().root.get_node_or_null("DiceRoll")
 
@@ -362,7 +362,7 @@ func _dice_part(part: String) -> Control:
 	var dice := _dice()
 	if dice == null or part != "roll":
 		return null
-	return dice._roll_button if dice._roll_button.visible and not dice._roll_button.disabled else null
+	return dice._tray if not dice._rolling and not dice._done else null
 
 # An app animation is playing, or the die is rolling: let it be seen, undimmed.
 func _transition_playing() -> bool:

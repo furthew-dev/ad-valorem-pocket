@@ -705,19 +705,25 @@ const CARD_SOUNDS := {
 ## ---- ENTRY POINT: call this when a Fortuna must be drawn ----
 # saboteur_id: when another player sabotaged us, penalties we pay go to them and
 # beneficial cards are resolved on THEIR phone instead (see SABOTAGE below).
-func play_fortuna(saboteur_id: int = 0) -> void:
+# mystery: the new-round draw plays the shuffled-deck reveal first (fortuna_draw.gd).
+func play_fortuna(saboteur_id: int = 0, mystery: bool = false) -> void:
 	await _wait_turn()   # one Fortuna at a time (round draws and sabotage can overlap)
 	_busy = true
 	_saboteur_id = saboteur_id
-	await _play_fortuna(saboteur_id)
+	await _play_fortuna(saboteur_id, mystery)
 	_saboteur_id = 0
 	_busy = false
 
-func _play_fortuna(saboteur_id: int) -> void:
-	var card := await draw_fortuna()
+func _play_fortuna(saboteur_id: int, mystery: bool = false) -> void:
+	var curtain: Node = load("res://Scripts/fortuna_draw.gd").start(get_tree()) if mystery else null
+	var card := await draw_fortuna()   # (online this asks the host; the deck shuffles meanwhile)
 	if card.is_empty():
+		if curtain:
+			curtain.cancel()
 		Global.banner("You're lucky! No more Fortunas available")
 		return
+	if curtain:
+		await curtain.reveal(card)
 	fortuna_drawn.emit(card)
 	if CARD_SOUNDS.has(card.get("key", "")):
 		Sound.play(CARD_SOUNDS[card["key"]])

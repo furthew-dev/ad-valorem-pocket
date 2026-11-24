@@ -6,6 +6,9 @@ extends CanvasLayer
 ## `settle` is called with true/false once the die stops. It applies the sale and returns
 ## {"message": String, "cash": int}. Then this goes to My Properties and the result shows
 ## in the banner (with the cash notice when it sold).
+## Throwing is a slingshot: press anywhere in the tray, pull back (down), and let go. The
+## die flies the opposite way, harder the further you pulled. The tray and die are there
+## from the moment the screen opens.
 ## In the guided tour a FAIL just lets the player roll again (nothing happens).
 
 const AGENT_SOLD_FACES := 5
@@ -41,6 +44,15 @@ const HITS := [preload("res://Assets/sounds/dice_hit1.mp3"), preload("res://Asse
 const SETTLING = preload("res://Assets/sounds/dice_settling.mp3")
 const CORNER_RADIUS := 0.16   # rounded edges (the die is 1 x 1 x 1)
 const FACES := [Vector3.UP, Vector3.DOWN, Vector3.LEFT, Vector3.RIGHT, Vector3.FORWARD, Vector3.BACK]
+# The slingshot (screen pixels in the tray).
+const MAX_PULL := 230.0       # pulling further than this adds nothing
+const MIN_PULL := 45.0        # less than this and the die just springs back
+const PULL_SHOWS := 0.6       # the die follows the finger back this much
+const LAUNCH_SPEED := Vector2(3.5, 10.0)   # m/s, from a gentle pull to a full one
+const LAUNCH_LIFT := Vector2(1.0, 3.2)
+const LAUNCH_SPIN := Vector2(9.0, 26.0)
+const REST := Vector3(0, 0.5, 0.2)        # where the die waits in the tray
+const BAND := Color("e8d9b0")
 
 signal finished
 
@@ -49,7 +61,14 @@ var _settle: Callable
 var _labels: Array = []         # face index -> "SOLD" / "FAIL"
 var _die: RigidBody3D
 var _viewport: SubViewport
-var _roll_button: Button
+var _tray: Control         # the box on screen (the tour points at it)
+var _band: Control         # the rubber band and aim arrow, drawn over the tray
+var _camera: Camera3D
+var _pulling := false
+var _pull_start := Vector2.ZERO
+var _pull := Vector2.ZERO
+var _last_notch := 0
+var _idle_time := 0.0
 var _title: Label
 var _hint: Label
 var _rolling := false
@@ -108,14 +127,13 @@ func _build_ui() -> void:
 	_hint.modulate.a = 0.85
 	column.add_child(_hint)
 
-	# The tray: a rounded felt box with the 3D die in it. Tap it to roll, too.
+	# The tray: a rounded felt box with the 3D die in it. Press, pull back and let go to throw.
 	var tray := Panel.new()
+	_tray = tray
 	tray.custom_minimum_size = Vector2(TRAY_SIZE, TRAY_SIZE)
 	tray.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	tray.add_theme_stylebox_override("panel", StyleBoxEmpty.new())   # the 3D box is the tray
-	tray.gui_input.connect(func(event: InputEvent):
-		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-			_roll())
+	tray.gui_input.connect(_on_tray_input)
 	column.add_child(tray)
 	var view := SubViewportContainer.new()
 	view.stretch = true
@@ -127,32 +145,19 @@ func _build_ui() -> void:
 	# No anti-aliasing: the Compatibility renderer has no FXAA (Godot 4.5 reports it as an
 	# error), and MSAA costs ~6 MB here. The matte die on felt looks clean without it.
 	view.add_child(_viewport)
+	_band = Control.new()
+	_band.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_band.draw.connect(_draw_band)
+	tray.add_child(_band)
 
-
-	_roll_button = Button.new()
-	_roll_button.text = "Roll"
-	_roll_button.custom_minimum_size = Vector2(320, 110)
-	_roll_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_roll_button.focus_mode = Control.FOCUS_NONE
-	_roll_button.add_theme_font_override("font", FONT)
-	_roll_button.add_theme_font_size_override("font_size", 64)
-	var normal := StyleBoxFlat.new()
-	normal.bg_color = TERRACOTTA
-	normal.border_color = CREAM
-	normal.set_border_width_all(4)
-	normal.set_corner_radius_all(55)
-	normal.shadow_color = Color(0, 0, 0, 0.35)
-	normal.shadow_size = 8
-	normal.shadow_offset = Vector2(0, 5)
-	var pressed: StyleBoxFlat = normal.duplicate()
-	pressed.bg_color = TERRACOTTA.darkened(0.15)
-	for state in ["normal", "hover", "focus", "disabled"]:
-		_roll_button.add_theme_stylebox_override(state, normal)
-	_roll_button.add_theme_stylebox_override("pressed", pressed)
-	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color"]:
-		_roll_button.add_theme_color_override(state, CREAM)
-	_roll_button.pressed.connect(_roll)
-	column.add_child(_roll_button)
+	var how := _label("Press, pull back, and let go to throw", 30, BODY_FONT)
+	how.name = "how"
+	column.add_child(how)
+	# The box pops in as the screen opens (the die is already sitting in it).
+	tray.pivot_offset = Vector2(TRAY_SIZE, TRAY_SIZE) / 2.0
+	tray.scale = Vector2(0.92, 0.92)
+	tray.create_tween().tween_property(tray, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	for node in find_children("*", "", true, false):
 		ColorTheme.keep(node)   # the same look in every theme, like the old sale animation
 
@@ -187,6 +192,7 @@ func _build_world() -> void:
 
 	var camera := Camera3D.new()
 	camera.fov = 40
+	_camera = camera
 	world.add_child(camera)
 	# Straight down from above (a bird's-eye view of the tray).
 	camera.look_at_from_position(Vector3(0, CAMERA_HEIGHT, 0), Vector3.ZERO, Vector3.FORWARD)
@@ -239,8 +245,8 @@ func _build_world() -> void:
 	for i in 6:
 		_die.add_child(_face_label(FACES[i], _labels[i]))
 	world.add_child(_die)
-	_die.freeze = true   # resting in the middle until the player rolls
-	_die.position = Vector3(0, 0.5, 0.2)
+	_die.freeze = true   # resting in the middle until the player throws it
+	_die.position = REST
 	_die.rotation = Vector3(0, deg_to_rad(randf_range(-25, 25)), 0)
 
 # A 1 x 1 x 1 cube with rounded edges and corners: each face is a grid of points pushed
@@ -353,31 +359,129 @@ func _face_label(normal: Vector3, text: String) -> Label3D:
 
 
 ## ---- ROLLING ----
-func _roll() -> void:
+## ---- THE SLINGSHOT ----
+func _on_tray_input(event: InputEvent) -> void:
 	if _rolling or _done:
 		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_pulling = true
+			_pull_start = event.position
+			_pull = Vector2.ZERO
+			_last_notch = 0
+			(find_child("how", true, false) as Label).text = "Press, pull back, and let go to throw"
+			_click(0.08, 1.3)   # picking it up
+		elif _pulling:
+			_pulling = false
+			_release()
+	elif event is InputEventMouseMotion and _pulling:
+		_pull = (event.position - _pull_start).limit_length(MAX_PULL)
+		_follow_pull()
+
+# The die is drawn back with the finger, tilting a little; the band creaks as it stretches.
+func _follow_pull() -> void:
+	var back := Vector3(_pull.x, 0, _pull.y) * PULL_SHOWS / _pixels_per_metre()
+	_die.position = REST + back
+	_die.rotation.x = -_pull.y / MAX_PULL * 0.35
+	_die.rotation.z = _pull.x / MAX_PULL * 0.35
+	var notch := int(_pull.length() / (MAX_PULL / 5.0))
+	if notch != _last_notch:
+		_last_notch = notch
+		_click(0.04 + 0.03 * notch, 1.1 + 0.08 * notch)
+	_band.queue_redraw()
+
+func _release() -> void:
+	if _pull.length() < MIN_PULL:   # not a throw: spring back and say how
+		var spring := create_tween()
+		spring.tween_method(func(p: Vector3): _die.position = p, _die.position, REST, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_die.rotation = Vector3(0, _die.rotation.y, 0)
+		_pull = Vector2.ZERO
+		_band.queue_redraw()
+		var how: Label = find_child("how", true, false)
+		how.text = "Pull back further, then let go!"
+		how.pivot_offset = how.size / 2.0
+		var nudge := how.create_tween()
+		nudge.tween_property(how, "scale", Vector2(1.12, 1.12), 0.1)
+		nudge.tween_property(how, "scale", Vector2.ONE, 0.15)
+		return
+	var power := _pull.length() / MAX_PULL
+	_launch(-_pull.normalized(), power)
+
+# Throws the die along `direction` (screen space: up is away from you) with 0..1 power.
+func _launch(direction: Vector2, power: float) -> void:
 	_rolling = true
 	_still = 0.0
 	_clock = 0.0
 	_title.remove_theme_color_override("font_color")
 	_title.add_theme_color_override("font_color", CREAM)
-	_roll_button.disabled = true
-	_roll_button.modulate.a = 0.4
 	_title.text = "Rolling..."
 	_title.scale = Vector2.ONE
-	await _shake_in_hand()
-	# Thrown in from a random side of the tray, toward (roughly) the middle, spinning.
-	var from := randf() * TAU
-	var start := Vector3(cos(from), 0, sin(from)) * randf_range(1.1, 1.6)
-	var aim := (-start).normalized().rotated(Vector3.UP, randf_range(-THROW_AIM, THROW_AIM))
+	(find_child("how", true, false) as Label).modulate.a = 0.0
+	var aim := Vector3(direction.x, 0, direction.y).normalized()
 	_die.freeze = false
-	_die.position = start + Vector3(0, randf_range(1.6, 2.4), 0)
-	_die.rotation = Vector3(randf() * TAU, randf() * TAU, randf() * TAU)
-	_die.linear_velocity = aim * randf_range(THROW_SPEED.x, THROW_SPEED.y) + Vector3.UP * randf_range(THROW_LIFT.x, THROW_LIFT.y)
-	var axis := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)).normalized()
-	_die.angular_velocity = axis * randf_range(THROW_SPIN.x, THROW_SPIN.y)
+	_die.position += Vector3.UP * 0.5
+	_die.linear_velocity = aim * lerpf(LAUNCH_SPEED.x, LAUNCH_SPEED.y, power) + Vector3.UP * lerpf(LAUNCH_LIFT.x, LAUNCH_LIFT.y, power)
+	var axis := (aim.cross(Vector3.UP) + Vector3(randf_range(-0.4, 0.4), randf_range(-0.4, 0.4), randf_range(-0.4, 0.4))).normalized()
+	_die.angular_velocity = axis * lerpf(LAUNCH_SPIN.x, LAUNCH_SPIN.y, power)
 	_last_velocity = _die.linear_velocity
 	_settled_sound = false
+	_pull = Vector2.ZERO
+	_band.queue_redraw()
+	_click(0.35 + 0.5 * power, 1.4)   # the snap of the band
+
+# A throw without a finger (tests): straight away from you at a good strength.
+func _roll() -> void:
+	if not _rolling and not _done:
+		_launch(Vector2(randf_range(-0.3, 0.3), -1.0).normalized(), 0.75)
+
+# The practice FAIL: back to the middle for another go.
+func _reset_die() -> void:
+	_die.freeze = true
+	_die.linear_velocity = Vector3.ZERO
+	_die.angular_velocity = Vector3.ZERO
+	_die.position = REST
+	_die.rotation = Vector3(0, deg_to_rad(randf_range(-25, 25)), 0)
+	(find_child("how", true, false) as Label).modulate.a = 1.0
+	_band.queue_redraw()
+
+func _pixels_per_metre() -> float:
+	var a := _camera.unproject_position(Vector3(0, 0.5, 0))
+	var b := _camera.unproject_position(Vector3(1, 0.5, 0))
+	return maxf(1.0, a.distance_to(b))
+
+func _process(delta: float) -> void:
+	if not _pulling and not _rolling and not _done:
+		_idle_time += delta
+		_band.queue_redraw()   # the "pull me" hint bobs
+
+# The band: from two posts beside the die's resting spot to the die, and a dotted arrow
+# showing where it will fly. At rest, a little bobbing chevron says "pull down".
+func _draw_band() -> void:
+	if _camera == null or _rolling or _done:
+		return
+	var rest := _camera.unproject_position(REST + Vector3.UP * 0.5)
+	var spread := _pixels_per_metre() * 0.85
+	var left := rest + Vector2(-spread, 30)
+	var right := rest + Vector2(spread, 30)
+	for post in [left, right]:   # the slingshot's two posts
+		_band.draw_circle(post, 11, Color(0.2, 0.15, 0.13))
+		_band.draw_circle(post, 7, BAND)
+	if not _pulling or _pull.length() < 4.0:
+		var bob := sin(_idle_time * 4.0) * 8.0
+		for i in 2:
+			var tip := rest + Vector2(0, 120 + i * 26 + bob)
+			_band.draw_polyline(PackedVector2Array([tip + Vector2(-20, -14), tip, tip + Vector2(20, -14)]), Color(BAND, 0.75 - i * 0.3), 6, true)
+		_band.draw_line(left, right, Color(BAND, 0.5), 4, true)
+		return
+	var power := _pull.length() / MAX_PULL
+	var die := _camera.unproject_position(_die.position + Vector3.UP * 0.5)
+	var colour := BAND.lerp(TERRACOTTA, power)
+	_band.draw_line(left, die, colour, 6, true)
+	_band.draw_line(right, die, colour, 6, true)
+	var direction := -_pull.normalized()   # the aim: dots growing ahead of the die
+	for i in 6:
+		var dot := rest + direction * (50 + i * 26) * (0.6 + power)
+		_band.draw_circle(dot, 4 + i * 0.8 * power, Color(CREAM, 0.85 - i * 0.12))
 
 func _physics_process(delta: float) -> void:
 	if not _rolling or _die.freeze:
@@ -479,9 +583,13 @@ func _landed(sold: bool) -> void:
 	_title.create_tween().tween_property(_title, "scale", Vector2(1.6, 1.6), 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if not sold and get_tree().root.has_node("Tutorial"):   # practice: a FAIL costs nothing
 		Sound.play("aww")
-		_hint.text = "Practice roll: a FAIL costs nothing here. Roll again!"
-		_roll_button.disabled = false
-		_roll_button.modulate.a = 1.0
+		_hint.text = "Practice roll: a FAIL costs nothing here. Throw again!"
+		await get_tree().create_timer(1.0).timeout
+		_title.text = "Roll to sell"
+		_title.scale = Vector2.ONE
+		_title.remove_theme_color_override("font_color")
+		_title.add_theme_color_override("font_color", CREAM)
+		_reset_die()
 		return
 	_done = true
 	Sound.play("continue" if sold else "aww")
