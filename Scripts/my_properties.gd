@@ -33,6 +33,7 @@ func _ready() -> void:
 	_sort_mode = Network.load_setting("my_properties", "sort", "")
 	_add_sort_button()
 	_build_list()
+	Global.properties_changed.connect(_build_list)   # e.g. a new round while this page is open
 	if arrived != 0:
 		_slide_in.call_deferred(arrived)
 

@@ -250,6 +250,13 @@ func _tint_texture(item: CanvasItem) -> void:
 		var from := Color(base)
 		var role := "ink" if _is_ink(from) else "fill"
 		var to := map_color(from, role)
+		var ink := str(THEMES[current]["ink"])
+		if _is_card_art(texture) and ink != "":
+			# Fortuna pictures are one-colour line art. On dark themes the fill map
+			# would turn them near-black on a dark card; draw them in the theme's light
+			# ink colour instead, keeping their shading.
+			role = "fill"
+			to = Color(ink)
 		if to != from:
 			material = ShaderMaterial.new()
 			material.shader = _tint_shader
@@ -263,6 +270,10 @@ func _tint_texture(item: CanvasItem) -> void:
 	elif item.has_meta("ct_tint"):
 		item.material = null
 		item.remove_meta("ct_tint")
+
+# Card illustrations drawn in one colour (the Fortuna pictures).
+func _is_card_art(texture: Texture2D) -> bool:
+	return texture.resource_path.begins_with("res://Assets/fortunas/")
 
 # One-colour icon art drawn like the black line icons beside it (black, or the theme's
 # ink colour on dark themes), whatever colour the picture itself is in. Used where card

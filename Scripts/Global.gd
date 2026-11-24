@@ -5,6 +5,7 @@ extends Node
 signal cash_changed(new_value: int)
 signal actions_changed(new_value: int)
 signal round_changed(new_value: int)
+signal properties_changed   # owned properties' numbers changed (e.g. Terraced House at a new round)
 signal banner_requested(message: String, link: String)   # link: a LINKS key ("" = not tappable)
 signal animation_requested(type: String, total: int, reason: String)   # Banner2 money notice: "gain"/"loss" + why
 
@@ -251,11 +252,16 @@ func special_property() -> void:
 			"Apartment":
 				Cards.roll_tenants(property)
 			"Terraced House":   # value and rent grow by 1 each round owned
-				property["round"] += 1
-				property["rent"] += 1
-				property["value"] += 1
+				property["round"] = int(property.get("round", 0)) + 1
+				property["rent"] = int(property["rent"]) + 1
+				property["value"] = int(property["value"]) + 1
+				# Property Details shows the "e_" copies (a fixed-value property has one
+				# value/rent row): keep them equal to the live numbers.
+				property["e_rent"] = property["rent"]
+				property["e_value"] = property["value"]
 			"Castle":
 				pass   # paid out to the OTHER players: see CASTLES below
+	properties_changed.emit()
 
 
 ## ---- CASTLES ----

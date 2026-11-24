@@ -73,6 +73,12 @@ func _ready() -> void:
 	_style_sell_button()
 	_style_token_buttons()
 	setup_card()
+	Global.properties_changed.connect(_on_properties_changed)
+
+# A new round changed the numbers (Terraced House) while this page is open.
+func _on_properties_changed() -> void:
+	if _still_owned():
+		setup_card()
 
 # Fills every label from current_property. Safe to call again after a token is used,
 # which keeps the UI frame (and its banner) alive instead of reloading the scene.
@@ -93,6 +99,8 @@ func setup_card() -> void:
 	if details.get("has_golden_lock", false):
 		text_edit.text += "\n\nGolden Lock: protected from harm and can't be sold."
 	_show_tenants(details)
+	if details["name"] == "Terraced House":
+		text_edit.text += "\n\nRounds owned: %d" % int(details.get("round", 0))
 	text_edit.text += _expansion_notes(details)
 	_show_purchase_loan(details)
 	_show_special_button(details)
