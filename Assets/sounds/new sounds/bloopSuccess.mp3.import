@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://mw6yxpchp51b"
+path="res://.godot/imported/bloopSuccess.mp3-e6c4d3100b2339b56184b67195374f5e.mp3str"
+
+[deps]
+
+source_file="res://Assets/sounds/new sounds/bloopSuccess.mp3"
+dest_files=["res://.godot/imported/bloopSuccess.mp3-e6c4d3100b2339b56184b67195374f5e.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

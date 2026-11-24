@@ -78,13 +78,8 @@ func _on_purchase_btn_pressed() -> void:
 		return
 
 	var cost: int = selected_card["value"]
-	if not Global.can_afford(cost):
-		var popup = POPUP_SCENE.instantiate()
-		add_child(popup)
-		popup.layout("Insufficient funds. Take loan?", "Yes", "No")
-		popup.left_pressed.connect(_yes_take_loan)
-		popup.right_pressed.connect(func(): _loan_offer_open = false)
-		_loan_offer_open = true
+	if not Global.can_afford(cost):   # straight to the loan agreement (it has its own Cancel)
+		_yes_take_loan(-1, "You're $%d short of the $%d price." % [cost - Global.CASH, cost])
 		return
 
 	Sound.play("continue")
@@ -104,11 +99,12 @@ func _on_purchase_btn_pressed() -> void:
 	Cards.return_revealed()
 	_bought_animation(selected_card)
 
-func _yes_take_loan(amount: int = -1) -> void:
+func _yes_take_loan(amount: int = -1, reason: String = "") -> void:
 	_loan_offer_open = true
 	var loan = LOAN_SCENE.instantiate()
 	add_child(loan)
 	loan.set_min_value(amount if amount > 0 else selected_card["value"])
+	loan.set_reason(reason)
 	var loans_before := Global.loans.size()
 	await loan.tree_exited
 	_loan_offer_open = false
@@ -157,16 +153,8 @@ func _build_selected() -> void:
 		condition = choice.get_slice(" ", 0).to_lower()
 
 	var cost := Cards.price_of(property_name, condition)
-	if not Global.can_afford(cost):
-		var popup = POPUP_SCENE.instantiate()
-		add_child(popup)
-		popup.layout("Building costs $%d. Take a loan?" % cost, "Yes", "No")
-		var wants_loan := [false]
-		popup.left_pressed.connect(func(): wants_loan[0] = true)
-		await popup.tree_exited
-		if not wants_loan[0]:
-			return
-		await _yes_take_loan(cost)
+	if not Global.can_afford(cost):   # the loan agreement has its own Cancel
+		await _yes_take_loan(cost, "Building costs $%d; you have $%d." % [cost, Global.CASH])
 		if not Global.can_afford(cost):
 			return
 

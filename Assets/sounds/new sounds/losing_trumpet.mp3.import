@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://dokk777daell1"
+path="res://.godot/imported/losing_trumpet.mp3-882e231621b5f5a4c57c530de760fd46.mp3str"
+
+[deps]
+
+source_file="res://Assets/sounds/new sounds/losing_trumpet.mp3"
+dest_files=["res://.godot/imported/losing_trumpet.mp3-882e231621b5f5a4c57c530de760fd46.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

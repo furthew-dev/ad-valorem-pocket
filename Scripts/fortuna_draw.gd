@@ -21,6 +21,10 @@ const BACK := Color("3a1f4d")
 const GOLD := Color("d4af37")
 const CREAM := Color("f6f2e1")
 const MIN_SHUFFLE := 1.1        # seconds of shuffling, however fast the card is drawn
+const SHOW_FACE := 1.6          # seconds the turned-over card is shown before its details
+const MARKS = preload("res://Assets/icons/question_marks_icon.png")
+# Draws a one-colour icon (black art) in one colour: the question marks in gold.
+const SOLID_SHADER := "shader_type canvas_item;\nuniform vec4 tint : source_color;\nvoid fragment() { COLOR = vec4(tint.rgb, COLOR.a * tint.a); }"
 
 var _curtain: ColorRect
 var _title: Label
@@ -103,22 +107,21 @@ func _card_back() -> Control:
 	style.shadow_size = 10
 	style.shadow_offset = Vector2(0, 6)
 	card.add_theme_stylebox_override("panel", style)
-	card.draw.connect(func():   # an inner gold frame and a diamond pattern
+	card.draw.connect(func():   # solid purple with an inner gold frame
 		var inner := Rect2(Vector2(14, 14), CARD - Vector2(28, 28))
-		card.draw_rect(inner, Color(GOLD, 0.55), false, 2)
-		for y in range(40, int(CARD.y) - 30, 36):
-			for x in range(36, int(CARD.x) - 24, 36):
-				var c := Vector2(x, y)
-				card.draw_colored_polygon(PackedVector2Array([c + Vector2(0, -6), c + Vector2(6, 0), c + Vector2(0, 6), c + Vector2(-6, 0)]), Color(GOLD, 0.16)))
-	var mark := Label.new()
+		card.draw_rect(inner, Color(GOLD, 0.7), false, 2))
+	var mark := TextureRect.new()   # Matt's question marks, in gold
 	mark.name = "mark"
-	mark.text = "?"
-	mark.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	mark.add_theme_font_override("font", FONT)
-	mark.add_theme_font_size_override("font_size", 120)
-	mark.add_theme_color_override("font_color", GOLD)
+	mark.texture = MARKS
+	mark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	mark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	mark.position = Vector2(CARD.x * 0.15, (CARD.y - CARD.x * 0.7) / 2.0)
+	mark.size = Vector2(CARD.x * 0.7, CARD.x * 0.7)
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var gold := ShaderMaterial.new()
+	gold.shader = _solid_shader()
+	gold.set_shader_parameter("tint", GOLD)
+	mark.material = gold
 	card.add_child(mark)
 	var face := TextureRect.new()   # the drawn card's picture, shown after the flip
 	face.name = "face"
@@ -129,6 +132,13 @@ func _card_back() -> Control:
 	face.visible = false
 	card.add_child(face)
 	return card
+
+var _shader: Shader
+func _solid_shader() -> Shader:
+	if _shader == null:
+		_shader = Shader.new()
+		_shader.code = SOLID_SHADER
+	return _shader
 
 # Where card i sits in the fan.
 func _fan(i: int) -> Vector2:
@@ -213,10 +223,11 @@ func reveal(card: Dictionary) -> void:
 	for i in 8:
 		tremble.tween_property(chosen, "rotation", 0.05 if i % 2 == 0 else -0.05, 0.045)
 	tremble.tween_property(chosen, "rotation", 0.0, 0.05)
-	var mark: Label = chosen.get_node("mark")
+	var mark: Control = chosen.get_node("mark")
 	var pulse := mark.create_tween()
-	pulse.tween_property(mark, "modulate", Color(1.6, 1.4, 1.0), 0.2)
-	pulse.tween_property(mark, "modulate", Color.WHITE, 0.2)
+	mark.pivot_offset = mark.size / 2.0
+	pulse.tween_property(mark, "scale", Vector2(1.18, 1.18), 0.2).set_trans(Tween.TRANS_SINE)
+	pulse.tween_property(mark, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_SINE)
 	await tremble.finished
 	# ...and flips over.
 	var close := chosen.create_tween()
@@ -230,7 +241,7 @@ func reveal(card: Dictionary) -> void:
 	open.tween_property(chosen, "scale", Vector2(BIG, BIG), 0.1)
 	var sub: Label = _curtain.get_node("sub")
 	sub.create_tween().tween_property(sub, "modulate:a", 1.0, 0.2)
-	await get_tree().create_timer(0.75).timeout
+	await get_tree().create_timer(SHOW_FACE).timeout
 	# The card screen comes up on top; the curtain fades behind it.
 	_fade_out()
 

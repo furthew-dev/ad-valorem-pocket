@@ -48,10 +48,11 @@ const FACES := [Vector3.UP, Vector3.DOWN, Vector3.LEFT, Vector3.RIGHT, Vector3.F
 const MAX_PULL := 230.0       # pulling further than this adds nothing
 const MIN_PULL := 45.0        # less than this and the die just springs back
 const PULL_SHOWS := 0.6       # the die follows the finger back this much
-const LAUNCH_SPEED := Vector2(3.5, 10.0)   # m/s, from a gentle pull to a full one
-const LAUNCH_LIFT := Vector2(1.0, 3.2)
-const LAUNCH_SPIN := Vector2(9.0, 26.0)
-const REST := Vector3(0, 0.5, 0.2)        # where the die waits in the tray
+const LAUNCH_SPEED := Vector2(5.5, 14.0)  # m/s, from a gentle pull to a full one
+const LAUNCH_LIFT := Vector2(1.5, 4.5)
+const LAUNCH_SPIN := Vector2(16.0, 40.0)  # rad/s: it tumbles and caroms off the walls
+const REST := Vector3(0, 0.5, 0.85)       # where the die waits: low in the tray, by the slingshot
+const PULL_ROOM := 1.35                   # the die can be drawn back this far (m) before the wall
 const BAND := Color("e8d9b0")
 
 signal finished
@@ -227,7 +228,7 @@ func _build_world() -> void:
 	_die.gravity_scale = 2.2   # snappier than real life, so a roll takes a couple of seconds
 	_die.continuous_cd = true
 	var bounce := PhysicsMaterial.new()
-	bounce.bounce = 0.35
+	bounce.bounce = 0.45   # lively off the walls
 	bounce.friction = 0.7
 	_die.physics_material_override = bounce
 	_die.angular_damp = 0.6
@@ -381,7 +382,11 @@ func _on_tray_input(event: InputEvent) -> void:
 # The die is drawn back with the finger, tilting a little; the band creaks as it stretches.
 func _follow_pull() -> void:
 	var back := Vector3(_pull.x, 0, _pull.y) * PULL_SHOWS / _pixels_per_metre()
-	_die.position = REST + back
+	back = back.limit_length(PULL_ROOM)
+	var spot := REST + back
+	spot.x = clampf(spot.x, -WALL + 0.6, WALL - 0.6)   # stays inside the box
+	spot.z = clampf(spot.z, -WALL + 0.6, WALL - 0.55)
+	_die.position = spot
 	_die.rotation.x = -_pull.y / MAX_PULL * 0.35
 	_die.rotation.z = _pull.x / MAX_PULL * 0.35
 	var notch := int(_pull.length() / (MAX_PULL / 5.0))
@@ -460,16 +465,18 @@ func _draw_band() -> void:
 	if _camera == null or _rolling or _done:
 		return
 	var rest := _camera.unproject_position(REST + Vector3.UP * 0.5)
-	var spread := _pixels_per_metre() * 0.85
-	var left := rest + Vector2(-spread, 30)
-	var right := rest + Vector2(spread, 30)
+	var ppm := _pixels_per_metre()
+	# The slingshot stands on the bottom edge of the box, either side of the die.
+	var rim := _camera.unproject_position(Vector3(0, BOX_HEIGHT, WALL - 0.05)).y
+	var left := Vector2(rest.x - ppm * 0.95, rim)
+	var right := Vector2(rest.x + ppm * 0.95, rim)
 	for post in [left, right]:   # the slingshot's two posts
 		_band.draw_circle(post, 11, Color(0.2, 0.15, 0.13))
 		_band.draw_circle(post, 7, BAND)
 	if not _pulling or _pull.length() < 4.0:
 		var bob := sin(_idle_time * 4.0) * 8.0
 		for i in 2:
-			var tip := rest + Vector2(0, 120 + i * 26 + bob)
+			var tip := Vector2(rest.x, (rest.y + rim) / 2.0 + 10 + i * 22 + bob)
 			_band.draw_polyline(PackedVector2Array([tip + Vector2(-20, -14), tip, tip + Vector2(20, -14)]), Color(BAND, 0.75 - i * 0.3), 6, true)
 		_band.draw_line(left, right, Color(BAND, 0.5), 4, true)
 		return
