@@ -5,6 +5,7 @@ extends Node
 signal cash_changed(new_value: int)
 signal actions_changed(new_value: int)
 signal round_changed(new_value: int)
+signal starting_hand_dealt   # a new game's starting properties are in the hand
 signal properties_changed   # owned properties' numbers changed (e.g. Terraced House at a new round)
 signal banner_requested(message: String, link: String)   # link: a LINKS key ("" = not tappable)
 signal animation_requested(type: String, total: int, reason: String)   # Banner2 money notice: "gain"/"loss" + why
@@ -190,7 +191,15 @@ func start_game() -> void:
 	ROUND = 1
 	CASH = settings["start_cash"]
 	ACTIONS = A_CAPACITY
+	# The home screen unboxes the starting hand (starting_hand.gd) once it's dealt.
+	starting_hand_pending = settings["start_properties"] > 0
+	starting_hand_ready = false
 	await Cards.draw_into_hand(settings["start_properties"])
+	starting_hand_ready = true
+	starting_hand_dealt.emit()
+
+var starting_hand_pending := false   # the home screen should show the unboxing
+var starting_hand_ready := false     # the starting cards have arrived from the deck
 
 # Pressing End Turn: hand over to Turns, which waits for every player.
 func end_turn() -> void:

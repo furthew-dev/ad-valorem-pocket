@@ -35,6 +35,9 @@ func _ready() -> void:
 	_setup_pages()
 	_shrink_back_from_app()
 	Turns.waiting_changed.connect(func(_names): end_turn_btn.disabled = Turns.my_turn_done)
+	if Global.starting_hand_pending:   # a new game: unbox the starting properties
+		Global.starting_hand_pending = false
+		add_child(load("res://Scripts/starting_hand.gd").new())
 
 # The Apps panel and its layout boxes are scaled 1.25x and reach past the bottom of the
 # screen, invisibly covering the UI frame's Home / Settings buttons. Only the app buttons

@@ -428,6 +428,7 @@ func quit_to_title() -> void:
 func reset(clear_save: bool = true) -> void:
 	if clear_save:
 		SaveGame.clear()
+	Global.starting_hand_pending = false   # left before the unboxing showed: don't show it later
 	my_turn_done = false
 	waiting_on = []
 	poked.clear()

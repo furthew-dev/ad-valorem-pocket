@@ -19,14 +19,29 @@ func setup_property(data: Dictionary, button_group: ButtonGroup) -> void:
 	# Build mode passes ready-made text (e.g. "from $4") instead of a single condition.
 	property_name.text = str(card_data["name"])
 	property_condition.text = card_data.get("condition_text", str(card_data["condition"]))
-	property_cost.text = card_data.get("price_text", "$%d" % card_data["value"])
-	property_rent.text = card_data.get("rent_text", "$%d" % card_data["rent"])
+	# Say what each number is: new players couldn't tell the price from the rent.
+	property_cost.text = "Cost " + card_data.get("price_text", "$%d" % card_data["value"])
+	property_rent.text = "Rent " + card_data.get("rent_text", "$%d" % card_data["rent"])
 	for label in [property_name, property_condition, property_cost, property_rent]:
 		ColorTheme.keep(label)   # written on the listing poster, which no theme changes
+	_fit.call_deferred(property_cost)
+	_fit.call_deferred(property_rent)
 	toggle_on_off.toggle_mode = true
 	toggle_on_off.button_group = button_group
 	_add_region_badge()
 	_add_details()
+
+
+# A long price ("Cost $4-18" in build mode) gets a smaller font instead of running off
+# the poster's corner.
+func _fit(label: Label) -> void:
+	if not is_instance_valid(label) or label.size.x <= 0:
+		return
+	var font: Font = label.get_theme_font("font")
+	var size := label.get_theme_font_size("font_size")
+	while size > 16 and font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > label.size.x:
+		size -= 1
+	label.add_theme_font_size_override("font_size", size)
 
 
 ## ---- EXPANSION: REGION SYMBOL (top-left corner of the poster) ----
