@@ -1,5 +1,5 @@
 extends Node2D
-## Title screen: host a room, join one with a key, or resume.
+## Title screen: start a new game (host a room, or play solo), join one with a key, or resume.
 
 const POPUP_SCENE = preload("res://Scenes/pop_up.tscn")
 const MenuArtTheme = preload("res://Scripts/menu_art_theme.gd")
@@ -94,16 +94,25 @@ func _add_how_to_play() -> void:
 	paper.add_child(pad)
 
 
-## ---- HOST ----
+## ---- NEW GAME ----
+# The "New Game" note (node host_game): Host opens a room on the server for friends to
+# join; Play Solo starts a game on this phone alone, with no server at all.
 func _on_host_game_pressed() -> void:
 	Sound.play("click")
-	var popup = _new_popup("Start a server for a new game?", "Start Server", "Back")
+	var popup = _new_popup("Start a new game", "Host", "Play Solo")
+	popup.add_note("Host a room for friends, or play on your own.")
 	var name_field: LineEdit = popup.add_field("Your name", Network.MAX_NAME_LENGTH)
 	name_field.text = Network.my_name
 	popup.validate_left = func(): return _name_problem(name_field.text)
+	popup.validate_right = func(): return _name_problem(name_field.text)
+	popup.right_sound = "continue"
+	popup.add_back_link()
 	popup.left_pressed.connect(func():
 		_show_waiting("Starting server...")
 		Network.host_game(name_field.text))
+	popup.right_pressed.connect(func():
+		Network.start_solo(name_field.text)
+		get_tree().change_scene_to_file(LOBBY_SCENE))
 
 
 ## ---- JOIN ----

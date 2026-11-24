@@ -38,7 +38,7 @@ const REGIONS := {
 		2: [Color8(208, 154, 107), "6d574f"],   # cork
 		3: [Color8(222, 184, 143), "ebceb0"],   # Resume Game note
 		4: [Color8(248, 233, 183), "e6b67d"],   # Join Game note
-		5: [Color8(152, 148, 108), "9eccb3"],   # Host Game note
+		5: [Color8(152, 148, 108), "9eccb3"],   # New Game note
 	},
 	"pencil_holder": {
 		1: [Color8(228, 216, 203), "ebceb0"],   # the cup

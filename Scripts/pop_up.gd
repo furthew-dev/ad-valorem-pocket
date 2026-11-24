@@ -4,7 +4,9 @@ extends CanvasLayer
 ## The pop-up frees itself after either button, so callers can `await popup.tree_exited`.
 ##
 ## Text fields: call add_field() after layout(). Set `validate_left` to a Callable that
-## returns an error message ("" = fine) to keep the pop-up open until the input is valid.
+## returns an error message ("" = fine) to keep the pop-up open until the input is valid
+## (`validate_right` does the same for the second button). add_back_link() adds a small
+## "Back" under the buttons that just closes the pop-up (for when both buttons are choices).
 
 signal left_pressed
 signal right_pressed
@@ -22,6 +24,7 @@ const ERROR_INK := Color("b03030")
 
 var fields: Array[LineEdit] = []
 var validate_left: Callable
+var validate_right: Callable
 var left_sound := "continue"   # Sound.play() names for each button
 var right_sound := "back"
 var _error_label: Label
@@ -171,6 +174,38 @@ func _on_no_pressed() -> void:
 	queue_free()
 
 func _on_yes_pressed() -> void:
+	if validate_right.is_valid():
+		var problem: String = validate_right.call()
+		if problem != "":
+			Sound.play("error")
+			show_error(problem)
+			return
 	Sound.play(right_sound)
 	right_pressed.emit()
 	queue_free()
+
+# A small underlined "Back" under the buttons: closes the pop-up without choosing.
+signal back_pressed
+func add_back_link(text: String = "Back") -> Button:
+	var link := Button.new()
+	link.text = text
+	link.flat = true
+	link.focus_mode = Control.FOCUS_NONE
+	link.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	link.custom_minimum_size = Vector2(160, 64)   # a comfortable finger target
+	link.add_theme_font_override("font", FONT)
+	link.add_theme_font_size_override("font_size", 34)
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		link.add_theme_color_override(state, Color(INK, 0.75))
+	link.draw.connect(func():   # a pencil underline
+		var font: Font = link.get_theme_font("font")
+		var width := font.get_string_size(link.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 34).x
+		var y := link.size.y - 12
+		link.draw_line(Vector2((link.size.x - width) / 2.0, y), Vector2((link.size.x + width) / 2.0, y), Color(INK, 0.5), 2))
+	link.pressed.connect(func():
+		Sound.play("back")
+		back_pressed.emit()
+		queue_free())
+	vbox.add_child(link)
+	vbox.move_child(link, buttons.get_index() + 1)
+	return link

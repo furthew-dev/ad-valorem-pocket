@@ -44,6 +44,7 @@ var avatars: Dictionary = {}   # display name -> character [skin, face, accessor
 var room_key := ""
 var my_name := ""
 var in_game := false
+var solo := false   # Play Solo: a game on this phone only, no server (see start_solo)
 var game_settings: Dictionary = DEFAULT_SETTINGS.duplicate()
 
 # Reconnecting. Every player gets a secret token for the game; the host remembers who is
@@ -83,6 +84,23 @@ func is_online() -> bool:
 func is_host() -> bool:
 	return _peer != null and multiplayer.is_server() and room_key != ""
 
+# The player who sets up and starts the game: the host, or the solo player.
+func is_game_owner() -> bool:
+	return solo or is_host()
+
+# Title screen > New Game > Play Solo: a game for one, on this phone, with no server.
+# The rules already treat "not online" as solo (the Market, Fortuna deck and rounds all
+# run locally), so this only needs a player list and the last game settings.
+func start_solo(player_name: String) -> void:
+	leave()
+	my_name = clean_name(player_name)
+	save_setting("player", "name", my_name)
+	solo = true
+	players = {1: my_name}   # offline, this phone is peer 1
+	avatars = {my_name: my_avatar()}
+	game_settings = DEFAULT_SETTINGS.duplicate()
+	game_settings.merge(load_setting("host", "game_settings", {}), true)   # last time's choices
+
 func host_game(player_name: String) -> void:
 	_start_session(player_name)
 	my_token = _new_token()
@@ -116,12 +134,16 @@ static func _new_token() -> String:
 	return bytes.hex_encode()
 
 func start_game() -> void:
-	if not is_host() or in_game or players.size() < MIN_PLAYERS_TO_START:
+	if not is_game_owner() or in_game or players.size() < MIN_PLAYERS_TO_START:
 		return   # in_game: Start was already pressed (a double tap must not deal twice)
-	_peer.lock_room()
+	if _peer:
+		_peer.lock_room()
 	Market.setup_new_game()   # fresh shared decks/stock, sent to everyone first
 	var dealt := Expansion.deal_regions(ordered_players().map(func(e): return e["name"])) if expansion_on() else {}
-	_begin_game.rpc(dealt)
+	if solo:
+		_begin_game(dealt)
+	else:
+		_begin_game.rpc(dealt)
 
 # After a finished game: back to the lobby, and let new players join again.
 func return_to_lobby() -> void:
@@ -145,6 +167,7 @@ func leave() -> void:
 	_hide_wait_overlay()
 	room_key = ""
 	in_game = false
+	solo = false
 
 # Changes this player's name (settings pop-up). Saved for next time.
 func rename(new_name: String) -> void:
@@ -153,6 +176,10 @@ func rename(new_name: String) -> void:
 	Global.PLAYER = my_name
 	if is_online():
 		_rename_player.rpc_id(1, my_name)
+	elif solo and not in_game:
+		avatars = {my_name: my_avatar()}
+		players = {1: my_name}
+		players_changed.emit()
 
 func load_setting(section: String, key: String, default = null):
 	var config := ConfigFile.new()
@@ -487,6 +514,9 @@ func set_my_avatar(code: Array) -> void:
 	save_setting("player", "avatar", code)
 	if is_online():
 		_set_avatar.rpc_id(1, code)
+	elif solo:
+		avatars = {my_name: code}
+		players_changed.emit()
 
 @rpc("any_peer", "call_local", "reliable")
 func _set_avatar(code: Array) -> void:
@@ -529,10 +559,13 @@ func expansion_on() -> bool:
 # Host only (lobby). Saved so the host gets the same settings next time.
 func set_game_settings(settings: Dictionary) -> String:
 	var problem := settings_problem(settings)
-	if problem != "" or not is_host():
+	if problem != "" or not is_game_owner():
 		return problem
 	save_setting("host", "game_settings", settings)
-	_sync_settings.rpc(settings)
+	if solo:
+		_sync_settings(settings)
+	else:
+		_sync_settings.rpc(settings)
 	return ""
 
 @rpc("authority", "call_local", "reliable")

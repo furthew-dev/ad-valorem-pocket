@@ -65,7 +65,7 @@ func _ready() -> void:
 	ui_menu_frame.clear_ui()
 	ui_menu_frame.checking_bal.text = "Game Over"
 	ui_menu_frame.custom_navigation = true   # use the buttons below
-	lobby_btn.visible = Network.is_online()   # solo games have no lobby to return to
+	lobby_btn.visible = Network.is_online() or Network.solo
 	_tidy_layout()
 	if Turns.final_results.is_empty():
 		status.visible = true
@@ -90,7 +90,7 @@ func _tidy_layout() -> void:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.custom_minimum_size = Vector2(0, 90)
 		button.add_theme_font_size_override("font_size", 36)
-	lobby_btn.text = "Back to Lobby"
+	lobby_btn.text = "Play Again" if Network.solo else "Back to Lobby"   # solo: back to its set-up screen
 	quit_btn.text = "Main Menu"
 	var subscribe := Global.subscribe_button("Enjoyed it? Get Kickstarter updates")
 	subscribe.add_theme_font_size_override("font_size", 28)

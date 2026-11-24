@@ -1,5 +1,6 @@
 extends CanvasLayer
 ## Lobby: shows the room key and who has joined (up to 8). The host starts the game.
+## Play Solo uses this screen too, without the room key: settings, character, Start.
 ## Home / Back ask before leaving the room.
 
 const POPUP_SCENE = preload("res://Scenes/pop_up.tscn")
@@ -36,7 +37,9 @@ func _ready() -> void:
 	Network.game_starting.connect(_on_game_starting)
 
 	room_key.text = Network.room_key
-	start_btn.visible = Network.is_host()
+	start_btn.visible = Network.is_game_owner()
+	if Network.solo:
+		_show_solo_header()
 	_add_settings_row()
 	Network.settings_changed.connect(_show_settings)
 	_refresh()
@@ -49,7 +52,7 @@ func _add_settings_row() -> void:
 	_settings_label.add_theme_color_override("font_color", Color(0.2, 0.2, 0.2))
 	_settings_label.add_theme_font_size_override("font_size", 26)
 	status.add_sibling(_settings_label)
-	if Network.is_host():
+	if Network.is_game_owner():
 		var button := Button.new()
 		button.text = "Game Settings"
 		button.custom_minimum_size.y = 70
@@ -74,7 +77,7 @@ func _refresh() -> void:
 	if list.size() > _last_count and _last_count > 0:
 		Sound.play("notify")   # someone joined
 	_last_count = list.size()
-	players_title.text = "Players %d/%d" % [list.size(), Network.MAX_PLAYERS]
+	players_title.text = "Your Player" if Network.solo else "Players %d/%d" % [list.size(), Network.MAX_PLAYERS]
 
 	for child in player_list.get_children():
 		child.queue_free()
@@ -86,7 +89,10 @@ func _refresh() -> void:
 	hint.add_theme_font_size_override("font_size", 18)
 	player_list.add_child(hint)
 
-	if Network.is_host():
+	if Network.solo:
+		start_btn.disabled = false
+		status.text = "Press Start Game when you're ready."
+	elif Network.is_host():
 		var enough := list.size() >= Network.MIN_PLAYERS_TO_START
 		start_btn.disabled = not enough
 		status.text = "Press Start Game when everyone is in." if enough else "Waiting for players..."
@@ -131,7 +137,7 @@ func _player_card(entry: Dictionary) -> Control:
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	card.add_child(name_label)
 	var tags := []
-	if entry["is_host"]:
+	if entry["is_host"] and not Network.solo:
 		tags.append("host")
 	if entry["is_me"]:
 		tags.append("you")
@@ -154,6 +160,13 @@ func _edit_character() -> void:
 		return
 	get_tree().root.add_child(AVATAR_EDITOR.new())
 
+# Solo: no room key to share. The key's spot says what this is instead.
+func _show_solo_header() -> void:
+	ui_menu_frame.checking_bal.text = "Play Solo"
+	$Content/key_caption.visible = false
+	room_key.visible = false
+	$Content/key_hint.text = "Just you against the end goal. No server or internet needed once the game has loaded."
+
 func _on_room_key_pressed() -> void:
 	DisplayServer.clipboard_set(Network.room_key)
 	Global.banner("Room key %s copied." % Network.room_key)
@@ -175,6 +188,8 @@ func _confirm_leave() -> void:
 	if _leaving:
 		return
 	var question := "Close the room for everyone?" if Network.is_host() else "Leave this lobby?"
+	if Network.solo:
+		question = "Back to the main menu?"
 	var popup = POPUP_SCENE.instantiate()
 	add_child(popup)
 	popup.layout(question, "Yes", "No")
