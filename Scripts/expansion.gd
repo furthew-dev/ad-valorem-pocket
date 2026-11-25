@@ -50,6 +50,7 @@ func start_game(dealt: Dictionary) -> void:
 	my_region = regions.get(Global.PLAYER, "")
 	tokens = 0
 	earned.clear()
+	last_wipe = {}
 	villa_pairs_paid = 0
 	_seen_ids.clear()
 	gothic_counts.clear()
@@ -79,10 +80,13 @@ func token_worth() -> int:
 	return tokens * TOKEN_WORTH if Network.expansion_on() else 0
 
 # Cyber Attack: "Discard all tokens from your Environment Mat."
-func wipe_tokens() -> int:
+var last_wipe := {}   # {"lost": n, "reason": "Cyber Attack"}: the Environment app explains it
+
+func wipe_tokens(reason: String = "Cyber Attack") -> int:
 	var lost := tokens
 	tokens = 0
 	earned.clear()
+	last_wipe = {"lost": lost, "reason": reason}
 	changed.emit()
 	return lost
 

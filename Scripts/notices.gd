@@ -15,17 +15,31 @@ extends Node
 ##     Notices.mark_property(id)                # seen
 
 const DOT_COLOR := Color("e0453a")
-const IGNORED_KEYS := ["is_new"]
+# Only what the player can see on a property counts as a change. (Comparing the whole card
+# flagged every property after round 1: the rent step quietly adds a "no_rent_rounds"
+# counter to each card.) Missing keys count as their default.
+const WATCHED := {"name": "", "value": 0, "rent": 0, "condition": "", "tenants": 0,
+		"has_skybnb": false, "has_double": false, "has_golden_lock": false, "has_insurance": false,
+		"has_attorney": false, "no_rent_rounds": 0, "lot_kind": ""}
+
+signal enabled_changed
+var enabled := true:   # Settings > "New-item dots" (saved on this phone)
+	set(value):
+		enabled = value
+		Network.save_setting("notices", "enabled", value)
+		enabled_changed.emit()
 
 var _props_app := {}    # property id -> snapshot when My Properties was last open
 var _props_item := {}   # property id -> snapshot when its Property Details was last open
 var _loans := {}        # loan number -> balance when My Loans was last open
 var _actions := {}      # action key -> count when My Actions was last open
+var _env := {"tokens": 0, "earned": []}   # Environment tokens when that app was last open
 var _has_baseline := false
 
 
 func _ready() -> void:
 	Global.starting_hand_dealt.connect(baseline)
+	enabled = Network.load_setting("notices", "enabled", true)
 
 # Everything as it is now counts as seen (a new game, Resume Game, the tutorial).
 func baseline() -> void:
@@ -33,19 +47,33 @@ func baseline() -> void:
 	_props_item = _property_snapshots()
 	_loans = _loan_balances()
 	_actions = _action_counts()
+	_env = _env_now()
 	_has_baseline = true
 
 func _active() -> bool:
 	if not _has_baseline:
 		baseline()
-	return not get_tree().root.has_node("Tutorial")   # the tour points at things itself
+	return enabled and not get_tree().root.has_node("Tutorial")   # the tour points at things itself
 
 ## ---- WHAT IS THERE NOW ----
 static func _snapshot(property: Dictionary) -> Dictionary:
-	var copy := property.duplicate(true)
-	for key in IGNORED_KEYS:
-		copy.erase(key)
-	return copy
+	var view := {}
+	for key in WATCHED:
+		view[key] = property.get(key, WATCHED[key])
+	view["suites"] = property.get("suites", []).size()
+	# Terraced House grows $1 every round by itself: that alone isn't news.
+	view["growth"] = int(property.get("round", 0)) if property.get("name", "") == "Terraced House" else 0
+	return view
+
+# Same as far as the player can see? (Terraced House's own yearly +1 doesn't count.)
+static func _same(a: Dictionary, b: Dictionary) -> bool:
+	var x := a.duplicate()
+	var y := b.duplicate()
+	for v in [x, y]:
+		v["value"] = int(v.get("value", 0)) - int(v.get("growth", 0))
+		v["rent"] = int(v.get("rent", 0)) - int(v.get("growth", 0))
+		v.erase("growth")
+	return x == y
 
 func _property_snapshots() -> Dictionary:
 	var out := {}
@@ -69,6 +97,9 @@ func _action_counts() -> Dictionary:
 		out[key] = out.get(key, 0) + 1
 	return out
 
+func _env_now() -> Dictionary:
+	return {"tokens": Expansion.tokens, "earned": Expansion.earned.duplicate()}
+
 ## ---- QUESTIONS ----
 func app_dirty(app: String) -> bool:
 	if not _active():
@@ -77,7 +108,7 @@ func app_dirty(app: String) -> bool:
 		"my_properties":
 			for p in Cards.properties_owned:
 				var id = p.get("id", 0)
-				if not _props_app.has(id) or _props_app[id] != _snapshot(p):
+				if not _props_app.has(id) or not _same(_props_app[id], _snapshot(p)):
 					return true
 		"my_loans":
 			for loan in Global.loans:
@@ -85,7 +116,23 @@ func app_dirty(app: String) -> bool:
 					return true
 		"my_actions":
 			return not new_actions().is_empty()
+		"environment":
+			return not env_news().is_empty()
 	return false
+
+# Environment tokens since the app was last open: {} = nothing new, else
+# {"before": tokens then, "new_rows": how many "Earned from" rows are new, "wiped": {...}}.
+func env_news() -> Dictionary:
+	if not _active() or not Network.expansion_on():
+		return {}
+	var now := _env_now()
+	if now == _env:
+		return {}
+	var seen_rows: Array = _env["earned"]
+	var rows: Array = now["earned"]
+	var fresh := rows.size() - seen_rows.size() if rows.slice(0, seen_rows.size()) == seen_rows else rows.size()
+	var wiped: Dictionary = Expansion.last_wipe if Expansion.last_wipe.get("lost", 0) > 0 else {}   # cleared when the app is opened
+	return {"before": int(_env["tokens"]), "new_rows": maxi(fresh, 0), "wiped": wiped}
 
 # What the property looked like when its details were last opened; {} if nothing changed.
 # A property that just arrived returns {"new": true}.
@@ -97,7 +144,7 @@ func property_before(id: int) -> Dictionary:
 			if not _props_item.has(id):
 				return {"new": true}
 			var seen: Dictionary = _props_item[id]
-			return {} if seen == _snapshot(p) else seen
+			return {} if _same(seen, _snapshot(p)) else seen
 	return {}
 
 func property_dirty(id: int) -> bool:
@@ -135,6 +182,9 @@ func mark_app(app: String) -> void:
 			_loans = _loan_balances()
 		"my_actions":
 			_actions = _action_counts()
+		"environment":
+			_env = _env_now()
+			Expansion.last_wipe = {}
 
 func mark_property(id: int) -> void:
 	for p in Cards.properties_owned:
@@ -201,6 +251,14 @@ static func pulse_outline(target: Control, radius: int = 24, pad: float = 8.0, c
 	ring.z_index = 4
 	ColorTheme.keep(ring)
 	target.add_child(ring)
+	if target is Container:   # a layout box would line the ring up as one of its items
+		ring.top_level = true
+		var follow := func():
+			if is_instance_valid(ring) and is_instance_valid(target):
+				ring.global_position = target.global_position
+				ring.size = target.size * target.get_global_transform().get_scale()
+		follow.call_deferred()
+		target.item_rect_changed.connect(follow)
 	ring.modulate.a = 0.0
 	var tween := ring.create_tween()
 	for i in cycles:

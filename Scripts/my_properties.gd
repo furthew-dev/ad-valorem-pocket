@@ -41,6 +41,7 @@ func _ready() -> void:
 	else:
 		_scroll_to_news.call_deferred()
 	Notices.mark_app("my_properties")   # the app's own dot goes; each card keeps its dot
+	_add_lock_button()
 
 ## ---- CAPACITY ("Capacity 3 / 5 Properties") ----
 # 4 to start; each Land Expansion and Inheritance adds one. Empty lots count, as they do
@@ -138,6 +139,8 @@ func _build_list() -> void:
 		if Notices.property_dirty(property_data.get("id", 0)):   # changed since last opened
 			Notices.dot(card_instance.panel, 38.0, Vector2(2, 2))
 		card_instance.assign_requested.connect(_on_assign_requested.bind(property_data))
+	if _lock_button:
+		_update_lock_button.call_deferred()
 
 
 # The first property with a red dot is brought into view (it may be further down).
@@ -202,6 +205,91 @@ func _slide_in(property_id: int) -> void:
 	pulse.tween_callback(glow.queue_free)
 
 ## ---- GOLDEN LOCK ----
+# Own a Golden Lock? A gold button above the bottom bar: tap it, then tap a property
+# (saves going through My Actions). While choosing it reads "Cancel".
+const LOCK_ICON = preload("res://Assets/icons/tokens/lock_icon.png")
+var _lock_button: Button
+
+func _add_lock_button() -> void:
+	_lock_button = Button.new()
+	_lock_button.name = "use_golden_lock"
+	_lock_button.icon = LOCK_ICON
+	_lock_button.expand_icon = true
+	_lock_button.add_theme_constant_override("icon_max_width", 44)
+	_lock_button.add_theme_font_override("font", FONT)
+	_lock_button.add_theme_font_size_override("font_size", 40)
+	_lock_button.focus_mode = Control.FOCUS_NONE
+	for state in ["normal", "hover", "pressed", "focus"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = GOLD.darkened(0.15) if state == "pressed" else GOLD
+		style.border_color = Color("f6f2e1")
+		style.set_border_width_all(3)
+		style.set_corner_radius_all(40)
+		style.shadow_color = Color(0, 0, 0, 0.35)
+		style.shadow_size = 8
+		style.shadow_offset = Vector2(0, 4)
+		style.content_margin_left = 28
+		style.content_margin_right = 34
+		_lock_button.add_theme_stylebox_override(state, style)
+	for colour in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		_lock_button.add_theme_color_override(colour, Color(0.1, 0.08, 0.05))
+	ColorTheme.keep(_lock_button)   # gold in every theme
+	_lock_button.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_lock_button.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_lock_button.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_lock_button.custom_minimum_size = Vector2(0, 84)
+	_lock_button.offset_bottom = -LOCK_BUTTON_LIFT
+	_lock_button.pressed.connect(_on_lock_button_pressed)
+	$CanvasLayer/Panel.add_child(_lock_button)
+	_update_lock_button()
+	Global.actions_changed.connect(func(_v): _update_lock_button())
+
+const GOLD_BUTTON := Color("d4af37")
+const LOCK_BUTTON_LIFT := 190.0   # just above the Back / Home / Menu bar
+const GOLD := GOLD_BUTTON
+
+func _update_lock_button() -> void:
+	if _lock_button == null:
+		return
+	var assigning := Global.assigning_token == "golden_lock"
+	_lock_button.visible = (Actions.actions_owned.has("golden_lock") or assigning) and not Turns.my_turn_done
+	_lock_button.text = "Cancel" if assigning else "Use Golden Lock"
+	_lock_button.icon = null if assigning else LOCK_ICON
+	_lock_button.reset_size()
+	_lock_button.offset_bottom = -LOCK_BUTTON_LIFT
+	_lock_button.offset_top = _lock_button.offset_bottom - 84
+	var half := _lock_button.get_combined_minimum_size().x / 2.0
+	_lock_button.offset_left = -half
+	_lock_button.offset_right = half
+	_list_bottom_room(_lock_button.visible)
+
+# Room under the last card so it can scroll clear of the button.
+func _list_bottom_room(needed: bool) -> void:
+	var room := list_of_properties.get_node_or_null("lock_room")
+	if room and room.is_queued_for_deletion():
+		room = null
+	if needed and room == null:
+		room = Control.new()
+		room.name = "lock_room"
+		room.custom_minimum_size = Vector2(0, 110)
+		room.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		list_of_properties.add_child(room)
+	elif not needed and room:
+		room.queue_free()
+
+func _on_lock_button_pressed() -> void:
+	Sound.play("click")
+	if Global.assigning_token == "golden_lock":
+		Global.assigning_token = ""
+		Global.banner("Golden Lock: cancelled.")
+	else:
+		if Global.ACTIONS <= 0:
+			Global.error("You are out of Actions. End your turn for more.", "home")
+			return
+		Global.assigning_token = "golden_lock"
+		Global.banner("Choose a property to protect with the Golden Lock.")
+	_update_lock_button()
+
 func _on_assign_requested(property: Dictionary) -> void:
 	if property.get("has_golden_lock", false):
 		Global.error("%s is already locked." % property["name"])
@@ -227,3 +315,4 @@ func _lock(property: Dictionary) -> void:
 	Global.banner_requested.emit(note, "")   # (the sparkle, not the banner chime)
 	Notices.mark_property(property["id"])   # your own change: no dot
 	_build_list()
+	_update_lock_button()

@@ -99,7 +99,16 @@ const LINKS := {
 	"environment": ["res://Scenes/environment.tscn", "your Environment"],
 	"my_loans": ["res://Scenes/my_loans.tscn", "My Loans"],
 	"home": ["res://Scenes/home_screen.tscn", "Home"],   # "Tap to open Home"
+	"bank": ["res://Scenes/bank_account.tscn", "the Bank"],
+	"real_estate": ["res://Scenes/realtor_or_random.tscn", "Real Estate"],
 }
+
+# Opens a screen, then shows a tip there once it's up (My Actions: "Pick a property...").
+func go_to(link: String, message: String) -> void:
+	open_link(link)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	banner(message)
 
 # A tapped banner: go there (Back returns to where you were).
 func open_link(link: String) -> void:
@@ -237,19 +246,25 @@ func process_new_round() -> void:
 func round_start_finished() -> bool:
 	return round_progress.get("round", -1) == ROUND and round_progress.get("rent", false)
 
+# How many Fortunas depends on the cash you START the round with: $25+ draws one, $100+
+# draws two. (The second used to be drawn whatever you had: only its "thud" checked $100.)
+# The starting cash is remembered, so the first card's winnings or losses don't change
+# whether a second is due, and Resume Game gets the same answer.
 func has_fortuna() -> void:
+	if not round_progress.has("start_cash"):
+		round_progress["start_cash"] = CASH
+	var start_cash: int = round_progress["start_cash"]
 	var drawn: int = round_progress.get("fortunas", 0)
 	if drawn == 0:
-		if CASH < FORTUNA_THRESHOLD:
-			print("You're safe, no need for fortuna.")
+		if start_cash < FORTUNA_THRESHOLD:
 			round_progress["fortunas"] = 2
 			return
 		await _draw_required_fortuna("You must draw a Fortuna card.")
 		round_progress["fortunas"] = 1
 	if round_progress.get("fortunas", 0) == 1:
-		if CASH >= SECOND_FORTUNA_THRESHOLD:
+		if start_cash >= SECOND_FORTUNA_THRESHOLD:
 			Sound.play("thud")   # another one?!
-		await _draw_required_fortuna("You must draw another Fortuna card.")
+			await _draw_required_fortuna("You must draw another Fortuna card.")
 		round_progress["fortunas"] = 2
 
 func _draw_required_fortuna(message: String) -> void:

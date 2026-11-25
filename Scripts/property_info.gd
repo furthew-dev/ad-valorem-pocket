@@ -932,10 +932,10 @@ func _play_news(before: Dictionary) -> void:
 
 	# Apartment tenants
 	if after.has("tenants") and before.get("tenants") != after.get("tenants"):
+		# The rent and the tenants caption grow and change colour (no boxes: Matt).
 		var caption: Label = e_rent.get_node_or_null("tenants")
 		if caption:
-			Notices.pulse_outline(caption, 14, 6.0)
-		Notices.pulse_outline(e_rent, 18, 6.0)
+			_flash(caption, after["tenants"] >= int(before.get("tenants", 0)))
 		if before.get("rent") is int and before["rent"] != after["rent"]:
 			_count_up(e_rent, before["rent"], after["rent"])
 		Sound.play("switch")
@@ -965,12 +965,22 @@ func _play_news(before: Dictionary) -> void:
 			if before.get(key) is int and after.get(key) is int and before[key] != after[key]:
 				_count_up(rows[tier][i], before[key], after[key])
 				changed = true
-	if not changed and after.get("has_condition", false) and tier_of.has(new_condition):
-		var row: Array = rows[tier_of[new_condition]]
+	if not changed and (tier_of.has(new_condition) or not after.get("has_condition", false)):
+		var row: Array = rows[tier_of[new_condition]] if after.get("has_condition", false) else rows["e"]
 		for i in 2:
 			var key: String = "value" if i == 0 else "rent"
 			if before.get(key) is int and before[key] != after.get(key):
 				_count_up(row[i], before[key], after[key])
+
+# A label swells and flashes green (up) or red (down), then settles.
+func _flash(label: Label, up: bool) -> void:
+	label.pivot_offset = label.size / 2
+	var tween := label.create_tween()
+	tween.tween_property(label, "modulate", RISE_COLOR if up else FALL_COLOR, COUNT_TIME * 0.4)
+	tween.parallel().tween_property(label, "scale", Vector2(1.3, 1.3), COUNT_TIME * 0.4) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(label, "modulate", Color(1, 1, 1, 0.85), 0.4)
+	tween.parallel().tween_property(label, "scale", Vector2.ONE, 0.4)
 
 # The condition band moves from one row to another (a copy of it glides between them).
 func _slide_condition(from: Panel, to: Panel) -> void:

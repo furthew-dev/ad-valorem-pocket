@@ -83,6 +83,19 @@ func _build() -> void:
 	sound_row.add_child(_sound_toggle)
 	box.add_child(sound_row)
 
+	# --- Red "what's new" dots on apps (notices.gd) ---
+	var dots_row := HBoxContainer.new()
+	var dots_label := _label("Red Dot Alerts", 38)
+	dots_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	dots_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	dots_row.add_child(dots_label)
+	var dots_toggle := InkSwitch.new()
+	dots_toggle.button_pressed = Notices.enabled
+	dots_toggle.toggled.connect(_on_dots_toggled)
+	dots_row.add_child(dots_toggle)
+	box.add_child(dots_row)
+	box.offset_top -= 70   # one more line: start higher so Close stays on the paper
+
 	# --- Last-player timer (in a game; only the host can change it) ---
 	if Network.in_game and Network.is_online():
 		var timer_row := HBoxContainer.new()
@@ -194,6 +207,12 @@ func _on_timer_toggled(on: bool) -> void:
 	Network.set_game_settings(settings)
 	Turns.timer_setting_changed()
 	Global.banner("Last-turn timer %s." % ("on" if on else "off"))
+
+func _on_dots_toggled(on: bool) -> void:
+	Sound.play("switch")
+	if on:
+		Notices.baseline()   # start fresh: no dots for what changed while they were off
+	Notices.enabled = on
 
 func _on_sound_toggled(on: bool) -> void:
 	Sound.set_enabled(on)

@@ -79,8 +79,35 @@ func _on_use_requested(_data: Dictionary, key: String) -> void:
 			Global.assigning_token = "golden_lock"
 			Global.save_scene("res://Scenes/my_actions.tscn")
 			get_tree().change_scene_to_file("res://Scenes/my_properties.tscn")
-		"double", "skybnb", "contractor":
-			Global.banner("Open a property in My Properties to use this.", "my_properties")
+		_:
+			_explain_or_go(key)
+
+# Every token does something when tapped: it opens the screen where it's used, with a
+# tip, or (for ones that work by themselves) says what it's doing for you.
+const GO_TO := {
+	"contractor": ["my_properties", "Contractor: pick a property to upgrade, or a lot to build on."],
+	"listing_agent": ["my_properties", "Listing Agent: pick the property to sell. It's used when you sell (wins on 1 to 5)."],
+	"skybnb": ["my_properties", "SkyBnB: pick a property to add it to (doubles the rent)."],
+	"double": ["my_properties", "Double: pick a property to add it to (doubles the value)."],
+	"insurance": ["my_properties", "Insurance: pick a property to insure."],
+	"land_expansion": ["my_properties", "Land Expansion: build on your empty lot with a Contractor."],
+	"hotel_suite": ["my_properties", "Suite: open your Hotel Resort to add it with a Contractor."],
+	"cruise_suite": ["my_properties", "Suite: open your Luxury Cruise to add it with a Contractor."],
+	"certificate_of_deposit": ["bank", "Certificates of Deposit: shown under Investments. One is worth $50, a pair $110."],
+	"realtor": ["real_estate", "Realtor: choose Realtor to see 3 properties and pick one ($3 if you buy none)."],
+}
+const EXPLAIN := {
+	"llc": "LLC: you get 5 Actions every turn instead of 3.",
+	"attorney": "Attorney: blocks the next legal Fortuna that hits you (Auction, Lawsuits, Mold, Swap) by itself.",
+}
+
+func _explain_or_go(key: String) -> void:
+	if GO_TO.has(key):
+		Global.go_to(GO_TO[key][0], GO_TO[key][1])
+	elif EXPLAIN.has(key):
+		Global.banner(EXPLAIN[key])
+	else:
+		Global.banner(Actions.details_of(Actions.all_actions.get(key, {})) if Actions.all_actions.has(key) else "This is kept until it's needed.")
 
 
 func _on_kept_fortuna_pressed(card: Dictionary) -> void:

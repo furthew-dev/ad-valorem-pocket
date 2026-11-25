@@ -53,7 +53,8 @@ func _let_taps_through(node: Node) -> void:
 # A red dot on My Properties / My Loans / My Actions when something changed there since
 # the app was last opened (a new round, a Fortuna, a purchase...). Checked twice a second,
 # so dots appear as the round's changes land.
-const DOT_APPS := {"my_properties": "my_properties", "My Loans": "my_loans", "My Actions": "my_actions"}
+const DOT_APPS := {"my_properties": "my_properties", "My Loans": "my_loans", "My Actions": "my_actions",
+		"environment": "environment"}
 
 func _setup_new_dots() -> void:
 	var timer := Timer.new()
