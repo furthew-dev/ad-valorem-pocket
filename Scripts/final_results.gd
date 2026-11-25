@@ -119,6 +119,12 @@ func _keep_phone_width() -> void:
 
 
 ## ---- STANDINGS ----
+var _ending_sound: AudioStreamPlayer   # the long outro: cut off if the player leaves
+
+func _exit_tree() -> void:
+	if is_instance_valid(_ending_sound) and _ending_sound.stream == Sound.SOUNDS["lose_outro"]:
+		_ending_sound.stop()
+
 func _show_results() -> void:
 	status.visible = false
 	for child in player_list.get_children():
@@ -131,7 +137,7 @@ func _show_results() -> void:
 	_build_awards(list)
 	# First place gets the till ringing; everyone else, the sad trumpet.
 	var won: bool = not list.is_empty() and str(list[0].get("name", "")) == str(Global.PLAYER)
-	Sound.play("victory" if won else "lose_trumpet")
+	_ending_sound = Sound.play("victory" if won else "lose_outro")
 
 func _add_standing(i: int, entry: Dictionary) -> void:
 	var place := _label(ORDINALS[mini(i, ORDINALS.size() - 1)], 46 if i == 0 else 36, GOLD if i == 0 else INK)

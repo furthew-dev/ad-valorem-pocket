@@ -5,6 +5,20 @@ extends CanvasLayer
 ## all open, OK files them away: each card shrinks and drops into the My Properties app.
 ##     add_child(StartingHand.new())   # home_screen.gd does this once per new game
 ## Global.start_game() sets Global.starting_hand_pending; the cards are the hand it drew.
+## The same unboxing for a deed won mid-game (the Inheritance Fortuna):
+##     await StartingHand.unbox(get_tree(), [lot], "An Inheritance!").finished
+
+signal finished
+
+var gift: Array = []      # deeds to unbox instead of the starting hand
+var gift_title := ""
+
+static func unbox(tree: SceneTree, cards: Array, title: String) -> Node:
+	var overlay = load("res://Scripts/starting_hand.gd").new()
+	overlay.gift = cards
+	overlay.gift_title = title
+	tree.root.add_child(overlay)
+	return overlay
 
 const FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
 const BODY_FONT = preload("res://Assets/fonts/Comfortaa-Regular.ttf")
@@ -43,10 +57,14 @@ var _ok: Button
 
 func _ready() -> void:
 	layer = 50   # over the home screen and its bars; Fortunas and pop-ups still go on top
-	if not Global.starting_hand_ready:
-		await Global.starting_hand_dealt   # online, the deal can land after the intro
-	_hand = Cards.properties_owned.duplicate()
+	if not gift.is_empty():
+		_hand = gift.duplicate()
+	else:
+		if not Global.starting_hand_ready:
+			await Global.starting_hand_dealt   # online, the deal can land after the intro
+		_hand = Cards.properties_owned.duplicate()
 	if _hand.is_empty():
+		finished.emit()
 		queue_free()
 		return
 	_build()
@@ -61,7 +79,7 @@ func _build() -> void:
 	_dim.mouse_filter = Control.MOUSE_FILTER_STOP   # nothing behind can be tapped
 	add_child(_dim)
 
-	_title = _label("Your Starting Portfolio", 58, FONT, CREAM)
+	_title = _label(gift_title if gift_title != "" else "Your Starting Portfolio", 58, FONT, CREAM)
 	_title.position = Vector2(0, 190)
 	_title.size = Vector2(SCREEN.x, 70)
 	_dim.add_child(_title)
@@ -286,7 +304,7 @@ func _open(card: Control) -> void:
 	await close.finished
 	envelope.visible = false
 	face.visible = true
-	Sound.play("double")
+	Sound.play("bonus" if not gift.is_empty() else "double")   # an inheritance: the bonus jingle
 	var look := _look(card.get_meta("property"))
 	if look == LOOKS["excellent"]:
 		Sound.play("cash_in")
@@ -321,7 +339,7 @@ func _on_open_all() -> void:
 	_busy = false
 
 func _all_open() -> void:
-	_hint.text = "Welcome to the market! They pay rent every round."
+	_hint.text = "Room to build: use a Contractor on it." if not gift.is_empty() else "Welcome to the market! They pay rent every round."
 	var hide := _open_all.create_tween()
 	hide.tween_property(_open_all, "modulate:a", 0.0, 0.15)
 	hide.tween_callback(func(): _open_all.visible = false)
@@ -357,7 +375,9 @@ func _on_ok() -> void:
 	gone.tween_property(_dim, "modulate:a", 0.0, 0.2)
 	await gone.finished
 	var n := _hand.size()
-	Global.banner("%d %s filed in My Properties." % [n, "property" if n == 1 else "properties"])
+	if gift.is_empty():   # (a Fortuna writes its own banner)
+		Global.banner("%d %s filed in My Properties." % [n, "property" if n == 1 else "properties"])
+	finished.emit()
 	queue_free()
 
 func _drop(card: Control, target: Vector2, tile: Control, delay: float) -> void:
@@ -389,7 +409,7 @@ func _bounce(tile: Control) -> void:
 
 # The coloured square of the My Properties app on the home screen (if it's showing).
 func _my_properties_tile() -> Control:
-	var home := get_parent()
+	var home := get_tree().current_scene
 	if home and home.has_method("_tile_named"):
 		var tile: Control = home._tile_named("my_properties")
 		if tile and tile.is_visible_in_tree():

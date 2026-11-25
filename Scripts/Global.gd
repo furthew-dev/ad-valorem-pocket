@@ -115,15 +115,9 @@ func open_link(link: String) -> void:
 	get_tree().change_scene_to_file(target)
 
 # `reason` is shown next to the amount ("+$12 Rent", "-$10 Sabotage").
-# Money coming in every round (rent) gets the little 90s coin; bigger, one-off money
-# (a sale, a loan, a Fortuna payout) gets the cash register.
-const COIN_REASONS := ["Rent", "Castle Tours", "Gothic Mansion"]
-
+# Money in: one of four cash-register recordings at random. Money out: coins dropping.
 func income_loss(type: String, total: int, reason: String = "") -> void:
-	if type == "gain":
-		Sound.play("coin" if reason in COIN_REASONS else "cash_in")
-	else:
-		Sound.play("cash_out")
+	Sound.play("cash_in" if type == "gain" else "cash_out")
 	animation_requested.emit(type, total, reason)
 
 # Shows the standard pop-up with a single OK button and waits until it is closed.

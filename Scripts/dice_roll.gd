@@ -51,8 +51,11 @@ const PULL_SHOWS := 0.6       # the die follows the finger back this much
 const LAUNCH_SPEED := Vector2(5.5, 14.0)  # m/s, from a gentle pull to a full one
 const LAUNCH_LIFT := Vector2(1.5, 4.5)
 const LAUNCH_SPIN := Vector2(16.0, 40.0)  # rad/s: it tumbles and caroms off the walls
-const REST := Vector3(0, 0.5, 0.85)       # where the die waits: low in the tray, by the slingshot
-const PULL_ROOM := 1.35                   # the die can be drawn back this far (m) before the wall
+const REST := Vector3(0, 0.5, 1.2)        # where the die waits: low in the tray, in the slingshot
+const PULL_ROOM := 1.4                    # how far (m) it can be drawn back: up and over the rim
+const POST_Z := 1.5                       # the slingshot's posts, just below the die
+const POST_X := 0.95
+const OVER_RIM := 1.75                    # drawn back as far as this, the die tips onto the rim (still in view)
 const BAND := Color("e8d9b0")
 
 signal finished
@@ -385,8 +388,10 @@ func _follow_pull() -> void:
 	var back := Vector3(_pull.x, 0, _pull.y) * PULL_SHOWS / _pixels_per_metre()
 	back = back.limit_length(PULL_ROOM)
 	var spot := REST + back
-	spot.x = clampf(spot.x, -WALL + 0.6, WALL - 0.6)   # stays inside the box
-	spot.z = clampf(spot.z, -WALL + 0.6, WALL - 0.55)
+	spot.x = clampf(spot.x, -WALL + 0.6, WALL - 0.6)
+	spot.z = clampf(spot.z, -WALL + 0.6, OVER_RIM)
+	# Pulled towards you, it rides up and over the box's bottom edge (the wall is 1 high).
+	spot.y = REST.y + smoothstep(WALL - 0.6, WALL, spot.z) * (BOX_HEIGHT + 0.02)
 	_die.position = spot
 	_die.rotation.x = -_pull.y / MAX_PULL * 0.35
 	_die.rotation.z = _pull.x / MAX_PULL * 0.35
@@ -422,7 +427,8 @@ func _launch(direction: Vector2, power: float) -> void:
 	(find_child("how", true, false) as Label).modulate.a = 0.0
 	var aim := Vector3(direction.x, 0, direction.y).normalized()
 	_die.freeze = false
-	_die.position += Vector3.UP * 0.5
+	# Back inside the box (it may be sitting on the rim), just above the floor, then away.
+	_die.position = Vector3(clampf(_die.position.x, -WALL + 0.6, WALL - 0.6), REST.y + 0.5, minf(_die.position.z, WALL - 0.62))
 	_die.linear_velocity = aim * lerpf(LAUNCH_SPEED.x, LAUNCH_SPEED.y, power) + Vector3.UP * lerpf(LAUNCH_LIFT.x, LAUNCH_LIFT.y, power)
 	var axis := (aim.cross(Vector3.UP) + Vector3(randf_range(-0.4, 0.4), randf_range(-0.4, 0.4), randf_range(-0.4, 0.4))).normalized()
 	_die.angular_velocity = axis * lerpf(LAUNCH_SPIN.x, LAUNCH_SPIN.y, power)
@@ -467,30 +473,30 @@ func _process(delta: float) -> void:
 func _draw_band() -> void:
 	if _camera == null or _rolling or _done:
 		return
-	var rest := _camera.unproject_position(REST + Vector3.UP * 0.5)
-	var ppm := _pixels_per_metre()
-	# The slingshot stands on the bottom edge of the box, either side of the die.
-	var rim := _camera.unproject_position(Vector3(0, BOX_HEIGHT, WALL - 0.05)).y
-	var left := Vector2(rest.x - ppm * 0.95, rim)
-	var right := Vector2(rest.x + ppm * 0.95, rim)
+	# The slingshot's posts stand either side of the die, just below it; the band runs
+	# from each post to the back of the die (its pouch), so pulling down makes a V.
+	var left := _camera.unproject_position(Vector3(-POST_X, 0.5, POST_Z))
+	var right := _camera.unproject_position(Vector3(POST_X, 0.5, POST_Z))
 	for post in [left, right]:   # the slingshot's two posts
 		_band.draw_circle(post, 11, Color(0.2, 0.15, 0.13))
 		_band.draw_circle(post, 7, BAND)
+	var pouch := _camera.unproject_position(_die.position + Vector3(0, 0.5, 0.3))   # the back of the die
 	if not _pulling or _pull.length() < 4.0:
-		var bob := sin(_idle_time * 4.0) * 8.0
+		_band.draw_line(left, pouch, Color(BAND, 0.6), 4, true)
+		_band.draw_line(right, pouch, Color(BAND, 0.6), 4, true)
+		var bob := sin(_idle_time * 4.0) * 8.0   # "pull me down"
 		for i in 2:
-			var tip := Vector2(rest.x, (rest.y + rim) / 2.0 + 10 + i * 22 + bob)
+			var tip := Vector2(pouch.x, pouch.y + 34 + i * 22 + bob)
 			_band.draw_polyline(PackedVector2Array([tip + Vector2(-20, -14), tip, tip + Vector2(20, -14)]), Color(BAND, 0.75 - i * 0.3), 6, true)
-		_band.draw_line(left, right, Color(BAND, 0.5), 4, true)
 		return
 	var power := _pull.length() / MAX_PULL
 	var die := _camera.unproject_position(_die.position + Vector3.UP * 0.5)
 	var colour := BAND.lerp(TERRACOTTA, power)
-	_band.draw_line(left, die, colour, 6, true)
-	_band.draw_line(right, die, colour, 6, true)
+	_band.draw_line(left, pouch, colour, 6, true)
+	_band.draw_line(right, pouch, colour, 6, true)
 	var direction := -_pull.normalized()   # the aim: dots growing ahead of the die
 	for i in 6:
-		var dot := rest + direction * (50 + i * 26) * (0.6 + power)
+		var dot := die + direction * (70 + i * 26) * (0.6 + power)
 		_band.draw_circle(dot, 4 + i * 0.8 * power, Color(CREAM, 0.85 - i * 0.12))
 
 func _physics_process(delta: float) -> void:
@@ -592,7 +598,7 @@ func _landed(sold: bool) -> void:
 	_title.scale = Vector2(0.3, 0.3)
 	_title.create_tween().tween_property(_title, "scale", Vector2(1.6, 1.6), 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if not sold and get_tree().root.has_node("Tutorial"):   # practice: a FAIL costs nothing
-		Sound.play("aww")
+		Sound.play("sale_fail")
 		_hint.text = "Practice roll: a FAIL costs nothing here. Throw again!"
 		await get_tree().create_timer(1.0).timeout
 		_title.text = "Roll to sell"

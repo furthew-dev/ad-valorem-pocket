@@ -243,8 +243,10 @@ func poke(player_name: String) -> void:
 		if Network.players[id] == player_name:
 			poked[player_name] = true
 			_receive_poke.rpc_id(id, my_name())
-			Sound.play("honk")
-			Global.banner("You poked %s." % player_name)
+			# Only the poked player hears the honk; here it's a quiet note.
+			var note := "You poked %s." % player_name
+			Activity.add(note, "info")
+			Global.banner_requested.emit(note, "")
 			poked_list_changed.emit()
 			return
 

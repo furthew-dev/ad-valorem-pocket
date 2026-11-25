@@ -1026,6 +1026,8 @@ func resolve_fortuna(card: Dictionary) -> String:
 			Global.new_property = true
 			Global.new_property_name = lot["name"]
 			Global.new_property_id = lot.get("id", 0)
+			# The deed arrives sealed, like the starting hand: tap to open, OK to file it.
+			await load("res://Scripts/starting_hand.gd").unbox(get_tree(), [lot], "An Inheritance!").finished
 			return "Inheritance! Property limit +1. Build on it from My Properties with a Contractor."
 
 		"discard_environment_tokens":   # Cyber Attack (expansion)

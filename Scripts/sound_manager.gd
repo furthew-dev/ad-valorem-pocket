@@ -3,7 +3,6 @@ extends Node
 ## The on/off setting is saved between sessions (settings pop-up).
 
 const SOUNDS := {
-	"click": preload("res://Assets/sounds/mouse_click.mp3"),     # title-screen / app choices
 	"continue": preload("res://Assets/sounds/continue.mp3"),     # confirm, move forward
 	"back": preload("res://Assets/sounds/going_back.mp3"),       # back, close, minimise
 	"open": preload("res://Assets/sounds/open.mp3"),             # a pop-up or form opens
@@ -12,7 +11,6 @@ const SOUNDS := {
 	"switch_off": preload("res://Assets/sounds/switch2.mp3"),    # toggle off
 	"saved": preload("res://Assets/sounds/saved.mp3"),           # a setting was saved
 	"dice": preload("res://Assets/sounds/dice_rolling.mp3"),     # rolling to sell
-	"cash_in": preload("res://Assets/sounds/cash_register.mp3"),   # money received
 	"cash_out": preload("res://Assets/sounds/coins_dropping.mp3"), # money paid / lost
 	"aww": preload("res://Assets/sounds/crowd_aww.mp3"),           # an unlucky Fortuna
 	"shield": preload("res://Assets/sounds/shield_block.mp3"),     # Insurance / Just Say No blocks it
@@ -34,11 +32,13 @@ const SOUNDS := {
 	"spray_paint": preload("res://Assets/sounds/spray_paint.mp3"),
 	"water_drop": preload("res://Assets/sounds/water_drop.mp3"),    # Mold, Flood
 	# Matt's "new sounds" (Nov 2026)
-	"coin": preload("res://Assets/sounds/new sounds/90sCoin.mp3"),          # rent comes in; a Jackpot! deed
 	"bloop": preload("res://Assets/sounds/new sounds/bloopSuccess.mp3"),    # a good Fortuna
 	"thud": preload("res://Assets/sounds/new sounds/thud_sound_losing.mp3"),   # "seriously?!" moments
-	"lose_trumpet": preload("res://Assets/sounds/new sounds/losing_trumpet.mp3"),  # Final Results, not first
+	"lose_trumpet": preload("res://Assets/sounds/new sounds/losing_trumpet.mp3"),  # (not used now)
+	"notify": preload("res://Assets/sounds/notification.mp3"),   # banners, new round
 	"victory": preload("res://Assets/sounds/victory_game_over.mp3"),   # Final Results, you won
+	"lose_outro": preload("res://Assets/sounds/lose_outro.mp3"),       # Final Results, you lost
+	"bonus": preload("res://Assets/sounds/game_bonus.mp3"),            # an Inheritance deed is opened
 	"sparkle": preload("res://Assets/sounds/sparkle_reveal.mp3"),      # a Fortuna card is revealed
 	"fire": preload("res://Assets/sounds/fire.mp3"),                   # Fire (faded, see FADES)
 	"earthquake": preload("res://Assets/sounds/earthquake.mp3"),       # Earthquake (faded)
@@ -54,10 +54,6 @@ const SOUNDS := {
 # Sounds with several recordings: one is picked at random each time (never the same
 # one twice in a row), so repeated actions don't sound copy-pasted.
 const VARIANTS := {
-	"notify": [   # banners: the usual chime and a softer one, taking turns
-		preload("res://Assets/sounds/notification.mp3"),
-		preload("res://Assets/sounds/soft_notification.mp3"),
-	],
 	"rubber_pull": [   # drawing the slingshot back
 		preload("res://Assets/sounds/rubber_pull1.mp3"),
 		preload("res://Assets/sounds/rubber_pull2.mp3"),
@@ -72,13 +68,30 @@ const VARIANTS := {
 		preload("res://Assets/sounds/new sounds/dealing_cards2.mp3"),
 		preload("res://Assets/sounds/new sounds/dealing_cards3.mp3"),
 	],
-	"sale_fail": [   # a private sale that didn't sell
+	"sale_fail": [   # a sale that didn't sell (weights in WEIGHTS)
+		preload("res://Assets/sounds/fail_n.mp3"),
+		preload("res://Assets/sounds/failure_drumb.mp3"),
 		preload("res://Assets/sounds/crowd_aww.mp3"),
 		preload("res://Assets/sounds/trumpet_fail.mp3"),
 	],
+	"click": [   # taps on apps, menus and choices
+		preload("res://Assets/sounds/minimal_click1.mp3"),
+		preload("res://Assets/sounds/minimal_click2.mp3"),
+		preload("res://Assets/sounds/minimal_click3.mp3"),
+		preload("res://Assets/sounds/minimal_click4.mp3"),
+	],
+	"cash_in": [   # money received: rent, sales, payouts, loans
+		preload("res://Assets/sounds/register1.mp3"),
+		preload("res://Assets/sounds/register2.mp3"),
+		preload("res://Assets/sounds/register3.mp3"),
+		preload("res://Assets/sounds/register4.mp3"),
+	],
 }
 # Loudness fixes (dB) so the new recordings sit level with the rest.
-const VOLUME := {"deal": 10.0, "thud": -6.0, "coin": -3.0, "lose_trumpet": -4.0, "sale_fail": -1.0,
+# How often each variant is picked (same order as VARIANTS); missing = all equal.
+# The sad trumpet is rarer so it doesn't wear thin.
+const WEIGHTS := {"sale_fail": [30, 30, 30, 10]}
+const VOLUME := {"deal": 10.0, "thud": -6.0, "lose_trumpet": -4.0, "sale_fail": -1.0, "lose_outro": -3.0,
 		"rubber_pull": 9.0, "scribble": 14.0, "bugs": 8.0, "fire": -6.0, "victory": 4.0, "sparkle": -3.0}
 # Long recordings that play just a part, fading in and out: [seconds, fade in, fade out].
 const FADES := {"fire": [4.5, 0.6, 1.6], "earthquake": [4.0, 0.4, 1.4], "bugs": [3.6, 0.5, 1.3]}
@@ -167,11 +180,28 @@ var _last_variant: Dictionary = {}   # sound -> index played last time
 
 func _variant(sound: String) -> AudioStream:
 	var options: Array = VARIANTS[sound]
-	var pick := randi() % options.size()
-	if options.size() > 1 and pick == _last_variant.get(sound, -1):
-		pick = (pick + 1 + randi() % (options.size() - 1)) % options.size()
+	var pick := _weighted_pick(sound, options.size())
+	# Not the same one twice running (weighted sounds keep their exact odds instead).
+	if options.size() > 1 and not WEIGHTS.has(sound) and pick == _last_variant.get(sound, -1):
+		pick = _weighted_pick(sound, options.size(), pick)
 	_last_variant[sound] = pick
 	return options[pick]
+
+# A random index, following WEIGHTS when the sound has them; `skip` is never chosen.
+func _weighted_pick(sound: String, count: int, skip: int = -1) -> int:
+	var weights: Array = WEIGHTS.get(sound, [])
+	var total := 0.0
+	for i in count:
+		if i != skip:
+			total += float(weights[i]) if i < weights.size() else 1.0
+	var roll := randf() * total
+	for i in count:
+		if i == skip:
+			continue
+		roll -= float(weights[i]) if i < weights.size() else 1.0
+		if roll <= 0.0:
+			return i
+	return (skip + 1) % count if skip >= 0 else count - 1
 
 func set_enabled(on: bool) -> void:
 	enabled = on

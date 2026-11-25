@@ -203,5 +203,8 @@ func _lock(property: Dictionary) -> void:
 	property["has_golden_lock"] = true
 	Global.action_used()
 	Global.assigning_token = ""
-	Global.banner("%s is locked: it can't be harmed or sold." % property["name"])
+	Sound.play("sparkle")
+	var note := "%s is locked: it can't be harmed or sold." % property["name"]
+	Activity.add(note, "info")
+	Global.banner_requested.emit(note, "")   # (the sparkle, not the banner chime)
 	_build_list()
