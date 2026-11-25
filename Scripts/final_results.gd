@@ -129,7 +129,9 @@ func _show_results() -> void:
 			player_list.add_child(_divider())
 		_add_standing(i, list[i])
 	_build_awards(list)
-	Sound.play("notify")
+	# First place gets the till ringing; everyone else, the sad trumpet.
+	var won: bool = not list.is_empty() and str(list[0].get("name", "")) == str(Global.PLAYER)
+	Sound.play("victory" if won else "lose_trumpet")
 
 func _add_standing(i: int, entry: Dictionary) -> void:
 	var place := _label(ORDINALS[mini(i, ORDINALS.size() - 1)], 46 if i == 0 else 36, GOLD if i == 0 else INK)

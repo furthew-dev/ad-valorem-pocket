@@ -16,8 +16,8 @@ func _ready() -> void:
 	ui_menu_frame.disable_buttons()   # no Home/Back while a Fortuna is on screen
 	ok_btn.pressed.connect(_on_ok_pressed)
 
-func show_card(card: Dictionary) -> void:
-	Sound.play("open")
+func show_card(card: Dictionary, revealed: bool = false) -> void:
+	Sound.play("open" if revealed else "sparkle")   # a card turned up: the sparkle
 	title.text = card["name"]
 	description.text = card["description"]
 	if ResourceLoader.exists(card["art"]):

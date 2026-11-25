@@ -115,8 +115,15 @@ func open_link(link: String) -> void:
 	get_tree().change_scene_to_file(target)
 
 # `reason` is shown next to the amount ("+$12 Rent", "-$10 Sabotage").
+# Money coming in every round (rent) gets the little 90s coin; bigger, one-off money
+# (a sale, a loan, a Fortuna payout) gets the cash register.
+const COIN_REASONS := ["Rent", "Castle Tours", "Gothic Mansion"]
+
 func income_loss(type: String, total: int, reason: String = "") -> void:
-	Sound.play("cash_in" if type == "gain" else "cash_out")
+	if type == "gain":
+		Sound.play("coin" if reason in COIN_REASONS else "cash_in")
+	else:
+		Sound.play("cash_out")
 	animation_requested.emit(type, total, reason)
 
 # Shows the standard pop-up with a single OK button and waits until it is closed.
@@ -247,7 +254,8 @@ func has_fortuna() -> void:
 		round_progress["fortunas"] = 1
 	if round_progress.get("fortunas", 0) == 1:
 		if CASH >= SECOND_FORTUNA_THRESHOLD:
-			await _draw_required_fortuna("You must draw another Fortuna card.")
+			Sound.play("thud")   # another one?!
+		await _draw_required_fortuna("You must draw another Fortuna card.")
 		round_progress["fortunas"] = 2
 
 func _draw_required_fortuna(message: String) -> void:

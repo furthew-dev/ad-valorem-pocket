@@ -155,13 +155,15 @@ func _play_shuffle() -> void:
 	fade.tween_property(_curtain, "modulate:a", 1.0, 0.25)
 	fade.tween_property(_title, "scale", Vector2.ONE, 0.45).from(Vector2(0.6, 0.6)).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	Sound.play("open")
-	# Deal the fan up from the bottom.
+	# Deal the fan up from the bottom (a card sound for every other card: five at once blur).
 	for i in DECK:
 		var card := _cards[i]
 		var deal := card.create_tween().set_parallel(true)
 		deal.tween_property(card, "position", _fan(i), 0.35).set_delay(0.06 * i).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		deal.tween_property(card, "rotation", _fan_angle(i), 0.35).set_delay(0.06 * i)
 		deal.tween_property(card, "modulate:a", 1.0, 0.15).set_delay(0.06 * i)
+		if i % 2 == 0:
+			get_tree().create_timer(0.06 * i).timeout.connect(func(): Sound.play("deal"))
 	await get_tree().create_timer(0.35 + 0.06 * DECK).timeout
 	# Shuffle: pairs of cards swap places with a hop, a few times (until the card is in).
 	var rounds := 0
@@ -169,7 +171,7 @@ func _play_shuffle() -> void:
 		var a := randi() % DECK
 		var b := (a + 1 + randi() % (DECK - 1)) % DECK
 		_swap(a, b)
-		Sound.play("switch")
+		Sound.play("deal")
 		await get_tree().create_timer(0.3).timeout
 		rounds += 1
 		if rounds > 20:
@@ -235,7 +237,7 @@ func reveal(card: Dictionary) -> void:
 	await close.finished
 	_turn_face_up(chosen, card)
 	_flash(chosen)
-	Sound.play("double")
+	Sound.play("sparkle")   # turned over (a good card then gets the "bloop", see Fortunas)
 	var open := chosen.create_tween()
 	open.tween_property(chosen, "scale", Vector2(BIG * 1.08, BIG * 1.08), 0.14).set_ease(Tween.EASE_OUT)
 	open.tween_property(chosen, "scale", Vector2(BIG, BIG), 0.1)

@@ -158,6 +158,7 @@ func _now() -> float:
 func _process(delta: float) -> void:
 	if countdown_name != "":
 		countdown_left = maxf(countdown_left - delta, 0.0)
+		_tick_tock()
 	if not (Network.is_online() and multiplayer.is_server()) or _countdown_token == "":
 		return
 	var now := _now()
@@ -194,6 +195,8 @@ func _sync_countdown(player_name: String, seconds: float) -> void:
 	countdown_name = player_name
 	countdown_left = seconds
 	countdown_changed.emit(player_name, seconds)
+	if player_name == "":
+		Sound.stop_loop("ticktock")
 	if player_name != "" and player_name == my_name() and was != player_name and not my_turn_done:
 		Sound.play("notify")
 		Global.banner("Everyone is waiting on you! %d seconds to end your turn." % int(seconds), "home")
@@ -205,6 +208,21 @@ func _force_end_turn() -> void:
 	Global.banner("Time's up! Your turn was ended.")
 	end_turn()
 
+
+# The countdown's tick-tock, in time with the clock and louder as time runs out. The
+# player being waited on hears it full; everyone else a little quieter.
+const TICK_QUIET := -22.0
+const TICK_LOUD := 3.0
+func _tick_tock() -> void:
+	if countdown_left <= 0.0 or game_over:
+		Sound.stop_loop("ticktock")
+		return
+	var elapsed := LAST_PLAYER_TIME - countdown_left
+	var urgency := clampf(elapsed / LAST_PLAYER_TIME, 0.0, 1.0)
+	var db := lerpf(TICK_QUIET, TICK_LOUD, urgency * urgency)   # creeps up, then climbs fast
+	if countdown_name != my_name() or my_turn_done:
+		db -= 8.0
+	Sound.loop_sync("ticktock", elapsed, db)
 
 # Our name as everyone else sees it (the host may have made it unique, e.g. "Sam 2").
 func my_name() -> String:
@@ -225,7 +243,7 @@ func poke(player_name: String) -> void:
 		if Network.players[id] == player_name:
 			poked[player_name] = true
 			_receive_poke.rpc_id(id, my_name())
-			Sound.play("switch")
+			Sound.play("honk")
 			Global.banner("You poked %s." % player_name)
 			poked_list_changed.emit()
 			return
@@ -234,7 +252,10 @@ func poke(player_name: String) -> void:
 func _receive_poke(from_name: String) -> void:
 	if my_turn_done:
 		return
-	Global.banner("%s is waiting on you!" % from_name, "home")
+	Sound.play("honk")   # instead of the banner chime
+	var message := "%s is waiting on you!" % from_name
+	Activity.add(message, "info")
+	Global.banner_requested.emit(message, "home")
 
 func _on_players_changed() -> void:
 	if not (Network.in_game and multiplayer.is_server()):
@@ -428,6 +449,7 @@ func quit_to_title() -> void:
 func reset(clear_save: bool = true) -> void:
 	if clear_save:
 		SaveGame.clear()
+	Sound.stop_loop("ticktock")
 	Global.starting_hand_pending = false   # left before the unboxing showed: don't show it later
 	my_turn_done = false
 	waiting_on = []

@@ -378,10 +378,10 @@ func _on_sign() -> void:
 	_cancel.disabled = true
 	_minus.disabled = true
 	_plus.disabled = true
-	Sound.play("switch")
-	# The pen writes the name across the line...
+	Sound.play("scribble")
+	# The pen writes the name across the line (as long as the scribble lasts)...
 	var pen := _signature.create_tween()
-	pen.tween_property(_signature, "visible_ratio", 1.0, 0.7)
+	pen.tween_property(_signature, "visible_ratio", 1.0, 1.1)
 	await pen.finished
 	await get_tree().create_timer(0.2).timeout
 	# ...then the notary stamp comes down hard.
@@ -392,7 +392,7 @@ func _on_sign() -> void:
 	drop.tween_property(_stamp, "scale", Vector2.ONE * STAMP_SCALE, 0.16).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
 	drop.tween_property(_stamp, "modulate:a", 0.88, 0.12)
 	await drop.finished
-	Sound.play("gavel")
+	Sound.play("stamp")
 	_thud()
 	_ink_specks()
 	await get_tree().create_timer(1.1).timeout

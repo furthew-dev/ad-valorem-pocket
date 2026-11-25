@@ -700,6 +700,10 @@ const CARD_SOUNDS := {
 	"flood": "storm", "tornado": "storm",
 	"mold": "water_drop",
 	"vandalism": "spray_paint",
+	"fire": "fire", "earthquake": "earthquake",            # fade in and out (Sound.FADES)
+	"termites": "bugs", "pests": "bugs",
+	"lawsuit_fall": "gavel", "lawsuit_asbestos": "gavel",
+	"breach_of_contract": "paper_rip", "wasted": "paper_rip",
 }
 
 ## ---- ENTRY POINT: call this when a Fortuna must be drawn ----
@@ -723,7 +727,7 @@ func _play_fortuna(saboteur_id: int, mystery: bool = false) -> void:
 		Global.banner("You're lucky! No more Fortunas available")
 		return
 	if curtain:
-		await curtain.reveal(card)
+		await curtain.reveal(card)   # (it plays the sparkle as the card turns over)
 	fortuna_drawn.emit(card)
 	if CARD_SOUNDS.has(card.get("key", "")):
 		Sound.play(CARD_SOUNDS[card["key"]])
@@ -731,7 +735,9 @@ func _play_fortuna(saboteur_id: int, mystery: bool = false) -> void:
 			get_tree().create_timer(1.2).timeout.connect(func(): Sound.play("water_drop"))
 	elif is_unlucky(card):
 		Sound.play("aww")
-	await show_card(card)   # waits until the player presses OK
+	elif _is_good_news(card) and saboteur_id == 0:
+		Sound.play("bloop")
+	await show_card(card, curtain != null)   # waits until the player presses OK
 
 	if card["keep_in_hand"]:
 		fortunas_owned.append(card)
@@ -748,6 +754,10 @@ func _play_fortuna(saboteur_id: int, mystery: bool = false) -> void:
 	if message != "":
 		Global.banner(message)
 	fortuna_resolved.emit(card, message)
+
+# Money, tokens or an upgrade for you (or a card you keep for later): the happy "bloop".
+func _is_good_news(card: Dictionary) -> bool:
+	return card.get("keep_in_hand", false) or card.get("effect", "") in BENEFICIAL_EFFECTS
 
 # A card that hurts you (not a good one, not one you keep, not Swap where you choose).
 func is_unlucky(card: Dictionary) -> bool:
@@ -814,6 +824,7 @@ func _resolve_for_saboteur(card_key: String, victim_name: String) -> void:
 	var card: Dictionary = all_fortunas[card_key].duplicate()
 	card["key"] = card_key
 	Global.banner("Sabotage paid off! %s drew %s for you." % [victim_name, card["name"]])
+	Sound.play("bloop")
 	await show_card(card)
 	var message: String = await resolve_fortuna(card)
 	if message != "":
@@ -874,10 +885,11 @@ func _play_sabotage_curtain(saboteur_name: String) -> void:
 
 
 # Puts Scenes/fortuna.tscn on top of whatever screen is open and waits for OK.
-func show_card(card: Dictionary) -> void:
+# revealed: the mystery draw already played the sparkle, so the card screen just opens.
+func show_card(card: Dictionary, revealed: bool = false) -> void:
 	var screen = load("res://Scenes/fortuna.tscn").instantiate()
 	get_tree().root.add_child(screen)
-	screen.show_card(card)
+	screen.show_card(card, revealed)
 	await screen.dismissed
 
 

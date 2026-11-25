@@ -69,6 +69,7 @@ var _pulling := false
 var _pull_start := Vector2.ZERO
 var _pull := Vector2.ZERO
 var _last_notch := 0
+var _stretch: AudioStreamPlayer   # the rubber band's creak while it's drawn back
 var _idle_time := 0.0
 var _title: Label
 var _hint: Label
@@ -371,7 +372,7 @@ func _on_tray_input(event: InputEvent) -> void:
 			_pull = Vector2.ZERO
 			_last_notch = 0
 			(find_child("how", true, false) as Label).text = "Press, pull back, and let go to throw"
-			_click(0.08, 1.3)   # picking it up
+			_stretch = Sound.play("rubber_pull")   # one of two stretch recordings
 		elif _pulling:
 			_pulling = false
 			_release()
@@ -389,13 +390,10 @@ func _follow_pull() -> void:
 	_die.position = spot
 	_die.rotation.x = -_pull.y / MAX_PULL * 0.35
 	_die.rotation.z = _pull.x / MAX_PULL * 0.35
-	var notch := int(_pull.length() / (MAX_PULL / 5.0))
-	if notch != _last_notch:
-		_last_notch = notch
-		_click(0.04 + 0.03 * notch, 1.1 + 0.08 * notch)
 	_band.queue_redraw()
 
 func _release() -> void:
+	_stop_stretch()
 	if _pull.length() < MIN_PULL:   # not a throw: spring back and say how
 		var spring := create_tween()
 		spring.tween_method(func(p: Vector3): _die.position = p, _die.position, REST, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -432,7 +430,12 @@ func _launch(direction: Vector2, power: float) -> void:
 	_settled_sound = false
 	_pull = Vector2.ZERO
 	_band.queue_redraw()
-	_click(0.35 + 0.5 * power, 1.4)   # the snap of the band
+	Sound.play("rubber_launch")   # the band lets go
+
+func _stop_stretch() -> void:
+	if is_instance_valid(_stretch) and _stretch.playing and _stretch.stream in Sound.VARIANTS["rubber_pull"]:
+		_stretch.stop()   # (only if that voice is still ours)
+	_stretch = null
 
 # A throw without a finger (tests): straight away from you at a good strength.
 func _roll() -> void:
@@ -599,7 +602,12 @@ func _landed(sold: bool) -> void:
 		_reset_die()
 		return
 	_done = true
-	Sound.play("continue" if sold else "aww")
+	if sold:
+		Sound.play("continue")
+	elif _agent:
+		Sound.play("thud")        # 5 of 6 sides said SOLD... and it still failed
+	else:
+		Sound.play("sale_fail")   # an "aww" or a sad trumpet, at random
 	await get_tree().create_timer(1.4).timeout
 	var outcome: Dictionary = _settle.call(sold)
 	get_tree().change_scene_to_file(DESTINATION)
