@@ -32,6 +32,8 @@ func _ready() -> void:
 	options.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for picture in ["TextureRect", "TextureRect2", "TextureRect3"]:
 		(options.get_node(picture) as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for note in ["resume_game", "join_game", "host_game"]:   # black writing on the sticky notes
+		ColorTheme.keep_in_glass(options.get_node(note))
 	_theme_art()
 	ColorTheme.theme_changed.connect(func(_key): _theme_art())
 	_add_how_to_play()

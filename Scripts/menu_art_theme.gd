@@ -73,6 +73,6 @@ static func apply(item: CanvasItem, picture: String) -> void:
 	for region in REGIONS[picture]:
 		var average: Color = REGIONS[picture][region][0]
 		var target := ColorTheme.map_color(Color(REGIONS[picture][region][1]), "fill")
-		if ColorTheme.current != "default":
+		if ColorTheme.current != "default" and not ColorTheme.is_glass():   # Glass: the desk keeps its own colours
 			multipliers[region] = Vector3(target.r / maxf(average.r, 0.02), target.g / maxf(average.g, 0.02), target.b / maxf(average.b, 0.02))
 	material.set_shader_parameter("mul", multipliers)

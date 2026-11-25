@@ -14,8 +14,8 @@ extends Node
 
 signal theme_changed(key: String)
 
-const NAMES := {"default": "Default", "dark": "Dark Mode", "rosey": "Rosey", "retro": "Retro", "neon": "Neon"}
-const ORDER := ["default", "dark", "rosey", "retro", "neon"]
+const NAMES := {"default": "Default", "dark": "Dark Mode", "rosey": "Rosey", "retro": "Retro", "neon": "Neon", "glass": "Glass"}
+const ORDER := ["default", "dark", "rosey", "retro", "neon", "glass"]
 const SETTINGS_SECTION := "display"
 
 const THEMES := {
@@ -40,20 +40,61 @@ const THEMES := {
 		"ink": "7df9ff",
 		"all_text": "7df9ff",   # every bit of writing glows like the app icons
 	},
+	# Glass: frosted, see-through panels over a soft colourful backdrop. Colours aren't a
+	# table: every palette fill becomes a light, translucent tint of itself (map_color),
+	# panels blur whatever is behind them, full-screen backgrounds turn clear so the
+	# backdrop shows, and icons and writing are white. See GLASS below.
+	"glass": {"fill": {}, "text": {}, "ink": "f4f7ff", "all_text": "f7f9ff", "glass": true},
 }
 
 const TINT_SHADER_CODE := """
 shader_type canvas_item;
 uniform vec3 multiply = vec3(1.0);
 uniform vec4 replace_color = vec4(0.0);   // a > 0: draw every pixel in this colour
+uniform float alpha_mul = 1.0;            // Glass: icons a little see-through
 void fragment() {
 	if (replace_color.a > 0.0) {
 		COLOR.rgb = replace_color.rgb;
 	} else {
 		COLOR.rgb = clamp(COLOR.rgb * multiply, 0.0, 1.0);
 	}
+	COLOR.a *= alpha_mul;
 }
 """
+
+# Frosted glass: a soft blur of what's already drawn behind, mixed with a tint. For a
+# panel it's drawn in the panel's rounded shape just behind it (the panel's own
+# translucent colour goes on top); for flat artwork (the top/bottom bars, the waves) the
+# picture's own outline is the shape.
+const GLASS_SHADER_CODE := """
+shader_type canvas_item;
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear;
+uniform float radius = 22.0;              // blur size in screen pixels
+uniform vec4 tint = vec4(1.0, 1.0, 1.0, 0.0);
+uniform bool texture_shape = false;       // use the picture's outline as the glass shape
+void fragment() {
+	vec2 step_px = SCREEN_PIXEL_SIZE * radius;
+	// A golden-angle spiral of samples, turned a random amount at every pixel: smooth
+	// frosting with a fine grain instead of rings.
+	float spin = fract(sin(dot(FRAGCOORD.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2832;
+	vec3 sum = vec3(0.0);
+	float total = 0.0;
+	for (int i = 0; i < 24; i++) {
+		float r = sqrt((float(i) + 0.5) / 24.0);
+		float a = float(i) * 2.39996 + spin;
+		float w = 1.0 - 0.5 * r;
+		sum += texture(screen_tex, SCREEN_UV + vec2(cos(a), sin(a)) * r * step_px).rgb * w;
+		total += w;
+	}
+	vec3 frosted = mix(sum / total, vec3(1.0), 0.06);   // a hint of milkiness
+	float shape = texture_shape ? texture(TEXTURE, UV).a : 1.0;
+	COLOR = vec4(mix(frosted, tint.rgb, tint.a), shape * COLOR.a);
+}
+"""
+const GLASS_FILL_ALPHA := 0.26    # how much of a panel's own colour shows over the blur
+const GLASS_BORDER := Color(1, 1, 1, 0.45)
+const GLASS_ICON_ALPHA := 0.88
+const GLASS_CLEAR := Color("1b1440")
 const MONO_SHARE := 0.8   # a texture counts as one-colour art when this much of it is one colour
 
 var current := "default"
@@ -69,6 +110,10 @@ var _themes_seen: Array = []       # Theme resources already recoloured for `cur
 func _ready() -> void:
 	_tint_shader = Shader.new()
 	_tint_shader.code = TINT_SHADER_CODE
+	_glass_shader = Shader.new()
+	_glass_shader.code = GLASS_SHADER_CODE
+	_glass_panel_material = ShaderMaterial.new()
+	_glass_panel_material.shader = _glass_shader
 	_default_clear = ProjectSettings.get_setting("rendering/environment/defaults/default_clear_color", Color.BLACK)
 	get_tree().node_added.connect(_on_node_added)
 	var saved: String = Network.load_setting(SETTINGS_SECTION, "theme", "default")
@@ -91,7 +136,8 @@ func set_theme(key: String, save: bool = true) -> void:
 	if save:
 		Network.save_setting(SETTINGS_SECTION, "theme", key)
 	_themes_seen.clear()
-	RenderingServer.set_default_clear_color(map_color(_default_clear, "fill"))
+	RenderingServer.set_default_clear_color(GLASS_CLEAR if is_glass() else map_color(_default_clear, "fill"))
+	_show_backdrop(is_glass())
 	var theme := ThemeDB.get_project_theme()
 	if theme:
 		_recolor_theme(theme)
@@ -106,6 +152,12 @@ func map_color(color: Color, role: String = "fill") -> Color:
 	if current == "default":
 		return color
 	var theme: Dictionary = THEMES[current]
+	if theme.get("glass", false) and role != "text" and not (role == "ink" or (role != "fill" and _is_ink(color))):
+		if not _is_palette(color):
+			return color
+		if role == "border":
+			return Color(GLASS_BORDER, GLASS_BORDER.a * color.a)
+		return Color(color.lightened(0.3), color.a * GLASS_FILL_ALPHA)
 	if role == "text" and theme.has("all_text"):
 		return Color(Color(theme["all_text"]), color.a)
 	if role != "fill" and theme["ink"] != "" and _is_ink(color):
@@ -157,9 +209,15 @@ func _flush() -> void:
 func keep(node: Node) -> void:
 	node.set_meta("ct_skip", true)
 
+# Keeps a node as designed in the Glass theme only (the sticky notes on the desk).
+func keep_in_glass(node: Node) -> void:
+	node.set_meta("ct_glass_keep", true)
+
 func _recolor_node(node: Node) -> void:
 	if node.has_meta("ct_skip"):
 		return
+	if node.has_meta("ct_glass_keep") and is_glass():
+		return   # drawn on an illustration: Glass leaves it as designed
 	if node is Control:
 		var control := node as Control
 		for prop_name in _override_props(control):
@@ -181,6 +239,8 @@ func _recolor_node(node: Node) -> void:
 		item.modulate = _remap(item, "modulate", item.modulate, "fill")
 		item.self_modulate = _remap(item, "self_modulate", item.self_modulate, "fill")
 		_tint_texture(item)
+	if node is Control:
+		_glass_control(node as Control)
 
 # The theme_override_colors/... and theme_override_styles/... property names of a kind of
 # control. Asking every node for its whole property list was the slowest part of
@@ -246,7 +306,18 @@ func _tint_texture(item: CanvasItem) -> void:
 		return
 	var base := _mono_color(texture)
 	var material: ShaderMaterial = null
-	if base != "" and current != "default":
+	if base != "" and is_glass() and not _is_card_art(texture):
+		var from := Color(base)
+		material = ShaderMaterial.new()
+		if _is_ink(from) or _is_small(item):   # icons: soft, slightly see-through white
+			material.shader = _tint_shader
+			material.set_shader_parameter("replace_color", Color(Color(THEMES["glass"]["ink"]), 1.0))
+			material.set_shader_parameter("alpha_mul", GLASS_ICON_ALPHA)
+		else:   # flat shapes (bars, waves, frames): frosted glass in the picture's outline
+			material.shader = _glass_shader
+			material.set_shader_parameter("texture_shape", true)
+			material.set_shader_parameter("tint", map_color(from, "fill"))
+	elif base != "" and current != "default":
 		var from := Color(base)
 		var role := "ink" if _is_ink(from) else "fill"
 		var to := map_color(from, role)
@@ -322,3 +393,142 @@ func _mono_color(texture: Texture2D) -> String:
 					result = best
 	_mono_cache[texture] = result
 	return result
+
+
+## ---- GLASS ----
+var _glass_shader: Shader
+var _glass_panel_material: ShaderMaterial
+var _backdrop: CanvasLayer
+var _palette: Dictionary = {}   # every default-palette colour (hex)
+
+# Icon-sized artwork (the Back / Home / Menu buttons...) rather than a big shape.
+func _is_small(item: CanvasItem) -> bool:
+	if item is Control:
+		var size: Vector2 = (item as Control).size * (item as Control).get_global_transform().get_scale()
+		return size.x > 0 and size.x <= 200 and size.y <= 200
+	return false
+
+func is_glass() -> bool:
+	return THEMES.get(current, {}).get("glass", false)
+
+func _is_palette(color: Color) -> bool:
+	if _palette.is_empty():
+		for hex in THEMES["dark"]["fill"]:
+			_palette[hex] = true
+		_palette["f6f2e1"] = true
+	return _palette.has(color.to_html(false))
+
+# A panel in a palette colour gets a frosted blur drawn just behind it, in its own
+# rounded shape. Full-screen backgrounds turn clear instead, so the backdrop shows.
+func _glass_control(control: Control) -> void:
+	var style := _palette_panel_style(control)
+	var background := (control is ColorRect and control.has_meta("ct_color")) or style != null
+	background = background and _is_full_screen(control)
+	if is_glass() and background:
+		if not control.has_meta("ct_glass_bg"):
+			control.set_meta("ct_glass_bg", control.self_modulate)
+		control.self_modulate.a = 0.0
+		_remove_blur(control)
+		return
+	if control.has_meta("ct_glass_bg") and not is_glass():
+		control.self_modulate = control.get_meta("ct_glass_bg")
+		control.remove_meta("ct_glass_bg")
+	if is_glass() and style != null:
+		_add_blur(control)
+	else:
+		_remove_blur(control)
+
+func _palette_panel_style(control: Control) -> StyleBoxFlat:
+	if not (control is Panel or control is PanelContainer):
+		return null
+	var style := control.get_theme_stylebox("panel")
+	if style is StyleBoxFlat and style.has_meta("ct_bg_color"):
+		return style
+	return null
+
+func _is_full_screen(control: Control) -> bool:
+	var screen := control.get_viewport_rect().size
+	var rect := Rect2(control.global_position, control.size * control.get_global_transform().get_scale())
+	return rect.size.x >= screen.x * 0.95 and rect.size.y >= screen.y * 0.8
+
+func _add_blur(control: Control) -> void:
+	if not control.has_meta("ct_glass_rid"):
+		var rid := RenderingServer.canvas_item_create()
+		RenderingServer.canvas_item_set_parent(rid, control.get_canvas_item())
+		RenderingServer.canvas_item_set_draw_behind_parent(rid, true)
+		RenderingServer.canvas_item_set_material(rid, _glass_panel_material.get_rid())
+		control.set_meta("ct_glass_rid", rid)
+		control.resized.connect(_draw_blur.bind(control))
+		control.tree_exiting.connect(_remove_blur.bind(control))
+	_draw_blur(control)
+
+func _draw_blur(control: Control) -> void:
+	if not control.has_meta("ct_glass_rid"):
+		return
+	var rid: RID = control.get_meta("ct_glass_rid")
+	RenderingServer.canvas_item_clear(rid)
+	var style := control.get_theme_stylebox("panel") as StyleBoxFlat
+	if style == null:
+		return
+	var shape := StyleBoxFlat.new()   # the panel's outline, drawn solid for the blur
+	shape.bg_color = Color.WHITE
+	shape.anti_aliasing = true
+	for corner in 4:
+		shape.set_corner_radius(corner, style.get_corner_radius(corner))
+	for side in 4:
+		shape.set_expand_margin(side, style.get_expand_margin(side))
+	shape.draw(rid, Rect2(Vector2.ZERO, control.size))
+
+func _remove_blur(control: Control) -> void:
+	if not control.has_meta("ct_glass_rid"):
+		return
+	RenderingServer.free_rid(control.get_meta("ct_glass_rid"))
+	control.remove_meta("ct_glass_rid")
+	var redraw := _draw_blur.bind(control)
+	if control.resized.is_connected(redraw):
+		control.resized.disconnect(redraw)
+	var remove := _remove_blur.bind(control)
+	if control.tree_exiting.is_connected(remove):
+		control.tree_exiting.disconnect(remove)
+
+# Behind everything: deep indigo with soft blobs of colour, so the glass has something
+# to blur. Drawn small and stretched smooth (cheap).
+func _show_backdrop(on: bool) -> void:
+	if not on:
+		if _backdrop:
+			_backdrop.visible = false
+		return
+	if _backdrop == null:
+		_backdrop = CanvasLayer.new()
+		_backdrop.layer = -100
+		var picture := TextureRect.new()
+		picture.texture = ImageTexture.create_from_image(_backdrop_image())
+		picture.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		picture.stretch_mode = TextureRect.STRETCH_SCALE
+		picture.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		picture.set_meta("ct_skip", true)
+		_backdrop.add_child(picture)
+		add_child(_backdrop)
+	_backdrop.visible = true
+
+const BACKDROP_BLOBS := [   # [x, y (0-1), radius (of the width), colour]
+	[0.15, 0.12, 0.75, Color("ff5fa2")], [0.95, 0.30, 0.70, Color("ffb347")],
+	[0.10, 0.58, 0.70, Color("3ad6ff")], [0.85, 0.78, 0.80, Color("8a5cff")],
+	[0.40, 0.98, 0.60, Color("2de0a5")], [0.55, 0.45, 0.45, Color("ff7b54")],
+]
+func _backdrop_image() -> Image:
+	var w := 90
+	var h := 160
+	var image := Image.create(w, h, false, Image.FORMAT_RGB8)
+	var top := Color("241a5c")
+	var bottom := Color("0f2a4a")
+	for y in h:
+		for x in w:
+			var c := top.lerp(bottom, float(y) / h)
+			for blob in BACKDROP_BLOBS:
+				var d: float = Vector2(x / float(w) - float(blob[0]), (y / float(h) - float(blob[1])) * h / w).length() / float(blob[2])
+				c = c.lerp(blob[3] as Color, clampf(1.0 - d, 0.0, 1.0) * 0.75)
+			image.set_pixel(x, y, c.darkened(0.08))
+	return image
