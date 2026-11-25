@@ -760,7 +760,7 @@ const LOTS := {
 	"inheritance": {
 		"name": "Inheritance",
 		"value": 10,
-		"art": "res://Assets/fortunas/hidden cash.png",
+		"art": "res://Assets/icons/land_icon.png",
 		"description": "Inherited land. Use a Contractor to build any property here in any condition. Land value: $10.",
 	},
 	"land_expansion": {

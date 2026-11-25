@@ -339,7 +339,7 @@ func _on_open_all() -> void:
 	_busy = false
 
 func _all_open() -> void:
-	_hint.text = "Room to build: use a Contractor on it." if not gift.is_empty() else "Welcome to the market! They pay rent every round."
+	_hint.text = "Room to build: use a Contractor on it." if not gift.is_empty() else "They pay you rent every round."
 	var hide := _open_all.create_tween()
 	hide.tween_property(_open_all, "modulate:a", 0.0, 0.15)
 	hide.tween_callback(func(): _open_all.visible = false)

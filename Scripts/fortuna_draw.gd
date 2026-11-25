@@ -3,7 +3,10 @@ extends CanvasLayer
 ## fans out on a dark curtain and shuffles while the card is drawn. Then one card rises,
 ## trembles, and flips over to show the drawn card's picture with a flash, and the normal
 ## Fortuna card screen (fortuna.tscn, layer 100) takes over on top.
-##     var draw = FortunaDraw.start(get_tree())    # right away, before the card is drawn
+## After a few shuffles the player picks any card (luck of the draw); that one turns over.
+## A second Fortuna in the same round shows the first pick face-up in its place, and the
+## player picks from the rest.
+##     var draw = FortunaDraw.start(get_tree(), earlier)   # earlier: [{slot, card}] this round
 ##     var card = await draw_fortuna()               # (the deck shuffles meanwhile)
 ##     await draw.reveal(card)                       # or draw.cancel() if nothing was drawn
 ## Like the sabotage curtain (Fortunas._play_sabotage_curtain), it sits under the card.
@@ -31,11 +34,20 @@ var _title: Label
 var _cards: Array[Control] = []
 var _shuffled := false
 var _started := 0
+var _earlier: Array = []          # [{slot, card}] already drawn this round: shown face up
+var _picking := false
+var _picked: Control = null
+var picked_slot := -1             # where the player's pick sat in the fan (for the next draw)
+var _bobs: Array = []
+const AUTO_PICK := 25.0           # nobody tapped: fate picks for them
+
+signal picked
 
 
-static func start(tree: SceneTree) -> Node:
+static func start(tree: SceneTree, earlier: Array = []) -> Node:
 	var draw = load("res://Scripts/fortuna_draw.gd").new()
 	draw.name = "FortunaDraw"
+	draw._earlier = earlier
 	tree.root.add_child(draw)
 	return draw
 
@@ -83,6 +95,19 @@ func _build() -> void:
 		card.modulate.a = 0.0
 		_curtain.add_child(card)
 		_cards.append(card)
+		var tap := Button.new()   # tap a card to pick it (only while picking)
+		tap.flat = true
+		tap.focus_mode = Control.FOCUS_NONE
+		tap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+			tap.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+		tap.pressed.connect(func(): _pick(card))
+		card.add_child(tap)
+	for entry in _earlier:   # this round's earlier pick stays face up where it was
+		var slot: int = clampi(int(entry.get("slot", DECK / 2)), 0, DECK - 1)
+		_turn_face_up(_cards[slot], entry.get("card", {}))
+		_cards[slot].set_meta("used", true)
+		_cards[slot].modulate = Color(0.75, 0.75, 0.75, 0.0)
 	for node in find_children("*", "", true, false):
 		ColorTheme.keep(node)   # the same in every theme, like the Fortuna card itself
 	ColorTheme.keep(_curtain)
@@ -165,18 +190,70 @@ func _play_shuffle() -> void:
 		if i % 2 == 0:
 			get_tree().create_timer(0.06 * i).timeout.connect(func(): Sound.play("deal"))
 	await get_tree().create_timer(0.35 + 0.06 * DECK).timeout
-	# Shuffle: pairs of cards swap places with a hop, a few times (until the card is in).
-	var rounds := 0
-	while is_inside_tree() and (rounds < 3 or not _card_ready):
-		var a := randi() % DECK
-		var b := (a + 1 + randi() % (DECK - 1)) % DECK
+	# Shuffle: pairs of face-down cards swap places with a hop, a few times.
+	var free := _free_slots()
+	for rounds in 4:
+		if not is_inside_tree() or free.size() < 2:
+			break
+		var a: int = free.pick_random()
+		var b: int = a
+		while b == a:
+			b = free.pick_random()
 		_swap(a, b)
 		Sound.play("deal")
 		await get_tree().create_timer(0.3).timeout
-		rounds += 1
-		if rounds > 20:
-			break   # never shuffle forever (a lost connection is handled elsewhere)
 	_shuffled = true
+	_start_picking()
+
+# Slots holding face-down cards (an earlier pick this round stays put, face up).
+func _free_slots() -> Array:
+	var free := []
+	for i in DECK:
+		if not _cards[i].has_meta("used"):
+			free.append(i)
+	return free
+
+
+## ---- PICKING ----
+# The face-down cards bob gently, waiting for a tap. Any one will do.
+func _start_picking() -> void:
+	if not is_inside_tree():
+		return
+	_picking = true
+	var sub: Label = _curtain.get_node("sub")
+	sub.text = "Pick a card, any card!"
+	sub.pivot_offset = sub.size / 2.0
+	var nudge := sub.create_tween()
+	nudge.tween_property(sub, "scale", Vector2(1.1, 1.1), 0.15)
+	nudge.tween_property(sub, "scale", Vector2.ONE, 0.2)
+	for i in _free_slots():
+		var card := _cards[i]
+		var rest := _fan(i)
+		var bob := card.create_tween().set_loops()
+		bob.tween_property(card, "position:y", rest.y - 14, 0.5 + 0.07 * i).set_trans(Tween.TRANS_SINE)
+		bob.tween_property(card, "position:y", rest.y, 0.5 + 0.07 * i).set_trans(Tween.TRANS_SINE)
+		_bobs.append(bob)
+	var timer := Timer.new()   # (a child, so it goes away with this screen)
+	timer.one_shot = true
+	timer.wait_time = AUTO_PICK
+	timer.timeout.connect(func():
+		if _picking:
+			_pick(_cards[_free_slots().pick_random()]))
+	add_child(timer)
+	timer.start()
+
+func _pick(card: Control) -> void:
+	if not _picking or card.has_meta("used"):
+		return
+	_picking = false
+	_picked = card
+	picked_slot = _cards.find(card)
+	for bob in _bobs:
+		if bob.is_valid():
+			bob.kill()
+	_bobs.clear()
+	Sound.play("deal")
+	picked.emit()
 
 var _card_ready := false
 
@@ -204,7 +281,9 @@ func reveal(card: Dictionary) -> void:
 		await get_tree().process_frame
 	while Time.get_ticks_msec() - _started < MIN_SHUFFLE * 1000.0:
 		await get_tree().process_frame
-	var chosen := _cards[DECK / 2]
+	if _picked == null:
+		await picked   # the player hasn't chosen yet
+	var chosen := _picked
 	_curtain.move_child(chosen, -1)
 	(_curtain.get_node("sub") as Label).text = card.get("name", "")
 	(_curtain.get_node("sub") as Label).modulate.a = 0.0
@@ -282,6 +361,7 @@ func _fade_out() -> void:
 # Nothing was drawn (the deck ran out): just fade away.
 func cancel() -> void:
 	_card_ready = true
+	_picking = false
 	var fade := create_tween()
 	fade.tween_property(_curtain, "modulate:a", 0.0, 0.25)
 	fade.tween_callback(queue_free)

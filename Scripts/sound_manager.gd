@@ -91,7 +91,7 @@ const VARIANTS := {
 # How often each variant is picked (same order as VARIANTS); missing = all equal.
 # The sad trumpet is rarer so it doesn't wear thin.
 const WEIGHTS := {"sale_fail": [30, 30, 30, 10]}
-const VOLUME := {"deal": 10.0, "thud": -6.0, "lose_trumpet": -4.0, "sale_fail": -1.0, "lose_outro": -3.0,
+const VOLUME := {"click": -20.0, "deal": 10.0, "thud": -6.0, "lose_trumpet": -4.0, "sale_fail": -1.0, "lose_outro": -3.0,
 		"rubber_pull": 9.0, "scribble": 14.0, "bugs": 8.0, "fire": -6.0, "victory": 4.0, "sparkle": -3.0}
 # Long recordings that play just a part, fading in and out: [seconds, fade in, fade out].
 const FADES := {"fire": [4.5, 0.6, 1.6], "earthquake": [4.0, 0.4, 1.4], "bugs": [3.6, 0.5, 1.3]}

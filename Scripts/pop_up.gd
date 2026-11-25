@@ -1,5 +1,6 @@
 extends CanvasLayer
-## Reusable pop-up. layout("Question?", "Yes", "No"): left_pressed fires for the first
+## Reusable pop-up: a compact framed message over a darkened screen, sized to its text
+## (palette colours, so every theme recolours it). layout("Question?", "Yes", "No"): left_pressed fires for the first
 ## button, right_pressed for the second. Pass "" as the second label for a single OK button.
 ## The pop-up frees itself after either button, so callers can `await popup.tree_exited`.
 ##
@@ -16,6 +17,7 @@ const INK := Color(0.1, 0.1, 0.1)
 const ERROR_INK := Color("b03030")
 
 @onready var panel: Panel = $CanvasLayer/Panel
+@onready var frame: PanelContainer = $CanvasLayer/Panel/TextureRect
 @onready var vbox: VBoxContainer = $CanvasLayer/Panel/TextureRect/VBoxContainer
 @onready var question: Label = $CanvasLayer/Panel/TextureRect/VBoxContainer/question
 @onready var buttons: HBoxContainer = $CanvasLayer/Panel/TextureRect/VBoxContainer/HBoxContainer
@@ -33,11 +35,21 @@ var _error_label: Label
 func _ready() -> void:
 	Sound.play("open")
 	_style_buttons()
+	_pop_in.call_deferred()
+
+# A quick pop as it appears (the dimming fades in with it).
+func _pop_in() -> void:
+	frame.pivot_offset = frame.size / 2.0
+	frame.scale = Vector2(0.9, 0.9)
+	panel.modulate.a = 0.0
+	var tween := create_tween().set_parallel(true)
+	tween.tween_property(frame, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(panel, "modulate:a", 1.0, 0.12)
 
 # Each button gets its own pencil-drawn box, so "Start Server" and "Back" read as two
 # buttons rather than one sentence.
 func _style_buttons() -> void:
-	buttons.add_theme_constant_override("separation", 24)
+	buttons.add_theme_constant_override("separation", 20)
 	for button in [no, yes]:
 		InkBox.apply(button)
 		button.clip_text = true   # let the box take its share of the row; the text then shrinks to fit
@@ -108,7 +120,6 @@ func add_note(text: String, size: int = 30) -> Label:
 	note.add_theme_color_override("font_color", Color(INK, 0.7))
 	vbox.add_child(note)
 	vbox.move_child(note, question.get_index() + 1)
-	question.custom_minimum_size.y = 160   # less empty space under a short question
 	_fit_note(note, size)
 	return note
 
@@ -124,12 +135,11 @@ func _fit_note(note: Label, size: int) -> void:
 
 # Adds a text box above the buttons and returns it.
 func add_field(placeholder: String, max_length: int = 0, uppercase: bool = false) -> LineEdit:
-	question.custom_minimum_size.y = 0   # make room on the paper
 	var field := LineEdit.new()
 	field.placeholder_text = placeholder
 	field.max_length = max_length
 	field.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	field.custom_minimum_size = Vector2(0, 80)
+	field.custom_minimum_size = Vector2(0, 72)
 	field.add_theme_font_override("font", FONT)
 	field.add_theme_font_size_override("font_size", 36)
 	field.add_theme_color_override("font_color", INK)

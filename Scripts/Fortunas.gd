@@ -718,8 +718,15 @@ func play_fortuna(saboteur_id: int = 0, mystery: bool = false) -> void:
 	_saboteur_id = 0
 	_busy = false
 
+# This round's mystery picks ([{slot, card}]): a second draw shows the first one face up.
+var _round_picks: Array = []
+var _picks_round := -1
+
 func _play_fortuna(saboteur_id: int, mystery: bool = false) -> void:
-	var curtain: Node = load("res://Scripts/fortuna_draw.gd").start(get_tree()) if mystery else null
+	if _picks_round != Global.ROUND:
+		_round_picks = []
+		_picks_round = Global.ROUND
+	var curtain: Node = load("res://Scripts/fortuna_draw.gd").start(get_tree(), _round_picks.duplicate()) if mystery else null
 	var card := await draw_fortuna()   # (online this asks the host; the deck shuffles meanwhile)
 	if card.is_empty():
 		if curtain:
@@ -727,7 +734,8 @@ func _play_fortuna(saboteur_id: int, mystery: bool = false) -> void:
 		Global.banner("You're lucky! No more Fortunas available")
 		return
 	if curtain:
-		await curtain.reveal(card)   # (it plays the sparkle as the card turns over)
+		await curtain.reveal(card)   # the player picks a card; it plays the sparkle as it turns over
+		_round_picks.append({"slot": curtain.picked_slot, "card": card})
 	fortuna_drawn.emit(card)
 	if CARD_SOUNDS.has(card.get("key", "")):
 		Sound.play(CARD_SOUNDS[card["key"]])
@@ -737,7 +745,9 @@ func _play_fortuna(saboteur_id: int, mystery: bool = false) -> void:
 		Sound.play("aww")
 	elif _is_good_news(card) and saboteur_id == 0:
 		Sound.play("bloop")
-	await show_card(card, curtain != null)   # waits until the player presses OK
+	# An Inheritance goes straight from the reveal to opening its deed (resolve_fortuna).
+	if not (card.get("key", "") == "inheritance" and saboteur_id == 0):
+		await show_card(card, curtain != null)   # waits until the player presses OK
 
 	if card["keep_in_hand"]:
 		fortunas_owned.append(card)

@@ -463,8 +463,10 @@ func pay_loan(loan_number: int, amount: int) -> bool:
 func _celebrate_paid_off(loan_number: int) -> void:
 	Stats.add("loans_paid_off")
 	ConfettiFx.play(get_tree())
-	Sound.play("saved")
-	banner("Loan #%d is paid off!" % loan_number if all_loans() > 0 else "Loan paid off! You're debt free!")
+	Sound.play("bonus")   # the bonus jingle (instead of the banner chime)
+	var note := "Loan #%d is paid off!" % loan_number if all_loans() > 0 else "Loan paid off! You're debt free!"
+	Activity.add(note, "info")
+	banner_requested.emit(note, "")
 
 
 ## ---- ACTION TOKENS ON PROPERTIES ----
