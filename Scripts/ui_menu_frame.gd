@@ -71,6 +71,33 @@ func _ready() -> void:
 	_on_waiting_changed(Turns.waiting_on)
 	refresh_labels()
 	_setup_banner_templates()
+	_make_tappable_name(player_name)
+
+## ---- PLAYERS (tap your name or face: players_popup.gd) ----
+const PLAYERS_POPUP = preload("res://Scripts/players_popup.gd")
+var _press_at := Vector2.INF
+
+func _make_tappable_name(node: Control) -> void:
+	node.mouse_filter = Control.MOUSE_FILTER_STOP
+	if not node.gui_input.is_connected(_on_name_input):
+		node.gui_input.connect(_on_name_input)
+
+func _on_name_input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	if event.pressed:
+		_press_at = event.global_position
+		return
+	# a tap, not the start of a swipe (a little finger wobble is fine)
+	if _press_at.distance_to(event.global_position) > 40 or not Network.in_game or _face_hidden:
+		return
+	open_players()
+
+func open_players() -> void:
+	if get_tree().root.get_children().any(func(n): return n.get_script() == PLAYERS_POPUP):
+		return
+	Sound.play("click")
+	get_tree().root.add_child(PLAYERS_POPUP.new())
 
 
 ## ---- LABELS ----
@@ -79,7 +106,7 @@ func refresh_labels() -> void:
 	player_name.text = str(Global.PLAYER)
 	_show_my_face()
 	_show_region()
-	actions_left.text = "%d Actions left" % Global.ACTIONS
+	actions_left.text = "%d Action%s left" % [Global.ACTIONS, "" if Global.ACTIONS == 1 else "s"]
 	round_number.text = "Round %d" % Global.ROUND
 	misc.text = "Expected Rent: $%d" % Global.expected_rent()
 
@@ -103,6 +130,9 @@ func _show_my_face() -> void:
 		_my_face = AvatarArt.for_player(Global.PLAYER, HEADER_FACE)
 		row.add_child(_my_face)
 		row.move_child(_my_face, 0)
+		for child in _my_face.find_children("*", "Control", true, false):
+			child.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_make_tappable_name(_my_face)   # the face opens the players list too
 	else:
 		AvatarArt.update(_my_face, AvatarArt.for_name(Global.PLAYER))
 	_my_face.visible = true
@@ -160,7 +190,7 @@ func _on_cash_changed(new_value: int) -> void:
 	checking_bal.text = "$%d" % new_value
 
 func _on_actions_changed(new_value: int) -> void:
-	actions_left.text = "%d Actions left" % new_value
+	actions_left.text = "%d Action%s left" % [new_value, "" if new_value == 1 else "s"]
 
 func _on_round_changed(new_value: int) -> void:
 	round_number.text = "Round %d" % new_value

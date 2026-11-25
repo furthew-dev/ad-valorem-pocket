@@ -13,6 +13,7 @@ signal round_started(number: int)
 signal results_ready
 signal countdown_changed(player_name: String, seconds: float)   # "" = no countdown
 signal poked_list_changed
+signal statuses_changed   # someone's actions left / turn ended changed (players pop-up)
 
 const LAST_PLAYER_TIME := 30.0   # once everyone else has ended their turn, the last player has this long
 const FORCE_GRACE := 5.0         # host: then this long for their phone to answer before ending it for them
@@ -50,6 +51,52 @@ func _ready() -> void:
 	Network.players_changed.connect(_on_players_changed)
 	Network.game_starting.connect(_on_game_starting)
 	Network.session_ended.connect(_on_session_ended)
+	Global.actions_changed.connect(func(_v): share_status())
+	Network.players_changed.connect(func(): share_status.call_deferred())   # tell newcomers
+
+
+## ---- EVERYONE'S STATUS (tap your name in the header: players_popup.gd) ----
+# Each phone tells the others how many actions it has left and whether it ended its turn.
+var statuses: Dictionary = {}   # player name -> {"actions": n, "done": bool, "round": n}
+
+func share_status() -> void:
+	if not Network.in_game:
+		return
+	var status := {"actions": Global.ACTIONS, "done": my_turn_done, "round": Global.ROUND}
+	if Network.is_online():
+		_receive_status.rpc(status)
+	else:
+		_store_status(my_name(), status)
+
+@rpc("any_peer", "call_local", "reliable")
+func _receive_status(status: Dictionary) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if id == 0:
+		id = multiplayer.get_unique_id()
+	_store_status(Network.players.get(id, ""), status)
+
+func _store_status(player_name: String, status: Dictionary) -> void:
+	if player_name == "":
+		return
+	statuses[player_name] = status
+	statuses_changed.emit()
+
+# "2 Actions Remaining", "Finished turn", "Reconnecting...": what the players pop-up shows.
+func status_text(player_name: String) -> String:
+	if player_name in Network.away_names:
+		return "Reconnecting..."
+	var s: Dictionary = statuses.get(player_name, {})
+	var finished: bool = (s.get("done", false) and s.get("round", 0) == Global.ROUND) \
+			or (not waiting_on.is_empty() and not player_name in waiting_on)
+	if finished:
+		return "Finished turn"
+	var text := "Playing..."
+	if s.get("round", 0) == Global.ROUND:
+		var n: int = s.get("actions", 0)
+		text = "%d Action%s Remaining" % [n, "" if n == 1 else "s"]
+	if countdown_name == player_name:
+		text += "  (%ds left)" % ceili(countdown_left)
+	return text
 
 func is_waiting() -> bool:
 	return my_turn_done and not waiting_on.is_empty()
@@ -60,7 +107,8 @@ func end_turn() -> void:
 	if my_turn_done or game_over:
 		return
 	my_turn_done = true
-	Global.ACTIONS = 0   # browsing only until the next round
+	Global.ACTIONS = 0   # browsing only until the next round (shares "finished" too)
+	share_status()
 	if Network.is_online():
 		_player_done.rpc_id(1, Global.CASH, Global.all_loans())
 	elif _is_winner(Global.CASH, Global.all_loans()):
@@ -304,6 +352,7 @@ func resume(current_round: int, saved_round: int, turn_done: bool) -> void:
 	my_turn_done = turn_done
 	if turn_done:
 		Global.ACTIONS = 0
+	share_status()
 	await _play_curtain("Welcome back", HOME_SCENE)
 	waiting_changed.emit(waiting_on)
 	# Crashed part-way through the start of this round (e.g. before the 2nd Fortuna or rent).
@@ -331,6 +380,7 @@ func _start_round(number: int) -> void:
 		Global.ROUND = number
 		Global.ACTIONS = Global.A_CAPACITY)
 	my_turn_done = false
+	share_status()
 	round_started.emit(number)
 	await Global.process_new_round()
 
@@ -464,6 +514,7 @@ func reset(clear_save: bool = true) -> void:
 	_finished.clear()
 	_final_reports.clear()
 	_was_online = false
+	statuses.clear()
 	waiting_changed.emit([])
 
 func _on_game_starting() -> void:
