@@ -30,12 +30,17 @@ func _ready() -> void:
 	Global.new_property_id = 0
 	if Global.assigning_token == "golden_lock":
 		Global.banner("Choose a property to protect with the Golden Lock.")
+	if arrived != 0:
+		Notices.mark_property(arrived)   # it slides in with a glow: no dot needed too
 	_sort_mode = Network.load_setting("my_properties", "sort", "")
 	_add_sort_button()
 	_build_list()
 	Global.properties_changed.connect(_build_list)   # e.g. a new round while this page is open
 	if arrived != 0:
 		_slide_in.call_deferred(arrived)
+	else:
+		_scroll_to_news.call_deferred()
+	Notices.mark_app("my_properties")   # the app's own dot goes; each card keeps its dot
 
 ## ---- CAPACITY ("Capacity 3 / 5 Properties") ----
 # 4 to start; each Land Expansion and Inheritance adds one. Empty lots count, as they do
@@ -120,6 +125,7 @@ func _sorted_properties() -> Array:
 
 func _exit_tree() -> void:
 	Global.assigning_token = ""   # leaving the page cancels assign mode
+	Notices.mark_app("my_properties")   # changes made here (Golden Lock...) are seen
 
 func _build_list() -> void:
 	for child in list_of_properties.get_children():
@@ -129,8 +135,20 @@ func _build_list() -> void:
 		var card_instance = PROPERTY_CARD_SCENE.instantiate()
 		list_of_properties.add_child(card_instance)
 		card_instance.setup_card(property_data)
+		if Notices.property_dirty(property_data.get("id", 0)):   # changed since last opened
+			Notices.dot(card_instance.panel, 38.0, Vector2(2, 2))
 		card_instance.assign_requested.connect(_on_assign_requested.bind(property_data))
 
+
+# The first property with a red dot is brought into view (it may be further down).
+func _scroll_to_news() -> void:
+	await get_tree().process_frame   # laid out first
+	var scroll := list_of_properties.get_parent() as ScrollContainer
+	for child in list_of_properties.get_children():
+		var card_panel = child.get("panel")
+		if card_panel is Control and card_panel.get_node_or_null("NewDot") and scroll:
+			scroll.ensure_control_visible(child)
+			return
 
 ## ---- A NEW PROPERTY ARRIVES ----
 # Just bought (or built): its row slides in from the right with a little bounce and a
@@ -207,4 +225,5 @@ func _lock(property: Dictionary) -> void:
 	var note := "%s is locked: it can't be harmed or sold." % property["name"]
 	Activity.add(note, "info")
 	Global.banner_requested.emit(note, "")   # (the sparkle, not the banner chime)
+	Notices.mark_property(property["id"])   # your own change: no dot
 	_build_list()

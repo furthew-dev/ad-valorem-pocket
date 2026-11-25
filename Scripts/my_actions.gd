@@ -10,9 +10,17 @@ const CANCEL := "Cancel"
 @onready var title: Label = $CanvasLayer/Panel/VBoxContainer/Title/header/title
 
 
+var _news: Array = []   # action keys you have more of since this app was last open
+
 func _ready() -> void:
 	Cards.reset_id()
+	_news = Notices.new_actions()
+	Notices.mark_app("my_actions")
 	_build_list()
+	_news = []   # pulse once, not again after using a token
+
+func _exit_tree() -> void:
+	Notices.mark_app("my_actions")
 
 func _build_list() -> void:
 	for child in list_of_actions.get_children():
@@ -30,6 +38,8 @@ func _build_list() -> void:
 		list_of_actions.add_child(row)
 		row.setup_card(Actions.all_actions[action], counts[action])
 		row.use_requested.connect(_on_use_requested.bind(action))
+		if _news.has(action):
+			_highlight(row)
 
 	# Fortunas kept in hand (Just Say No...): shown here so you know you have them.
 	var kept := {}   # effect -> [card, count]
@@ -44,9 +54,19 @@ func _build_list() -> void:
 		list_of_actions.add_child(row)
 		row.setup_card(kept[effect][0], kept[effect][1])
 		row.use_requested.connect(_on_kept_fortuna_pressed)
+		if _news.has("fortuna:" + str(effect)):
+			_highlight(row)
 
 	var nothing: bool = Actions.actions_owned.is_empty() and Fortunas.fortunas_owned.is_empty()
 	title.text = "You have no Actions" if nothing else ""
+
+# A new or extra token: its card's outline fades in and out (and it's scrolled into view).
+func _highlight(row: Control) -> void:
+	var panel: Control = row.get_node("Panel")
+	Notices.pulse_outline(panel, 30, 6.0, 5)
+	var scroll := list_of_actions.get_parent() as ScrollContainer
+	if scroll:
+		(func(): if is_instance_valid(row): scroll.ensure_control_visible(row)).call_deferred()
 
 func _on_use_requested(_data: Dictionary, key: String) -> void:
 	match key:

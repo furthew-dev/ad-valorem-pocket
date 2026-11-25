@@ -41,6 +41,29 @@ func setup_loans(loan_data: Dictionary) -> void:
 	spin_box.value = balance       # ...then auto-fill the full balance
 	spin_box.get_line_edit().text_submitted.connect(func(_t): _on_pay_pressed())
 
+# What's new (notices.gd): interest was added -> the balance counts up from the old
+# figure inside a pulsing outline; a brand-new loan -> the whole card pulses.
+func show_news(before: int) -> void:
+	if not is_inside_tree():
+		return
+	if before <= 0:
+		Notices.pulse_outline($Panel, 30, 6.0, 5)
+		return
+	var balance := 0
+	for loan in Global.loans:
+		if loan["loan_number"] == loan_id:
+			balance = int(loan["loan_balance"])
+	Notices.pulse_outline(outstanding_bal, 14, 8.0, 5)
+	outstanding_bal.text = "Loan Balance: $%d" % before
+	await get_tree().create_timer(0.45).timeout
+	if not is_inside_tree():
+		return
+	var tween := outstanding_bal.create_tween()
+	tween.tween_method(func(v: int): outstanding_bal.text = "Loan Balance: $%d" % v, before, balance, 0.9) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(outstanding_bal, "modulate", Color("ff7a6e"), 0.35)
+	tween.tween_property(outstanding_bal, "modulate", Color.WHITE, 0.5)
+
 func _set_expanded(expanded: bool) -> void:
 	make_payment.visible = expanded
 	close_tab.visible = expanded

@@ -7,6 +7,7 @@ const VBOX := "CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/Margin
 const INSURANCE_ICON := "res://Assets/icons/insurance_icon.png"
 const RISE_COLOR := Color("7fd17f")   # flash on numbers that went up
 const COUNT_TIME := 0.9
+const FALL_COLOR := Color("ff7a6e")   # flash on numbers that went down
 
 # --- Emblem / token badges ---
 @onready var property_icon: TextureRect = $CanvasLayer/Panel/VBoxContainer/box/property_icon
@@ -74,6 +75,15 @@ func _ready() -> void:
 	_style_token_buttons()
 	setup_card()
 	Global.properties_changed.connect(_on_properties_changed)
+	# What changed since you last looked (a new round, a Fortuna...): play it now.
+	var news := Notices.property_before(int(current_property.get("id", 0)))
+	Notices.mark_property(int(current_property.get("id", 0)))
+	if not news.is_empty():
+		_play_news(news)
+
+func _exit_tree() -> void:
+	if not current_property.is_empty():
+		Notices.mark_property(int(current_property.get("id", 0)))   # changes made here are seen
 
 # A new round changed the numbers (Terraced House) while this page is open.
 func _on_properties_changed() -> void:
@@ -627,7 +637,7 @@ func _count_up(label: Label, from: int, to: int) -> void:
 	var tween := label.create_tween()
 	tween.tween_method(func(v: int): label.text = "$%d" % v, from, to, COUNT_TIME) \
 			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.parallel().tween_property(label, "modulate", RISE_COLOR, COUNT_TIME * 0.4)
+	tween.parallel().tween_property(label, "modulate", RISE_COLOR if to >= from else FALL_COLOR, COUNT_TIME * 0.4)
 	tween.parallel().tween_property(label, "scale", Vector2(1.25, 1.25), COUNT_TIME * 0.4) \
 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(label, "modulate", Color.WHITE, 0.4)
@@ -895,3 +905,96 @@ func _on_sell_pressed() -> void:
 	Sound.play("click")
 	Global.save_scene(current_scene)
 	get_tree().change_scene_to_file("res://Scenes/sell_property.tscn")
+
+
+## ---- WHAT'S NEW (notices.gd) ----
+# The property changed since its page was last opened. `before` is how it looked then
+# ({"new": true} = it just arrived). Tenants: the caption and rent pulse and the rent
+# counts to the new number. Condition: the highlight band slides from the old row to the
+# new one while the numbers count up or down. Other value/rent changes count too.
+func _play_news(before: Dictionary) -> void:
+	var was: String = before.get("condition", "")
+	if current_property.get("has_condition", false) and Fortunas.CONDITION_PREFIX.has(was) \
+			and was != current_property.get("condition", ""):
+		for h in [excellent_condition, good_condition, fair_condition, poor_condition]:   # open on how it WAS
+			h.visible = h == {"e": excellent_condition, "g": good_condition,
+					"f": fair_condition, "p": poor_condition}[Fortunas.CONDITION_PREFIX[was]]
+	await get_tree().create_timer(0.45).timeout   # let the page appear first
+	if not is_inside_tree() or not _still_owned():
+		return
+	var after := current_property
+	if before.get("new", false):
+		Notices.pulse_outline(property_icon, 200, 6.0, 3)
+		return
+	var tier_of: Dictionary = Fortunas.CONDITION_PREFIX
+	var rows := {"e": [e_value, e_rent], "g": [g_value, g_rent], "f": [f_value, f_rent], "p": [p_value, p_rent]}
+	var highlights := {"e": excellent_condition, "g": good_condition, "f": fair_condition, "p": poor_condition}
+
+	# Apartment tenants
+	if after.has("tenants") and before.get("tenants") != after.get("tenants"):
+		var caption: Label = e_rent.get_node_or_null("tenants")
+		if caption:
+			Notices.pulse_outline(caption, 14, 6.0)
+		Notices.pulse_outline(e_rent, 18, 6.0)
+		if before.get("rent") is int and before["rent"] != after["rent"]:
+			_count_up(e_rent, before["rent"], after["rent"])
+		Sound.play("switch")
+
+	var old_condition: String = before.get("condition", "")
+	var new_condition: String = after.get("condition", "")
+	if after.get("has_condition", false) and old_condition != "" and old_condition != new_condition \
+			and tier_of.has(old_condition) and tier_of.has(new_condition):
+		var from: Panel = highlights[tier_of[old_condition]]
+		var to: Panel = highlights[tier_of[new_condition]]
+		var row: Array = rows[tier_of[new_condition]]
+		await _slide_condition(from, to)
+		if not is_inside_tree():
+			return
+		_count_up(row[0], int(before.get("value", 0)), int(after["value"]))
+		_count_up(row[1], int(before.get("rent", 0)), int(after["rent"]))
+		Notices.pulse_outline(to, 18, 4.0, 3)
+		var better := ["poor", "fair", "good", "excellent"].find(new_condition) > ["poor", "fair", "good", "excellent"].find(old_condition)
+		Sound.play("bloop" if better else "cash_out")
+		return
+
+	# Same condition but the numbers moved (Terraced House, an appraisal...): count them.
+	var changed := false
+	for tier in rows:
+		for i in 2:
+			var key: String = tier + ("_value" if i == 0 else "_rent")
+			if before.get(key) is int and after.get(key) is int and before[key] != after[key]:
+				_count_up(rows[tier][i], before[key], after[key])
+				changed = true
+	if not changed and after.get("has_condition", false) and tier_of.has(new_condition):
+		var row: Array = rows[tier_of[new_condition]]
+		for i in 2:
+			var key: String = "value" if i == 0 else "rent"
+			if before.get(key) is int and before[key] != after.get(key):
+				_count_up(row[i], before[key], after[key])
+
+# The condition band moves from one row to another (a copy of it glides between them).
+func _slide_condition(from: Panel, to: Panel) -> void:
+	for h in [excellent_condition, good_condition, fair_condition, poor_condition]:
+		h.visible = h == from
+		h.modulate.a = 1.0
+	await get_tree().create_timer(0.3).timeout   # show where it was
+	if not is_inside_tree():
+		return
+	var ghost := Panel.new()
+	ghost.add_theme_stylebox_override("panel", from.get_theme_stylebox("panel"))
+	ghost.self_modulate = from.self_modulate
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ghost.top_level = true
+	ghost.show_behind_parent = true   # under the writing, like the real band
+	ColorTheme.keep(ghost)
+	from.get_parent().add_child(ghost)
+	ghost.global_position = from.global_position
+	ghost.size = from.size
+	from.visible = false
+	Sound.play("switch")
+	var glide := ghost.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	glide.tween_property(ghost, "global_position", to.global_position, 0.6)
+	await glide.finished
+	if is_instance_valid(ghost):
+		ghost.queue_free()
+	to.visible = true

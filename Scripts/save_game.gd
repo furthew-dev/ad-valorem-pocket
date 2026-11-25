@@ -202,6 +202,7 @@ func restore_private(snapshot: Dictionary) -> void:
 	Stats.restore(p.get("stats", {}))
 	Expansion.restore(p.get("expansion", {}))
 	Activity.restore(p.get("activity", []))
+	Notices.baseline()   # no "what's new" dots for what you already had
 	Global.erase_scenes()
 
 # Host only: the shared market and decks.

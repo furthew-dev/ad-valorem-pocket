@@ -35,6 +35,7 @@ func _ready() -> void:
 	_setup_pages()
 	_shrink_back_from_app()
 	Turns.waiting_changed.connect(func(_names): end_turn_btn.disabled = Turns.my_turn_done)
+	_setup_new_dots()
 	if Global.starting_hand_pending:   # a new game: unbox the starting properties
 		Global.starting_hand_pending = false
 		add_child(load("res://Scripts/starting_hand.gd").new())
@@ -47,6 +48,32 @@ func _let_taps_through(node: Node) -> void:
 		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for child in node.get_children():
 		_let_taps_through(child)
+
+## ---- "WHAT'S NEW" DOTS (notices.gd) ----
+# A red dot on My Properties / My Loans / My Actions when something changed there since
+# the app was last opened (a new round, a Fortuna, a purchase...). Checked twice a second,
+# so dots appear as the round's changes land.
+const DOT_APPS := {"my_properties": "my_properties", "My Loans": "my_loans", "My Actions": "my_actions"}
+
+func _setup_new_dots() -> void:
+	var timer := Timer.new()
+	timer.wait_time = 0.5
+	timer.autostart = true
+	timer.timeout.connect(_refresh_new_dots)
+	add_child(timer)
+	_refresh_new_dots.call_deferred()
+
+func _refresh_new_dots() -> void:
+	for tile_name in DOT_APPS:
+		var tile := _tile_named(tile_name)
+		if tile == null or tile == _dragging:
+			continue
+		var panel := _tile_panel(tile)
+		if Notices.app_dirty(DOT_APPS[tile_name]):
+			if panel.get_node_or_null("NewDot") == null:
+				Notices.dot(panel, 40.0, Vector2(-12, -12))
+		else:
+			Notices.clear_dot(panel)
 
 ## ---- REARRANGING APPS ----
 # Expansion Edition adds a seventh app, Environment, on a third row.
