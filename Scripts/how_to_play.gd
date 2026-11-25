@@ -1,6 +1,6 @@
 extends CanvasLayer
 ## Title screen: "How to Play". Opened by tapping the notepad on the desk; a little
-## book grows out of the notepad with three short pages. < and > turn the pages (the
+## book grows out of the notepad with four short pages. < and > turn the pages (the
 ## page folds over at the spine), Close (or a tap outside) shrinks it back to the pad.
 ##     HowToPlay.open(get_tree(), notepad_control)
 
@@ -16,9 +16,11 @@ const PAGES := [
 	{"title": "The Goal",
 	"body": "Build the best real estate portfolio.\n\nEveryone plays their turn at the same time. When a round ends with a player holding more than $200 cash (the host can change this) and no loans, the game is over.\n\nThe highest net worth wins: cash, properties and savings, minus anything you owe."},
 	{"title": "Your Turn",
-	"body": "You have 3 Actions each round (5 with an LLC).\n\nSpend them in the Market: buy properties (up to 4), tokens like SkyBnB, Double and Insurance, or cards like Contractor and Sabotage.\n\nShort on cash? The Bank will lend, but loans grow 10% every round.\n\nTap End Turn when you're done."},
+	"body": "You have 3 Actions each round (5 with an LLC).\n\nSpend them in the Market: buy properties (up to 4), tokens like SkyBnB, Double and Insurance, or cards like Contractor and Sabotage.\n\nShort on cash? Sign a Loan Agreement to borrow, but loans grow 10% every round.\n\nTap End Turn when you're done."},
 	{"title": "Each New Round",
-	"body": "Once everyone has ended their turn:\n\nFortunas: finish with $25 or more and you draw a Fortuna card, good luck or bad. $100 or more draws two.\n\nInterest is added to your loans, then rent is paid on every property you own.\n\nProtect your homes, sabotage your rivals, and watch your fortune grow!"},
+	"body": "Once everyone has ended their turn:\n\nFortunas: finish with $25 or more and you draw a Fortuna card, good luck or bad: pick any card from the deck. $100 or more draws two.\n\nThen rent is paid on every property you own, and interest is added to your loans.\n\nProtect your homes, sabotage your rivals, and watch your fortune grow!"},
+	{"title": "Keeping Track",
+	"body": "Red dots: an app with a red dot has something new (a Fortuna hit a property, a loan grew, a token arrived). Open it to see what changed. Turn them off in Settings.\n\nTap your name at the top to see every player's turn: Actions left, or finished.\n\nTap a token in My Actions to use it.\n\nSwipe left on Home for everything that happened."},
 ]
 
 var _from: Control          # the notepad it opens out of

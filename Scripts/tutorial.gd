@@ -106,6 +106,8 @@ func _make_steps() -> Array:
 			"target": _frame_part.bind("misc")},
 		{"title": "Round", "text": "Everyone plays each round at the same time. When all players have ended their turn, a new round begins.",
 			"target": _frame_part.bind("round_number")},
+		{"title": "Players", "text": "Tap your name any time to see everyone in the game and how their turn is going: how many Actions they have left, or that they've finished.",
+			"target": _frame_part.bind("player_name")},
 		{"title": "Actions", "text": "Buying, selling, upgrading and paying a loan each use 1 Action. You get 3 every round (5 with an LLC).\n\nFor this practice you have 6.",
 			"target": _frame_part.bind("actions_left")},
 		# 2. My Properties
@@ -166,7 +168,7 @@ func _make_steps() -> Array:
 			"target": _scene_node.bind("CanvasLayer/Panel/VBoxContainer/list_of_properties/MarginContainer2/Panel/MarginContainer/VBoxContainer/proceed"), "do": _scene_is.bind("property_reveal")},
 		{"title": "The listing", "text": "Here's what came up: its price, rent and condition. Tap it to choose it.",
 			"target": _first_listing, "do": _listing_chosen},
-		{"title": "Purchase", "text": "Tap Purchase. You pay the price and use 1 Action. Short of cash? The game offers you a loan to cover it.",
+		{"title": "Purchase", "text": "Tap Purchase. You pay the price and use 1 Action. Short of cash? A Loan Agreement opens: pick the amount and sign it to borrow the rest.",
 			"target": _scene_node.bind("CanvasLayer/Panel/VBoxContainer/revealed_properties/MarginContainer2/Panel/MarginContainer/VBoxContainer/HBoxContainer/Purchase"),
 			"do": _scene_is.bind("my_properties")},
 		{"title": "It's yours", "text": "Your new property is in My Properties now. It pays rent from the start of next round.",
@@ -192,16 +194,18 @@ func _make_steps() -> Array:
 			"target": _frame_part.bind("home_btn"), "do": _scene_is.bind("home_screen")},
 		{"title": "My Loans", "text": "My Loans is always here on Home too, for paying loans back.",
 			"target": _tile.bind("my_loans_button")},
-		{"title": "My Actions", "text": "The tokens you own (Sabotage, Insurance, Contractor...) and the lucky cards you keep. Tap one to use it.",
+		{"title": "My Actions", "text": "The tokens you own (Sabotage, Insurance, Contractor...) and the lucky cards you keep. Tap one to use it: it takes you to where it's used, or tells you what it does.",
 			"target": _tile.bind("actions_button")},
-		{"title": "End Turn", "text": "When you're done, end your turn. When everyone has, the round ends: Fortuna cards are drawn, interest is added and rent is paid.",
+		{"title": "Red dots", "text": "A red dot on an app means something changed there: a new round, a Fortuna, a purchase. Open it and what's new is highlighted (a red dot on a property, a loan's new balance...).\n\nYou can turn them off in Settings.",
+			"target": _tile.bind("my_properties_button")},
+		{"title": "End Turn", "text": "When you're done, end your turn. When everyone has, a new round starts: with $25 or more you draw a Fortuna card (pick any card from the deck), two with $100 or more. Then rent is paid and interest is added to your loans.",
 			"target": _tile.bind("end_turn_btn")},
 		{"title": "Activity", "text": "Swipe left on Home to see everything that happened: rent, purchases, Fortunas and more."},
 		# 13. Settings
 		{"title": "Settings", "text": "Tap the menu button for your settings.",
 			"target": _frame_part.bind("settings_btn"), "do": _settings_open},
-		{"title": "Settings", "text": "Change your name, turn sounds on or off, pick a colour theme, or leave a game here.", "at": "top"},
-		{"title": "You're ready!", "text": "Host a game and share the room key, or join a friend's game with theirs. Have fun!", "last": true},
+		{"title": "Settings", "text": "Change your name, turn sounds or red dot alerts on or off, pick a colour theme, or leave a game here.", "at": "top"},
+		{"title": "You're ready!", "text": "Tap New Game to host a game and share the room key, or Play Solo on your own. Or join a friend's game with their key. Have fun!", "last": true},
 	]
 
 
