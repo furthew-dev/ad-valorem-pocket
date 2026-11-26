@@ -114,6 +114,10 @@ func _ready() -> void:
 	_glass_shader.code = GLASS_SHADER_CODE
 	_glass_panel_material = ShaderMaterial.new()
 	_glass_panel_material.shader = _glass_shader
+	_glass_overlay_material = ShaderMaterial.new()   # full-screen overlays: stronger, darker frosting
+	_glass_overlay_material.shader = _glass_shader
+	_glass_overlay_material.set_shader_parameter("radius", 34.0)
+	_glass_overlay_material.set_shader_parameter("tint", Color(GLASS_CLEAR, 0.55))
 	_default_clear = ProjectSettings.get_setting("rendering/environment/defaults/default_clear_color", Color.BLACK)
 	get_tree().node_added.connect(_on_node_added)
 	var saved: String = Network.load_setting(SETTINGS_SECTION, "theme", "default")
@@ -398,6 +402,7 @@ func _mono_color(texture: Texture2D) -> String:
 ## ---- GLASS ----
 var _glass_shader: Shader
 var _glass_panel_material: ShaderMaterial
+var _glass_overlay_material: ShaderMaterial
 var _backdrop: CanvasLayer
 var _palette: Dictionary = {}   # every default-palette colour (hex)
 
@@ -424,6 +429,14 @@ func _glass_control(control: Control) -> void:
 	var style := _palette_panel_style(control)
 	var background := (control is ColorRect and control.has_meta("ct_color")) or style != null
 	background = background and _is_full_screen(control)
+	# A full-screen overlay on top of the screen (the "Round 2" curtain, the Fortuna card)
+	# is frosted glass over what's behind it; a screen's own background turns clear.
+	if is_glass() and background and _is_overlay(control):
+		if control.has_meta("ct_glass_bg"):
+			control.self_modulate = control.get_meta("ct_glass_bg")
+			control.remove_meta("ct_glass_bg")
+		_add_blur(control, true)
+		return
 	if is_glass() and background:
 		if not control.has_meta("ct_glass_bg"):
 			control.set_meta("ct_glass_bg", control.self_modulate)
@@ -451,12 +464,18 @@ func _is_full_screen(control: Control) -> bool:
 	var rect := Rect2(control.global_position, control.size * control.get_global_transform().get_scale())
 	return rect.size.x >= screen.x * 0.95 and rect.size.y >= screen.y * 0.8
 
-func _add_blur(control: Control) -> void:
+# Not part of the screen itself: added on top of it (straight onto the window).
+func _is_overlay(control: Control) -> bool:
+	var scene := get_tree().current_scene
+	return scene != null and not scene.is_ancestor_of(control) and control != scene
+
+func _add_blur(control: Control, overlay: bool = false) -> void:
 	if not control.has_meta("ct_glass_rid"):
 		var rid := RenderingServer.canvas_item_create()
 		RenderingServer.canvas_item_set_parent(rid, control.get_canvas_item())
 		RenderingServer.canvas_item_set_draw_behind_parent(rid, true)
-		RenderingServer.canvas_item_set_material(rid, _glass_panel_material.get_rid())
+		var material := _glass_overlay_material if overlay else _glass_panel_material
+		RenderingServer.canvas_item_set_material(rid, material.get_rid())
 		control.set_meta("ct_glass_rid", rid)
 		control.resized.connect(_draw_blur.bind(control))
 		control.tree_exiting.connect(_remove_blur.bind(control))
@@ -467,6 +486,9 @@ func _draw_blur(control: Control) -> void:
 		return
 	var rid: RID = control.get_meta("ct_glass_rid")
 	RenderingServer.canvas_item_clear(rid)
+	if control is ColorRect:
+		RenderingServer.canvas_item_add_rect(rid, Rect2(Vector2.ZERO, control.size), Color.WHITE)
+		return
 	var style := control.get_theme_stylebox("panel") as StyleBoxFlat
 	if style == null:
 		return

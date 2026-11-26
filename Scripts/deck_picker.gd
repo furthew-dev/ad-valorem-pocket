@@ -21,6 +21,7 @@ var _picked: Array = []
 var _cards: Dictionary = {}   # name -> Button
 var _count: Label
 var _done: Button
+var _scroll: ScrollContainer
 
 
 static func open(tree: SceneTree, base: bool, expansion: bool, picks: Array) -> Node:
@@ -56,8 +57,8 @@ func _build() -> void:
 	dim.add_child(paper)
 
 	var box := VBoxContainer.new()
-	box.position = Vector2(86, 180)   # below the tape
-	box.size = Vector2(SIZE.x - 172, SIZE.y - 290)
+	box.position = Vector2(62, 180)   # below the tape
+	box.size = Vector2(SIZE.x - 124, SIZE.y - 290)
 	box.add_theme_constant_override("separation", 8)
 	paper.add_child(box)
 	box.add_child(_label("Property Deck", 58, FONT))
@@ -65,6 +66,7 @@ func _build() -> void:
 	box.add_child(_count)
 
 	var scroll := ScrollContainer.new()
+	_scroll = scroll
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	box.add_child(scroll)
@@ -97,86 +99,129 @@ func _section(list: VBoxContainer, title: String, kinds: Array) -> void:
 	list.add_child(heading)
 	var grid := GridContainer.new()
 	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 8)
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_child(grid)
 	for kind in kinds:
 		grid.add_child(_card(kind))
 
 # One property: its picture and name; tap to put it in (or take it out of) the deck.
-func _card(kind: String) -> Button:
-	var button := Button.new()
-	button.toggle_mode = true
-	button.focus_mode = Control.FOCUS_NONE
-	button.custom_minimum_size = Vector2(0, 74)
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var off := StyleBoxFlat.new()
-	off.bg_color = Color(INK, 0.05)
-	off.border_color = Color(INK, 0.3)
-	off.set_border_width_all(2)
-	off.set_corner_radius_all(16)
-	var on := off.duplicate()
-	on.bg_color = PICKED
-	on.border_color = Color("ddcf99")
-	on.set_border_width_all(3)
-	for state in ["normal", "hover", "focus", "disabled"]:
-		button.add_theme_stylebox_override(state, off)
-	for state in ["pressed", "hover_pressed"]:
-		button.add_theme_stylebox_override(state, on)
+# Not a Button: a Button swallowed the finger, so dragging on a card didn't scroll the
+# list. The card lets the drag through to the list, and only a real tap (the finger
+# barely moved and the list didn't scroll) flips it.
+const CARD_HEIGHT := 96.0
+
+func _card(kind: String) -> Control:
+	var card := PanelContainer.new()
+	card.custom_minimum_size = Vector2(0, CARD_HEIGHT)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.mouse_filter = Control.MOUSE_FILTER_PASS   # the scroll list still sees the drag
+	var style := StyleBoxFlat.new()
+	style.set_corner_radius_all(20)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.anti_aliasing = true
+	card.add_theme_stylebox_override("panel", style)
 	var inside := HBoxContainer.new()
-	inside.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	inside.offset_left = 8
-	inside.offset_right = -6
-	inside.add_theme_constant_override("separation", 8)
+	inside.add_theme_constant_override("separation", 10)
 	inside.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	button.add_child(inside)
+	card.add_child(inside)
 	var icon := TextureRect.new()
 	icon.texture = Cards.round_icon(Cards.templates_by_name[kind]["art"])
-	icon.custom_minimum_size = Vector2(58, 58)
+	icon.custom_minimum_size = Vector2(66, 66)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inside.add_child(icon)
-	var name := _label(kind, 19, BODY_FONT)
+	var name := _label(kind, 22, BODY_FONT)
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	name.autowrap_mode = TextServer.AUTOWRAP_WORD
+	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	inside.add_child(name)
-	button.set_meta("label", name)
-	button.button_pressed = kind in _picked
-	button.toggled.connect(_on_toggled.bind(kind, button))
-	_cards[kind] = button
-	return button
+	var tick := Panel.new()   # picked: a small tick on the picture's corner
+	var tick_style := StyleBoxFlat.new()
+	tick_style.bg_color = PICKED.lightened(0.15)
+	tick_style.border_color = Color("f6f2e1")
+	tick_style.set_border_width_all(2)
+	tick_style.set_corner_radius_all(15)
+	tick.add_theme_stylebox_override("panel", tick_style)
+	tick.size = Vector2(30, 30)
+	tick.position = Vector2(42, -4)
+	tick.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var mark := _label("✓", 20, BODY_FONT)
+	mark.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	mark.add_theme_color_override("font_color", Color("f6f2e1"))
+	tick.add_child(mark)
+	icon.add_child(tick)
+	card.set_meta("label", name)
+	card.set_meta("tick", tick)
+	card.set_meta("style", style)
+	card.gui_input.connect(_on_card_input.bind(kind, card))
+	_cards[kind] = card
+	_paint(kind)
+	return card
 
-func _on_toggled(on: bool, kind: String, button: Button) -> void:
-	if on and not kind in _picked:
+var _press_pos := Vector2.INF
+var _press_scroll := 0
+
+func _on_card_input(event: InputEvent, kind: String, card: Control) -> void:
+	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	if event.pressed:
+		_press_pos = event.global_position
+		_press_scroll = _scroll.scroll_vertical
+		return
+	var moved: float = _press_pos.distance_to(event.global_position)
+	_press_pos = Vector2.INF
+	if moved > Global.TAP_SLOP or absi(_scroll.scroll_vertical - _press_scroll) > 4:
+		return   # that was a scroll, not a tap
+	_toggle(kind, card)
+
+func _toggle(kind: String, card: Control) -> void:
+	var on := not kind in _picked
+	if on:
 		if _picked.size() >= _target:   # full: say so instead of going over
-			button.set_pressed_no_signal(false)
 			Sound.play("error")
 			_count.text = "That's %d already. Tap one to take it out first." % _target
+			card.pivot_offset = card.size / 2.0
+			var shake := card.create_tween()
+			for x in [8.0, -8.0, 5.0, 0.0]:
+				shake.tween_property(card, "position:x", card.position.x + x, 0.04)
 			return
 		_picked.append(kind)
-	elif not on:
+	else:
 		_picked.erase(kind)
 	Sound.play("switch" if on else "switch_off")
+	card.pivot_offset = card.size / 2.0
+	var pop := card.create_tween()
+	pop.tween_property(card, "scale", Vector2(0.95, 0.95), 0.05)
+	pop.tween_property(card, "scale", Vector2.ONE, 0.09)
 	_update()
+
+func _paint(kind: String) -> void:
+	var card: Control = _cards[kind]
+	var on := kind in _picked
+	var style: StyleBoxFlat = card.get_meta("style")
+	style.bg_color = PICKED if on else Color(INK, 0.06)
+	style.border_color = Color("ddcf99") if on else Color(INK, 0.3)
+	style.set_border_width_all(3 if on else 2)
+	(card.get_meta("label") as Label).add_theme_color_override("font_color", Color("f6f2e1") if on else INK)
+	(card.get_meta("tick") as Control).visible = on
 
 func _update() -> void:
 	_count.text = "Choose %d  ·  %d chosen" % [_target, _picked.size()]
 	_done.disabled = _picked.size() != _target
 	_done.modulate.a = 1.0 if not _done.disabled else 0.45
 	for kind in _cards:
-		var label: Label = _cards[kind].get_meta("label")
-		label.add_theme_color_override("font_color", Color("f6f2e1") if kind in _picked else INK)
+		_paint(kind)
 
 func _clear() -> void:
 	Sound.play("switch_off")
 	_picked.clear()
-	for kind in _cards:
-		_cards[kind].set_pressed_no_signal(false)
 	_update()
 
 func _choose_random() -> void:

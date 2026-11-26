@@ -1,151 +1,229 @@
 extends CanvasLayer
-## Host-only "Game Settings" pop-up in the lobby: starting cash, starting properties,
-## end goal. Starting cash must be less than the end goal.
+## Host-only "Game Settings" pop-up (lobby / Play Solo): a framed card in the pop-up style.
+##
+##   MONEY & PROPERTIES   Starting Cash      [-]  $20  [+]
+##                        Starting Properties [-]   4  [+]
+##                        End Goal           [-] $200 [+]
+##   RULES                Last-Turn Timer          (switch)
+##   EDITIONS             Base Edition / Expansion (switches)
+##   PROPERTY DECK        [ Random  > ]
+##                        [ Save ]   [ Cancel ]
+##
+## Each number has big - / + buttons (hold to repeat) and can also be tapped to type.
+## Starting cash must be less than the end goal (Network.settings_problem).
 
-const PaperArt = preload("res://Scripts/paper_art.gd")   # the taped-paper card (drawn, not a picture)
-const FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
-const INK := Color(0.1, 0.1, 0.1)
-const ERROR_INK := Color("b03030")
+const FONT = preload("res://Assets/fonts/Comfortaa-Regular.ttf")
+const BOLD = preload("res://Assets/fonts/Comfortaa-Bold.ttf")
+const TITLE_FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
+# Palette colours, so the themes recolour it.
+const FRAME_BG := Color("99966d")
+const FRAME_EDGE := Color("f6f2e1")
+const ROW_BG := Color("7b7e63")
+const INK := Color("2e2328")
+const CREAM := Color("f6f2e1")
+const GREEN := Color("5d6558")
+const RED := Color("b03030")
 
-# key, label
+# key, label, hint, step, prefix
 const ROWS := [
-	["start_cash", "Starting Cash $:"],
-	["start_properties", "Starting Properties:"],
-	["end_goal", "End Goal $:"],
+	["start_cash", "Starting Cash", "Each player starts with", 5, "$"],
+	["start_properties", "Starting Properties", "Deeds dealt to each player", 1, ""],
+	["end_goal", "End Goal", "Cash to win (no loans)", 10, "$"],
 ]
-const ROW_FONT := 34
 
-var _boxes: Dictionary = {}   # key -> LineEdit
+var _boxes: Dictionary = {}   # key -> LineEdit (the number)
 var _timer_switch: InkSwitch
 var _base_switch: InkSwitch
 var _expansion_switch: InkSwitch
-var _buttons: Array = []
 var _error: Label
 var _deck_picks: Array = []   # [] = random deck
 var _deck_button: Button
+var _frame: PanelContainer
+var _dim: ColorRect
 
 
 func _ready() -> void:
 	layer = 60
 	Sound.play("open")
 	_build()
+	_pop_in()
 
 func _build() -> void:
-	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.5)
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(dim)
+	_dim = ColorRect.new()
+	_dim.color = Color(0, 0, 0, 0.55)
+	_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_dim)
+	var centre := CenterContainer.new()
+	centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_dim.add_child(centre)
 
-	var paper := PaperArt.make()
-	paper.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	paper.offset_left = -280
-	paper.offset_right = 270
-	paper.offset_top = -576
-	paper.offset_bottom = 424
-	dim.add_child(paper)
-
+	_frame = PanelContainer.new()
+	_frame.custom_minimum_size = Vector2(660, 0)
+	_frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var style := _style(FRAME_BG, 30, FRAME_EDGE, 4)
+	style.shadow_color = Color(0, 0, 0, 0.35)
+	style.shadow_size = 12
+	style.shadow_offset = Vector2(0, 6)
+	style.content_margin_left = 26
+	style.content_margin_right = 26
+	style.content_margin_top = 18
+	style.content_margin_bottom = 22
+	_frame.add_theme_stylebox_override("panel", style)
+	centre.add_child(_frame)
 	var box := VBoxContainer.new()
-	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	box.offset_left = -175   # centred on the paper, with a margin each side
-	box.offset_right = 175
-	box.offset_top = -230
-	box.offset_bottom = 290
-	box.add_theme_constant_override("separation", 8)
-	paper.add_child(box)
+	box.add_theme_constant_override("separation", 10)
+	_frame.add_child(box)
 
-	box.add_child(_label("Game Settings", 64))
-	box.add_child(_spacer(16))
-	# One line per setting: "Starting Cash $: ____"
+	var title := _label("Game Settings", TITLE_FONT, 60, INK)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(title)
+
+	box.add_child(_heading("MONEY & PROPERTIES"))
 	for row in ROWS:
-		var key: String = row[0]
-		var limits: Array = Network.SETTING_LIMITS[key]
-		var line := HBoxContainer.new()
-		line.add_theme_constant_override("separation", 10)
-		var name_label := _label(row[1], ROW_FONT)
-		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		name_label.custom_minimum_size.x = 236   # same width on every line, so the blanks line up
-		line.add_child(name_label)
-		var field := LineEdit.new()
-		field.text = str(Network.game_settings.get(key, Network.DEFAULT_SETTINGS[key]))
-		field.placeholder_text = "%d to %d" % [limits[0], limits[1]]   # also the phone prompt's title
-		field.max_length = 3
-		field.alignment = HORIZONTAL_ALIGNMENT_CENTER
-		field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		field.custom_minimum_size = Vector2(84, 0)
-		field.add_theme_font_override("font", FONT)
-		field.add_theme_font_size_override("font_size", ROW_FONT)
-		field.add_theme_color_override("font_color", INK)
-		field.add_theme_color_override("font_placeholder_color", Color(INK, 0.4))
-		field.add_theme_color_override("caret_color", INK)
-		for style in ["normal", "focus", "read_only"]:
-			field.add_theme_stylebox_override(style, StyleBoxEmpty.new())
-		field.draw.connect(func(): field.draw_line(   # the pencil line to write on
-				Vector2(4, field.size.y - 4), Vector2(field.size.x - 4, field.size.y - 4), Color(INK, 0.6), 3))
-		field.text_changed.connect(_digits_only.bind(field))
-		field.text_submitted.connect(func(_t): _save())
-		line.add_child(field)
-		box.add_child(line)
-		_boxes[key] = field
+		box.add_child(_stepper_row(row))
 
-	# Last-player timer: when everyone else has ended their turn, the last player gets
-	# 30 seconds before their turn is ended for them.
-	var timer_line := HBoxContainer.new()
-	var timer_label := _label("Last-Turn Timer (30s):", ROW_FONT)
-	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	timer_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # wraps instead of pushing the switch off the paper
-	timer_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	timer_line.add_child(timer_label)
-	_timer_switch = InkSwitch.new()
-	_timer_switch.button_pressed = Network.game_settings.get("turn_timer", true)
-	timer_line.add_child(_timer_switch)
-	box.add_child(timer_line)
-	# Editions: which properties are in the deck (Expansion also adds regions and its Fortunas).
-	_base_switch = _switch_line(box, "Base Edition:", Network.game_settings.get("base", true))
-	_expansion_switch = _switch_line(box, "Expansion:", Network.game_settings.get("expansion", false))
-	# Property deck: 20 kinds of property per game, picked at random (10 + 10 with both
-	# editions) or chosen by the host.
+	box.add_child(_heading("RULES"))
+	_timer_switch = _switch_row(box, "Last-Turn Timer", "The last player gets 30 seconds", Network.game_settings.get("turn_timer", true))
+
+	box.add_child(_heading("EDITIONS"))
+	_base_switch = _switch_row(box, "Base Edition", "The original 20 properties", Network.game_settings.get("base", true))
+	_expansion_switch = _switch_row(box, "Expansion", "Regions, new properties and Fortunas", Network.game_settings.get("expansion", false))
+
+	box.add_child(_heading("PROPERTY DECK"))
 	_deck_picks = Network.game_settings.get("deck_picks", []).duplicate()
-	var deck_line := HBoxContainer.new()
-	deck_line.add_theme_constant_override("separation", 10)
-	var deck_label := _label("Property Deck:", ROW_FONT)
-	deck_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	deck_line.add_child(deck_label)
-	_deck_button = Button.new()
-	_deck_button.focus_mode = Control.FOCUS_NONE
-	_deck_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_deck_button.add_theme_font_override("font", FONT)
-	_deck_button.add_theme_font_size_override("font_size", 32)
-	InkBox.apply(_deck_button, INK)
-	_deck_button.pressed.connect(_open_deck_picker)
-	deck_line.add_child(_deck_button)
-	box.add_child(deck_line)
+	_deck_button = _wide_button("", ROW_BG, _open_deck_picker)
+	box.add_child(_deck_button)
 	for toggle in [_base_switch, _expansion_switch]:
 		toggle.toggled.connect(func(_on): _update_deck_button())
 	_update_deck_button()
 
-	_error = _label("", 30)
-	_error.add_theme_color_override("font_color", ERROR_INK)
+	_error = _label("", BOLD, 24, RED)
+	_error.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_error.visible = false
 	box.add_child(_error)
 
 	var buttons := HBoxContainer.new()
-	buttons.add_theme_constant_override("separation", 24)
-	buttons.add_child(_button("Save", _save))
-	buttons.add_child(_button("Cancel", _close))
+	buttons.add_theme_constant_override("separation", 16)
+	var save := _wide_button("Save", GREEN, _save)
+	var cancel := _wide_button("Cancel", ROW_BG, _close)
+	save.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cancel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	buttons.add_child(cancel)
+	buttons.add_child(save)
+	var gap := Control.new()
+	gap.custom_minimum_size.y = 6
+	box.add_child(gap)
 	box.add_child(buttons)
-	_fit_buttons.call_deferred()
 
-func _switch_line(box: VBoxContainer, text: String, on: bool) -> InkSwitch:
+# "Starting Cash  (Cash each player starts with)       [-]  $20  [+]"
+func _stepper_row(row: Array) -> Control:
+	var key: String = row[0]
+	var limits: Array = Network.SETTING_LIMITS[key]
+	var card := PanelContainer.new()
+	var style := _style(ROW_BG, 22)
+	style.content_margin_left = 18
+	style.content_margin_right = 10
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	card.add_theme_stylebox_override("panel", style)
 	var line := HBoxContainer.new()
-	var label := _label(text, ROW_FONT)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	line.add_child(label)
+	line.add_theme_constant_override("separation", 8)
+	card.add_child(line)
+	var words := VBoxContainer.new()
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	words.alignment = BoxContainer.ALIGNMENT_CENTER
+	words.add_theme_constant_override("separation", 0)
+	words.add_child(_label(row[1], BOLD, 27, CREAM))
+	var hint := _label("%s%d to %s%d" % [row[4], limits[0], row[4], limits[1]], FONT, 19, Color(CREAM, 0.75))
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	words.add_child(hint)
+	line.add_child(words)
+
+	var minus := _round_button("–")
+	line.add_child(minus)
+	var field := LineEdit.new()
+	field.text = str(Network.game_settings.get(key, Network.DEFAULT_SETTINGS[key]))
+	field.placeholder_text = "%d to %d" % [limits[0], limits[1]]   # also the phone prompt's title
+	field.max_length = 3
+	field.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	field.custom_minimum_size = Vector2(104, 64)
+	field.add_theme_font_override("font", BOLD)
+	field.add_theme_font_size_override("font_size", 40)
+	field.add_theme_color_override("font_color", CREAM)
+	field.add_theme_color_override("caret_color", CREAM)
+	field.add_theme_color_override("font_placeholder_color", Color(CREAM, 0.4))
+	for state in ["normal", "focus", "read_only"]:
+		field.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	field.text_changed.connect(_digits_only.bind(field))
+	field.text_submitted.connect(func(_t): _save())
+	field.set_meta("prefix", row[4])
+	line.add_child(field)
+	var plus := _round_button("+")
+	line.add_child(plus)
+	_boxes[key] = field
+	_hold_to_repeat(minus, func(): _step(key, -int(row[3])))
+	_hold_to_repeat(plus, func(): _step(key, int(row[3])))
+	return card
+
+func _step(key: String, by: int) -> void:
+	var field: LineEdit = _boxes[key]
+	var limits: Array = Network.SETTING_LIMITS[key]
+	var value := int(field.text) if field.text.is_valid_int() else int(Network.DEFAULT_SETTINGS[key])
+	var next := clampi(value + by, limits[0], limits[1])
+	if by > 0 and value % by != 0 and absi(by) > 1:   # land on round numbers ($23 -> $25)
+		next = clampi(value + by - posmod(value, by), limits[0], limits[1])
+	elif by < 0 and posmod(value, -by) != 0:
+		next = clampi(value - posmod(value, -by), limits[0], limits[1])
+	if next == value:
+		Sound.play("error")
+		return
+	field.text = str(next)
+	Sound.play("click")
+	_error.visible = false
+	field.pivot_offset = field.size / 2.0
+	var pop := field.create_tween()
+	pop.tween_property(field, "scale", Vector2(1.15, 1.15), 0.06)
+	pop.tween_property(field, "scale", Vector2.ONE, 0.1)
+
+# Press: one step. Keep holding: it repeats, faster and faster.
+func _hold_to_repeat(button: Button, action: Callable) -> void:
+	var timer := Timer.new()
+	timer.one_shot = false
+	button.add_child(timer)
+	timer.timeout.connect(func():
+		action.call()
+		timer.wait_time = maxf(0.06, timer.wait_time * 0.8))
+	button.button_down.connect(func():
+		action.call()
+		timer.wait_time = 0.4
+		timer.start())
+	button.button_up.connect(timer.stop)
+
+func _switch_row(box: VBoxContainer, title: String, hint: String, on: bool) -> InkSwitch:
+	var card := PanelContainer.new()
+	var style := _style(ROW_BG, 22)
+	style.content_margin_left = 18
+	style.content_margin_right = 12
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	card.add_theme_stylebox_override("panel", style)
+	var line := HBoxContainer.new()
+	card.add_child(line)
+	var words := VBoxContainer.new()
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	words.alignment = BoxContainer.ALIGNMENT_CENTER
+	words.add_theme_constant_override("separation", 0)
+	words.add_child(_label(title, BOLD, 27, CREAM))
+	var small := _label(hint, FONT, 18, Color(CREAM, 0.75))
+	small.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	words.add_child(small)
+	line.add_child(words)
 	var toggle := InkSwitch.new()
 	toggle.button_pressed = on
+	toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	line.add_child(toggle)
-	box.add_child(line)
+	box.add_child(card)
 	return toggle
 
 func _editions() -> Array:
@@ -163,7 +241,7 @@ func _update_deck_button() -> void:
 	var valid := _deck_picks.filter(func(n): return n in allowed)
 	if valid.size() != target:
 		_deck_picks = []
-	_deck_button.text = "Random" if _deck_picks.is_empty() else "Custom (%d)" % _deck_picks.size()
+	_deck_button.text = ("Random deck of %d   ›" % target) if _deck_picks.is_empty() else ("Custom deck (%d)   ›" % _deck_picks.size())
 
 func _open_deck_picker() -> void:
 	var editions := _editions()
@@ -174,15 +252,6 @@ func _open_deck_picker() -> void:
 	_deck_picks = picks
 	_update_deck_button()
 
-func _fit_buttons() -> void:
-	await get_tree().process_frame
-	InkBox.fit_text(_buttons)
-
-func _spacer(height: int) -> Control:
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, height)
-	return spacer
-
 func _digits_only(new_text: String, field: LineEdit) -> void:
 	var digits := ""
 	for c in new_text:
@@ -192,27 +261,7 @@ func _digits_only(new_text: String, field: LineEdit) -> void:
 		var caret := field.caret_column
 		field.text = digits
 		field.caret_column = mini(caret, digits.length())
-
-func _label(text: String, size: int) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_override("font", FONT)
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", INK)
-	return label
-
-func _button(text: String, action: Callable) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.clip_text = true
-	button.add_theme_font_override("font", FONT)
-	button.add_theme_font_size_override("font_size", 52)
-	InkBox.apply(button, INK)
-	button.pressed.connect(action)
-	_buttons.append(button)
-	return button
+	_error.visible = false
 
 func current_values() -> Dictionary:
 	var values := {}
@@ -231,6 +280,7 @@ func _save() -> void:
 	if problem != "":
 		Sound.play("error")
 		_error.text = problem
+		_error.visible = true
 		return
 	Sound.play("saved")
 	queue_free()
@@ -238,3 +288,68 @@ func _save() -> void:
 func _close() -> void:
 	Sound.play("back")
 	queue_free()
+
+func _pop_in() -> void:
+	await get_tree().process_frame
+	_frame.pivot_offset = _frame.size / 2.0
+	_frame.scale = Vector2(0.92, 0.92)
+	_dim.modulate.a = 0.0
+	var tween := create_tween().set_parallel(true)
+	tween.tween_property(_frame, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_dim, "modulate:a", 1.0, 0.12)
+
+## ---- LITTLE BUILDERS ----
+func _style(bg: Color, radius: int, border := Color(0, 0, 0, 0), width := 0) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg
+	style.set_corner_radius_all(radius)
+	style.anti_aliasing = true
+	if width > 0:
+		style.border_color = border
+		style.set_border_width_all(width)
+	return style
+
+func _heading(text: String) -> Label:
+	return _label(text, BOLD, 19, Color(INK, 0.7))
+
+func _label(text: String, font: Font, size: int, colour: Color) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_override("font", font)
+	label.add_theme_font_size_override("font_size", size)
+	label.add_theme_color_override("font_color", colour)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return label
+
+func _round_button(text: String) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size = Vector2(64, 64)
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	button.add_theme_font_override("font", BOLD)
+	button.add_theme_font_size_override("font_size", 38)
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		button.add_theme_color_override(c, CREAM)
+	for state in ["normal", "hover", "pressed", "focus"]:
+		var style := _style(GREEN.darkened(0.15) if state == "pressed" else GREEN, 32, CREAM, 2)
+		button.add_theme_stylebox_override(state, style)
+	return button
+
+func _wide_button(text: String, colour: Color, action: Callable) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size = Vector2(0, 76)
+	button.add_theme_font_override("font", BOLD)
+	button.add_theme_font_size_override("font_size", 30)
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		button.add_theme_color_override(c, CREAM)
+	for state in ["normal", "hover", "pressed", "focus"]:
+		var style := _style(colour.darkened(0.12) if state == "pressed" else colour, 38, CREAM, 3)
+		style.shadow_color = Color(0, 0, 0, 0.25)
+		style.shadow_size = 5
+		style.shadow_offset = Vector2(0, 3)
+		button.add_theme_stylebox_override(state, style)
+	button.pressed.connect(action)
+	return button

@@ -125,14 +125,16 @@ func _make_steps() -> Array:
 		# 4. Open the property
 		{"title": "Take a closer look", "text": "Tap the property to see its details.",
 			"target": _first_row_part.bind("panel"), "do": _scene_is.bind("property_info")},
-		{"title": "Every condition", "text": "This table shows the value and rent for each condition. The highlighted row is where this property is now.",
+		{"title": "The card", "text": "Its value and rent in big numbers, and its condition. Tap All conditions to compare every condition's value and rent.",
 			"target": _info_table},
+		{"title": "Tokens", "text": "Tokens on this property glow green. A + means you own one: tap it to put it on. Faded ones are bought in the Market; a red strike means it can't go here.",
+			"target": _page_part.bind("tokens_row")},
 		# 5. Contractor
-		{"title": "Upgrades", "text": "You own a Contractor (the hammer). Using it upgrades a property one condition, so it's worth more and earns more rent. Contractors are sold in the Market.",
-			"target": _scene_node.bind("CanvasLayer/contractor")},
+		{"title": "Upgrades", "text": "You own a Contractor, so this button appears: Upgrade raises the property one condition, so it's worth more and earns more rent. Contractors are sold in the Market.",
+			"target": _page_part.bind("upgrade_button")},
 		# 6. Selling
 		{"title": "Selling", "text": "Need cash? You can sell a property. Tap Sell.",
-			"target": _scene_node.bind("CanvasLayer/Sell"), "do": _scene_is.bind("sell_property")},
+			"target": _page_part.bind("sell_button"), "do": _scene_is.bind("sell_property")},
 		{"title": "Private sale", "text": "Sell it yourself: you roll a die with SOLD on only 2 of its 6 sides. Free, but risky.",
 			"target": _sell_choice.bind("Private Sale")},
 		{"title": "Listing Agent", "text": "With a Listing Agent, 5 of the 6 sides say SOLD: much safer. You don't have one yet, so let's buy one.",
@@ -260,7 +262,12 @@ func _first_row_part(part: String) -> Control:
 	return row.get(part) as Control if row else null
 
 func _info_table() -> Control:
-	return _scene_node("CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel") if _scene_is("property_info") else null
+	return _page_part("stats_box")
+
+# A part of the Property Details card (property_info.gd builds it in code).
+func _page_part(part: String) -> Control:
+	var scene := _scene()
+	return scene.get(part) as Control if scene and _scene_is("property_info") else null
 
 func _sell_choice(which: String) -> Control:
 	if not _scene_is("sell_property"):

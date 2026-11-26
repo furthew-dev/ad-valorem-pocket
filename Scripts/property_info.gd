@@ -1,66 +1,116 @@
 extends Node2D
-## Details for one owned property (Cards.selected_id). Lets the player apply
-## Double / SkyBnB / Insurance / Contractor tokens or go to the sale screen.
-## When a token changes the numbers, the changed values count up on screen.
+## Property Details (Cards.selected_id), laid out like a card from a card game:
+##
+##   ┌ Name ......................... [region] ┐   title bar
+##   │ ┌───────┐   VALUE      RENT             │
+##   │ │  art  │   $12        $10              │   the picture, and the numbers that matter
+##   │ └───────┘   ( Good condition )          │   condition chip (6 tenants x $3...)
+##   │ All conditions ▾                        │   the full table folds away
+##   │ TOKENS  [SkyBnB][Double][Insurance][Lock]│   active / add now / buy / not allowed
+##   │ SUITES  [ ][ ][ ][ ]   (Hotel / Cruise) │
+##   │ description, notes, loan                │
+##   └─────────────────────────────────────────┘
+##   [ Upgrade to Good ]            [ Sell ]      pinned above the menu bar
+##
+## The card scrolls when it's long, so text stays a readable size. Tokens are applied by
+## tapping their card in the Tokens row; numbers that change count up or down.
 
-const VBOX := "CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel/MarginContainer/VBoxContainer/"
-const INSURANCE_ICON := "res://Assets/icons/insurance_icon.png"
 const RISE_COLOR := Color("7fd17f")   # flash on numbers that went up
-const COUNT_TIME := 0.9
 const FALL_COLOR := Color("ff7a6e")   # flash on numbers that went down
+const COUNT_TIME := 0.9
 
-# --- Emblem / token badges ---
-@onready var property_icon: TextureRect = $CanvasLayer/Panel/VBoxContainer/box/property_icon
-@onready var double_status: Panel = $CanvasLayer/tokens/HBoxContainer/double_status2
-@onready var skybnb_status: Panel = $CanvasLayer/tokens/HBoxContainer/skybnb_status
-@onready var text_edit: Label = get_node(VBOX + "TextEdit")
+const TITLE_FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
+const FONT = preload("res://Assets/fonts/Comfortaa-Regular.ttf")
+const BOLD = preload("res://Assets/fonts/Comfortaa-Bold.ttf")
+const SELL_ICON := preload("res://Assets/icons/sell_icon.png")
+const CONTRACTOR_ICON := preload("res://Assets/icons/tokens/contractor_icon.png")
+
+# Palette colours, so every theme recolours the card.
+const CARD_BG := Color("533c44")
+const CARD_EDGE := Color("ddcf99")
+const CREAM := Color("f6f2e1")
+const SLOT_BG := Color("49343d")
+const BAND := Color("7a6d79")
+const GREEN := Color("5d6558")
+const SELL_RED := Color("b76051")
+const GOLD := Color("d4af37")         # Golden Lock (gold in every theme)
+const NOT_ALLOWED := Color("c94040")
+const CONDITION_COLORS := {"excellent": Color("749c5c"), "good": Color("7b7e63"),
+		"fair": Color("c2855f"), "poor": Color("96514b")}
+const CONDITION_ORDER := ["poor", "fair", "good", "excellent"]
+
+const TOKENS := [
+	{"key": "skybnb", "name": "SkyBnB", "icon": "res://Assets/icons/skybnb_icon.png", "flag": "has_skybnb", "allow": "allow_skybnb", "does": "doubles rent"},
+	{"key": "double", "name": "Double", "icon": "res://Assets/icons/double_icon.png", "flag": "has_double", "allow": "allow_double", "does": "doubles value"},
+	{"key": "insurance", "name": "Insurance", "icon": "res://Assets/icons/insurance_icon.png", "flag": "has_insurance", "allow": "", "does": "blocks disasters"},
+	{"key": "golden_lock", "name": "Golden Lock", "icon": "res://Assets/icons/tokens/lock_icon.png", "flag": "has_golden_lock", "allow": "", "does": "can't be harmed or sold"},
+]
+
+const CREAM_SHADER := """
+shader_type canvas_item;
+uniform vec4 tint : source_color;
+void fragment() { COLOR = vec4(tint.rgb, texture(TEXTURE, UV).a * COLOR.a); }
+"""
+
 @onready var ui_menu_frame: Control = $"CanvasLayer/Panel/UI Menu Frame"
-
-# --- Property details ---
-@onready var property_name: Label = get_node(VBOX + "details/property_name")
-@onready var property_value: Label = get_node(VBOX + "details/property_value")
-@onready var property_rent: Label = get_node(VBOX + "details/property_rent")
-
-# --- Condition rows: label, value, rent, highlight ---
-@onready var excellent: Label = get_node(VBOX + "excellent/excellent")
-@onready var e_value: Label = get_node(VBOX + "excellent/e_value")
-@onready var e_rent: Label = get_node(VBOX + "excellent/e_rent")
-@onready var excellent_condition: Panel = get_node(VBOX + "excellent/excellent/excellent_condition")
-@onready var good: Label = get_node(VBOX + "good/good")
-@onready var g_value: Label = get_node(VBOX + "good/g_value")
-@onready var g_rent: Label = get_node(VBOX + "good/g_rent")
-@onready var good_condition: Panel = get_node(VBOX + "good/good/good_condition")
-@onready var fair: Label = get_node(VBOX + "fair/fair")
-@onready var f_value: Label = get_node(VBOX + "fair/f_value")
-@onready var f_rent: Label = get_node(VBOX + "fair/f_rent")
-@onready var fair_condition: Panel = get_node(VBOX + "fair/fair/fair_condition")
-@onready var poor: Label = get_node(VBOX + "poor/poor")
-@onready var p_value: Label = get_node(VBOX + "poor/p_value")
-@onready var p_rent: Label = get_node(VBOX + "poor/p_rent")
-@onready var poor_condition: Panel = get_node(VBOX + "poor/poor/poor_condition")
-
-# --- Token buttons ---
-@onready var adddouble: Panel = get_node(VBOX + "add_action/adddouble")
-@onready var addskybnb: Panel = get_node(VBOX + "add_action/addskybnb")
-@onready var contractor: Panel = $CanvasLayer/contractor
-@onready var sell: Button = $CanvasLayer/Sell/Label/sell
+@onready var page: Control = $CanvasLayer/Panel
 
 var current_property: Dictionary = {}
-var _build_btn: Button   # only shown for empty lots (Land / Inheritance / Land Expansion)
-var addinsurance: Panel   # "Add Insurance", a copy of the Add SkyBnB button (built in _ready)
-var insurance_status: Panel   # badge next to the SkyBnB / Double badges
 var current_scene := "res://Scenes/property_info.tscn"
+
+# --- built in _build() ---
+var scroll: ScrollContainer
+var card: PanelContainer
+var _card_style: StyleBoxFlat
+var property_name: Label
+var region_icon: TextureRect
+var art_frame: Panel
+var property_icon: TextureRect
+var stats_box: VBoxContainer         # value, rent, condition (the tutorial points at it)
+var value_label: Label
+var rent_label: Label
+var condition_chip: PanelContainer
+var condition_text: Label
+var _chip_style: StyleBoxFlat
+var tenants_label: Label
+var conditions_toggle: Button
+var conditions_table: VBoxContainer
+var _rows := {}                      # "e"/"g"/"f"/"p" -> the row
+# The table's labels and the band behind the current row (names kept from the old page).
+var excellent: Label
+var good: Label
+var fair: Label
+var poor: Label
+var e_value: Label
+var e_rent: Label
+var g_value: Label
+var g_rent: Label
+var f_value: Label
+var f_rent: Label
+var p_value: Label
+var p_rent: Label
+var excellent_condition: Panel
+var good_condition: Panel
+var fair_condition: Panel
+var poor_condition: Panel
+var tokens_row: HBoxContainer
+var token_slots := {}                # key -> {"panel", "icon", "slash", "plus", "style", "state", "glow"}
+var suites_section: VBoxContainer
+var suites_title: HBoxContainer
+var suites_row: HBoxContainer
+var text_edit: Label                 # the description
+var _about_title: HBoxContainer
+var _loan_button: Button
+var action_bar: HBoxContainer
+var upgrade_button: Button           # Upgrade / Build / Add Suite (the tutorial points at it)
+var special_button: Button           # Swap this Cabin
+var sell_button: Button
+var contractor: Button:              # (old name, used by the tutorial)
+	get: return upgrade_button
+var _cream_shader: Shader
 
 
 func _ready() -> void:
-	# The highlight behind the property's current condition: drawn BEHIND the row's writing
-	# (not over it), so the text stays crisp whatever colour the theme gives the band.
-	for highlight in [excellent_condition, good_condition, fair_condition, poor_condition]:
-		highlight.z_index = 0
-		highlight.show_behind_parent = true
-		var row := highlight.get_parent().get_parent() as Control   # label -> its row
-		row.resized.connect(_stretch_highlight.bind(highlight))
-		_stretch_highlight.call_deferred(highlight)
 	for p in Cards.properties_owned:
 		if p.get("id") == Cards.selected_id:
 			current_property = p
@@ -68,13 +118,12 @@ func _ready() -> void:
 	if current_property.is_empty():   # the property is gone (sold, swapped...): no blank page
 		get_tree().change_scene_to_file.call_deferred("res://Scenes/my_properties.tscn")
 		return
-	_add_build_button()
-	_add_special_button()
-	_add_insurance_controls()
-	_style_sell_button()
-	_style_token_buttons()
+	_cream_shader = Shader.new()
+	_cream_shader.code = CREAM_SHADER
+	_build()
 	setup_card()
 	Global.properties_changed.connect(_on_properties_changed)
+	Global.actions_changed.connect(func(_v): if is_inside_tree() and _owned_quietly(): setup_card())
 	# What changed since you last looked (a new round, a Fortuna...): play it now.
 	var news := Notices.property_before(int(current_property.get("id", 0)))
 	Notices.mark_property(int(current_property.get("id", 0)))
@@ -90,329 +139,610 @@ func _on_properties_changed() -> void:
 	if _still_owned():
 		setup_card()
 
-# Fills every label from current_property. Safe to call again after a token is used,
-# which keeps the UI frame (and its banner) alive instead of reloading the scene.
-func setup_card() -> void:
-	var details := current_property
-	property_name.text = str(details["name"])
-	property_name.clip_text = true   # long names (Traditional Japanese Home) mustn't push the columns
+func _owned_quietly() -> bool:
+	return Cards.properties_owned.any(func(p): return p.get("id", -1) == current_property.get("id", -2))
+
+
+## ---- BUILDING THE CARD ----
+func _build() -> void:
+	var column := VBoxContainer.new()
+	column.name = "Card Column"
+	column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	column.offset_top = 176
+	column.offset_bottom = -182
+	column.add_theme_constant_override("separation", 10)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	page.add_child(column)
+	page.move_child(column, ui_menu_frame.get_index())   # under the header / menu bar
+
+	scroll = ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(scroll)
+	var margin := MarginContainer.new()
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for side in ["left", "right"]:
+		margin.add_theme_constant_override("margin_" + side, 22)
+	margin.add_theme_constant_override("margin_top", 6)
+	margin.add_theme_constant_override("margin_bottom", 14)
+	scroll.add_child(margin)
+
+	card = PanelContainer.new()
+	card.name = "Card"
+	_card_style = _style(CARD_BG, 34, CARD_EDGE, 4)
+	_card_style.shadow_color = Color(0, 0, 0, 0.35)
+	_card_style.shadow_size = 10
+	_card_style.shadow_offset = Vector2(0, 6)
+	for side in ["left", "right"]:
+		_card_style.set("content_margin_" + side, 22)
+	_card_style.content_margin_top = 16
+	_card_style.content_margin_bottom = 22
+	card.add_theme_stylebox_override("panel", _card_style)
+	margin.add_child(card)
+	var body := VBoxContainer.new()
+	body.add_theme_constant_override("separation", 14)
+	card.add_child(body)
+
+	body.add_child(_title_bar())
+	body.add_child(_top_section())
+	body.add_child(_conditions_section())
+	body.add_child(_divider("TOKENS"))
+	tokens_row = HBoxContainer.new()
+	tokens_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	tokens_row.add_theme_constant_override("separation", 26)
+	for token in TOKENS:
+		tokens_row.add_child(_token_slot(token))
+	body.add_child(tokens_row)
+	suites_section = VBoxContainer.new()
+	suites_section.add_theme_constant_override("separation", 10)
+	suites_title = _divider("SUITES")
+	suites_section.add_child(suites_title)
+	suites_row = HBoxContainer.new()
+	suites_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	suites_row.add_theme_constant_override("separation", 12)
+	suites_section.add_child(suites_row)
+	body.add_child(suites_section)
+	_about_title = _divider("ABOUT")
+	body.add_child(_about_title)
+	text_edit = _label("", FONT, 27, CREAM)
+	text_edit.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text_edit.add_theme_constant_override("line_spacing", 4)
+	body.add_child(text_edit)
+
+	action_bar = HBoxContainer.new()
+	action_bar.name = "Actions"
+	action_bar.add_theme_constant_override("separation", 14)
+	action_bar.custom_minimum_size.y = 92
+	var bar_margin := MarginContainer.new()
+	for side in ["left", "right"]:
+		bar_margin.add_theme_constant_override("margin_" + side, 22)
+	bar_margin.add_child(action_bar)
+	column.add_child(bar_margin)
+	special_button = _action_button("", GREEN, null)
+	special_button.pressed.connect(_on_special_pressed)
+	action_bar.add_child(special_button)
+	upgrade_button = _action_button("Upgrade", GREEN, CONTRACTOR_ICON)
+	upgrade_button.name = "upgrade"
+	upgrade_button.pressed.connect(_on_upgrade_pressed)
+	action_bar.add_child(upgrade_button)
+	sell_button = _action_button("Sell", SELL_RED, SELL_ICON)
+	sell_button.name = "sell"
+	sell_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	sell_button.custom_minimum_size.x = 190
+	sell_button.pressed.connect(_on_sell_pressed)
+	action_bar.add_child(sell_button)
+
+func _title_bar() -> Control:
+	var bar := HBoxContainer.new()
+	bar.add_theme_constant_override("separation", 10)
+	property_name = _label("", TITLE_FONT, 56, CREAM)
+	property_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	property_name.clip_text = true
 	property_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	e_value.text = "$%s" % details["e_value"]
-	e_rent.text = "$%s" % details["e_rent"]
-	g_value.text = "$%s" % details["g_value"]
-	g_rent.text = "$%s" % details["g_rent"]
-	f_value.text = "$%s" % details["f_value"]
-	f_rent.text = "$%s" % details["f_rent"]
-	p_value.text = "$%s" % details["p_value"]
-	p_rent.text = "$%s" % details["p_rent"]
-	text_edit.text = str(details["p_details"])
-	if details.get("has_golden_lock", false):
-		text_edit.text += "\n\nGolden Lock: protected from harm and can't be sold."
-	_show_tenants(details)
-	if details["name"] == "Terraced House":
-		text_edit.text += "\n\nRounds owned: %d" % int(details.get("round", 0))
-	text_edit.text += _expansion_notes(details)
-	_show_purchase_loan(details)
-	_show_special_button(details)
+	bar.add_child(property_name)
+	region_icon = TextureRect.new()
+	region_icon.custom_minimum_size = Vector2(52, 52)
+	region_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	region_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	region_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	ColorTheme.keep(region_icon)
+	bar.add_child(region_icon)
+	return bar
 
-	if details["has_condition"]:
-		var condition: String = details["condition"]
-		excellent_condition.visible = condition == "excellent"
-		good_condition.visible = condition == "good"
-		fair_condition.visible = condition == "fair"
-		poor_condition.visible = condition == "poor"
-		contractor.visible = Actions.actions_owned.has("contractor") and condition != "excellent"
-		# Traditional Japanese Home has only Excellent and Poor.
-		var both: bool = not details.get("two_conditions", false)
-		for node in [good, g_value, g_rent, fair, f_value, f_rent]:
-			node.visible = both
-		_nudge_contractor()
-	else:
-		# Fixed-value property: only the single value/rent row is meaningful.
-		excellent.visible = false
-		property_name.visible = false
-		for node in [g_value, g_rent, f_value, f_rent, p_value, p_rent, good, fair, poor]:
-			node.visible = false
-		for node in [excellent_condition, good_condition, fair_condition, poor_condition, contractor]:
-			node.visible = false
-		for label in [e_value, e_rent]:   # one value and one rent: show them big
-			label.add_theme_font_size_override("font_size", 58)
-		# Hotel Resort / Luxury Cruise: the Contractor builds a Suite instead.
-		contractor.visible = _can_add_suite(details) and Actions.actions_owned.has("contractor")
-		_nudge_contractor()
+func _top_section() -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 20)
+	art_frame = Panel.new()
+	art_frame.custom_minimum_size = Vector2(250, 250)
+	art_frame.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	art_frame.add_theme_stylebox_override("panel", _style(SLOT_BG, 26, CARD_EDGE, 3))
+	property_icon = TextureRect.new()
+	property_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "top"]:
+		property_icon.set("offset_" + side, 3)
+	for side in ["right", "bottom"]:
+		property_icon.set("offset_" + side, -3)
+	property_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	property_icon.stretch_mode = TextureRect.STRETCH_SCALE   # a square picture with rounded corners
+	property_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ColorTheme.keep(property_icon)
+	art_frame.add_child(property_icon)
+	row.add_child(art_frame)
 
-	skybnb_status.visible = details["allow_skybnb"] and details["has_skybnb"]
-	_mark_not_allowed(skybnb_status, not details["allow_skybnb"], "SkyBnB")
-	addskybnb.visible = details["allow_skybnb"] and not details["has_skybnb"] \
-			and Actions.actions_owned.has("skybnb")
-	double_status.visible = details["allow_double"] and details["has_double"]
-	_mark_not_allowed(double_status, not details["allow_double"], "Double")
-	adddouble.visible = details["allow_double"] and not details["has_double"] \
-			and Actions.actions_owned.has("double")
+	stats_box = VBoxContainer.new()
+	stats_box.name = "Stats"
+	stats_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stats_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	stats_box.add_theme_constant_override("separation", 10)
+	var numbers := HBoxContainer.new()
+	numbers.add_theme_constant_override("separation", 8)
+	var value_col := _stat("VALUE")
+	value_label = value_col.get_child(1)
+	var rent_col := _stat("RENT")
+	rent_label = rent_col.get_child(1)
+	numbers.add_child(value_col)
+	numbers.add_child(rent_col)
+	stats_box.add_child(numbers)
+	condition_chip = PanelContainer.new()
+	_chip_style = _style(CONDITION_COLORS["good"], 30)
+	_chip_style.content_margin_left = 18
+	_chip_style.content_margin_right = 18
+	_chip_style.content_margin_top = 6
+	_chip_style.content_margin_bottom = 8
+	condition_chip.add_theme_stylebox_override("panel", _chip_style)
+	ColorTheme.keep(condition_chip)   # each condition keeps its own colour
+	condition_text = _label("", BOLD, 28, CREAM)
+	condition_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ColorTheme.keep(condition_text)
+	condition_chip.add_child(condition_text)
+	stats_box.add_child(condition_chip)
+	tenants_label = _label("", FONT, 24, CREAM)
+	tenants_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tenants_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stats_box.add_child(tenants_label)
+	row.add_child(stats_box)
+	return row
 
-	insurance_status.visible = details.get("has_insurance", false)
-	addinsurance.visible = not details.get("has_insurance", false) \
-			and Actions.actions_owned.has("insurance")
+func _stat(caption: String) -> VBoxContainer:
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", -4)
+	var small := _label(caption, BOLD, 20, CARD_EDGE)
+	small.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(small)
+	var big := _label("$0", BOLD, 64, CREAM)
+	big.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(big)
+	return col
 
-	_build_btn.visible = Cards.is_lot(details)
-	_show_suites.call_deferred()
-	_layout_token_buttons.call_deferred()
-	_fit_details_card.call_deferred()
+# "All conditions" folds open into the full table (the current row has a band behind it).
+func _conditions_section() -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	conditions_toggle = Button.new()
+	conditions_toggle.flat = true
+	conditions_toggle.focus_mode = Control.FOCUS_NONE
+	conditions_toggle.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	conditions_toggle.add_theme_font_override("font", BOLD)
+	conditions_toggle.add_theme_font_size_override("font_size", 26)
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		conditions_toggle.add_theme_color_override(c, CARD_EDGE)
+	conditions_toggle.pressed.connect(func(): _open_conditions(not conditions_table.visible, true))
+	box.add_child(conditions_toggle)
+	conditions_table = VBoxContainer.new()
+	conditions_table.add_theme_constant_override("separation", 2)
+	conditions_table.visible = false
+	var head := _table_row("", "Value", "Rent", 22)
+	conditions_table.add_child(head)
+	for tier in ["e", "g", "f", "p"]:
+		var tier_name: String = {"e": "Excellent", "g": "Good", "f": "Fair", "p": "Poor"}[tier]
+		var row := _table_row(tier_name, "$0", "$0", 30)
+		conditions_table.add_child(row)
+		_rows[tier] = row
+		var labels: Array = row.get_meta("labels")
+		set(tier_name.to_lower(), labels[0])
+		set(tier + "_value", labels[1])
+		set(tier + "_rent", labels[2])
+		set(tier_name.to_lower() + "_condition", row.get_meta("band"))
+	box.add_child(conditions_table)
+	return box
 
-	var art_path: String = details["art"]
-	if art_path != "" and ResourceLoader.exists(art_path):
-		property_icon.texture = Cards.round_icon(art_path)
-		property_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED   # stay round in any box
+func _table_row(first: String, second: String, third: String, size: int) -> PanelContainer:
+	var row := PanelContainer.new()
+	row.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	var band := Panel.new()   # behind the current condition
+	var band_style := _style(BAND, 16)
+	band.add_theme_stylebox_override("panel", band_style)
+	band.visible = false
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(band)
+	var line := HBoxContainer.new()
+	var labels := []
+	for i in 3:
+		var text: String = [first, second, third][i]
+		var label := _label(text, BOLD if size < 26 else FONT, size, CARD_EDGE if size < 26 else CREAM)
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.size_flags_stretch_ratio = 1.4 if i == 0 else 1.0
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if i == 0 else HORIZONTAL_ALIGNMENT_CENTER
+		if i == 0:
+			label.text = "   " + text if text != "" else ""
+		line.add_child(label)
+		labels.append(label)
+	row.add_child(line)
+	row.set_meta("labels", labels)
+	row.set_meta("band", band)
+	return row
 
-# Builds the Add Insurance button (a copy of Add SkyBnB, in the same row) and the badge.
-func _add_insurance_controls() -> void:
-	# Copy without signals, so the new button doesn't also trigger SkyBnB.
-	var copy_flags := Node.DUPLICATE_GROUPS | Node.DUPLICATE_SCRIPTS | Node.DUPLICATE_USE_INSTANTIATION
-	addinsurance = addskybnb.duplicate(copy_flags)
-	addinsurance.name = "addinsurance"
-	addinsurance.get_node("add_skybnb2").text = "Add Insurance"
-	addinsurance.get_node("add_skybnb").pressed.connect(_on_add_insurance_pressed)
-	addskybnb.add_sibling(addinsurance)
-	var row := addskybnb.get_parent() as HBoxContainer
-	row.add_theme_constant_override("separation", 12)
-	(row.get_parent() as Control).resized.connect(_layout_token_buttons)
+func _open_conditions(open: bool, sound: bool = false) -> void:
+	conditions_table.visible = open
+	conditions_toggle.text = "All conditions  %s" % ("▴" if open else "▾")
+	if sound:
+		Sound.play("open" if open else "back")
 
-	# The badge sits in the left column, one slot ABOVE the SkyBnB badge, so it never
-	# covers the property picture / name in the middle of the screen.
-	insurance_status = skybnb_status.duplicate(copy_flags)
-	insurance_status.name = "insurance_status"
-	insurance_status.get_node("TextureRect").texture = load(INSURANCE_ICON)
-	var badge_row := skybnb_status.get_parent() as Control
-	badge_row.get_parent().add_child(insurance_status)
-	insurance_status.size = skybnb_status.custom_minimum_size
-	insurance_status.position = badge_row.position + Vector2(19, -insurance_status.size.y - 10)
+## ---- TOKEN BADGES ----
+# One round badge per token, like ability tokens on a game board. No writing: active
+# ones glow green, ones you could add now are bright with a small + (and wiggle), ones
+# you'd need to buy are faded, and ones that can't go here are faded with a red strike.
+const TOKEN_SIZE := 118.0
+const GLOW := Color("6fe07c")        # active token: icon, ring and glow
+const GLOW_BG := Color("1f3a26")
+const GOLD_GLOW := Color("f2c94c")   # the Golden Lock glows gold instead
+const GOLD_BG := Color("3d3216")
 
-# Add SkyBnB / Add Double / Add Insurance sit side by side and share the row's width.
-# Each label shrinks until its text fits inside its button.
-const TOKEN_FONT_SIZE := 45
-const TOKEN_FONT_MIN := 18
-const TOKEN_TEXT_PADDING := 12
-var _laying_out := false
+func _token_slot(token: Dictionary) -> Control:
+	var holder := Control.new()   # keeps the circle round whatever the row does
+	holder.name = token["key"]
+	holder.custom_minimum_size = Vector2(TOKEN_SIZE, TOKEN_SIZE)
+	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# Drawn as real circles (a rounded box left faint seams in the ring).
+	var look := {"bg": SLOT_BG, "ring": CARD_EDGE, "width": 3.0, "glow": 0.0}
+	holder.draw.connect(func():
+		var c := holder.size / 2.0
+		var r := TOKEN_SIZE / 2.0 - 2.0
+		var glow: float = look["glow"]
+		if glow > 0.0:   # a soft green halo, fading outwards
+			var steps := int(glow)
+			for i in steps:
+				var a := 0.5 * pow(1.0 - float(i) / steps, 2.0)
+				holder.draw_arc(c, r + i + 1.0, 0.0, TAU, 72, Color(look.get("shine", GLOW), a), 2.0, true)
+		holder.draw_circle(c, r, ColorTheme.map_color(look["bg"], "fill"), true, -1.0, true)
+		holder.draw_arc(c, r - look["width"] / 2.0, 0.0, TAU, 72,
+				look["ring"] if look["ring"] in [GLOW, GOLD_GLOW] else ColorTheme.map_color(look["ring"], "border"), look["width"], true))
+	var icon := TextureRect.new()
+	icon.texture = load(token["icon"])
+	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "top"]:
+		icon.set("offset_" + side, 28)
+	for side in ["right", "bottom"]:
+		icon.set("offset_" + side, -28)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var material := ShaderMaterial.new()
+	material.shader = _cream_shader
+	material.set_shader_parameter("tint", CREAM)
+	icon.material = material
+	icon.set_meta("ct_skip", true)
+	holder.add_child(icon)
+	var slash := Control.new()   # "not allowed": a red line across
+	slash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	slash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slash.visible = false
+	slash.draw.connect(func():
+		var r := slash.size
+		slash.draw_line(Vector2(r.x * 0.2, r.y * 0.8), Vector2(r.x * 0.8, r.y * 0.2), NOT_ALLOWED, 7.0, true))
+	slash.set_meta("ct_skip", true)
+	holder.add_child(slash)
+	var plus := Panel.new()   # "you have one": a small + on the rim
+	plus.size = Vector2(38, 38)
+	plus.position = Vector2(TOKEN_SIZE - 34, -4)
+	plus.add_theme_stylebox_override("panel", _style(GREEN.lightened(0.15), 19, CREAM, 2))
+	plus.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var plus_sign := _label("+", BOLD, 30, CREAM)
+	plus_sign.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	plus_sign.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	plus_sign.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	plus_sign.offset_top = -3
+	plus.add_child(plus_sign)
+	ColorTheme.keep(plus)
+	ColorTheme.keep(plus_sign)
+	holder.add_child(plus)
+	var tap := Button.new()   # the whole badge takes the tap
+	tap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tap.flat = true
+	tap.focus_mode = Control.FOCUS_NONE
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		tap.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	tap.pressed.connect(_on_token_pressed.bind(token))
+	holder.add_child(tap)
+	token_slots[token["key"]] = {"panel": holder, "icon": icon, "slash": slash, "plus": plus,
+			"look": look, "state": "", "glow": null}
+	return holder
 
-func _layout_token_buttons() -> void:
-	if _laying_out:
+# "active", "add" (you have one and it can go here), "buy", "no" (not allowed here).
+func _token_state(token: Dictionary) -> String:
+	var p := current_property
+	if p.get(token["flag"], false):
+		return "active"
+	if token["allow"] != "" and not p.get(token["allow"], false):
+		return "no"
+	if Cards.is_lot(p) and token["key"] != "golden_lock":
+		return "no"
+	var needed: int = p.get("insurance_needed", 1) if token["key"] == "insurance" else 1
+	return "add" if Actions.actions_owned.count(token["key"]) >= needed else "buy"
+
+func _show_tokens() -> void:
+	for token in TOKENS:
+		var slot: Dictionary = token_slots[token["key"]]
+		var state := _token_state(token)
+		slot["state"] = state
+		var look: Dictionary = slot["look"]
+		var holder: Control = slot["panel"]
+		var icon_material: ShaderMaterial = (slot["icon"] as TextureRect).material
+		var glow: Tween = slot["glow"]
+		if glow and glow.is_valid():
+			glow.kill()
+		var active := state == "active"
+		var gold: bool = token["key"] == "golden_lock"
+		var shine := GOLD_GLOW if gold else GLOW
+		look["bg"] = (GOLD_BG if gold else GLOW_BG) if active else SLOT_BG
+		look["ring"] = shine if active else CARD_EDGE
+		look["shine"] = shine
+		look["width"] = 5.0 if active else 3.0
+		look["glow"] = 14.0 if active else 0.0
+		icon_material.set_shader_parameter("tint", shine if active else CREAM)
+		holder.modulate.a = {"active": 1.0, "add": 1.0, "buy": 0.45, "no": 0.35}[state]
+		(slot["plus"] as Control).visible = state == "add"
+		var slash: Control = slot["slash"]
+		slash.visible = state == "no"
+		slash.queue_redraw()
+		holder.queue_redraw()
+		if active:   # the glow breathes
+			var set_glow := func(v: float):
+				look["glow"] = v
+				holder.queue_redraw()
+			var breathe := holder.create_tween().set_loops()
+			breathe.tween_method(set_glow, 10.0, 20.0, 1.1).set_trans(Tween.TRANS_SINE)
+			breathe.tween_method(set_glow, 20.0, 10.0, 1.1).set_trans(Tween.TRANS_SINE)
+			slot["glow"] = breathe
+	_jiggle_tokens()
+
+func _on_token_pressed(token: Dictionary) -> void:
+	if not _still_owned():
 		return
-	_laying_out = true
-	var row := addskybnb.get_parent() as HBoxContainer
-	var shown := [addskybnb, adddouble, addinsurance].filter(func(p): return p.visible)
-	# Let the row shrink first: the buttons' own minimum widths can stretch it (and
-	# everything around it) past the screen edge, which would spoil the measurement.
-	for panel in shown:
-		panel.custom_minimum_size.x = 0
-	await get_tree().process_frame
-	if not is_inside_tree():
-		return   # the player already left this screen
-	var available: float = (row.get_parent() as Control).size.x
-	if $CanvasLayer/Sell.visible:
-		available -= SELL_ROOM   # the round Sell button sits over the row's right end
-	if not shown.is_empty() and available > 0:
-		var separation := row.get_theme_constant("separation")
-		var width := minf(300.0, (available - separation * (shown.size() - 1)) / shown.size())
-		row.alignment = BoxContainer.ALIGNMENT_BEGIN
-		for panel in shown:   # three in a row: just the token's name, so the text stays readable
-			var token_name: String = {addskybnb: "SkyBnB", adddouble: "Double", addinsurance: "Insurance"}.get(panel, "")
-			if token_name != "":
-				(panel.get_child(0) as Label).text = token_name if shown.size() > 2 else "Add " + token_name
-		for panel in shown:
-			panel.custom_minimum_size.x = width
-			panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if shown.size() > 1 else Control.SIZE_SHRINK_BEGIN
-			var label: Label = panel.get_child(0)
-			var font := label.get_theme_font("font")
-			var size := TOKEN_FONT_SIZE
-			while size > TOKEN_FONT_MIN and font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > width - TOKEN_TEXT_PADDING - label.offset_left:
-				size -= 1
-			label.add_theme_font_size_override("font_size", size)
-			label.clip_text = true
-		var smallest := TOKEN_FONT_SIZE   # one size for the whole row, so they match
-		for panel in shown:
-			smallest = mini(smallest, (panel.get_child(0) as Label).get_theme_font_size("font_size"))
-		for panel in shown:
-			(panel.get_child(0) as Label).add_theme_font_size_override("font_size", smallest)
-	if is_inside_tree():
-		await get_tree().process_frame
-	_laying_out = false
-	_jiggle_tokens(shown)
+	Sound.play("click")
+	match token_slots[token["key"]]["state"]:
+		"active":
+			Global.banner("%s is on this property: it %s." % [token["name"], token["does"]])
+		"buy":
+			Global.banner("Buy a %s in the Market to put it here (it %s)." % [token["name"], token["does"]], "market")
+		"no":
+			Global.error("A %s can't be added to the %s." % [token["name"], current_property.get("name", "property")])
+		"add":
+			match token["key"]:
+				"skybnb": _on_add_skybnb_pressed()
+				"double": _on_add_double_pressed()
+				"insurance": _on_add_insurance_pressed()
+				"golden_lock": _on_add_lock_pressed()
 
 ## ---- "USE ME" JIGGLE ----
-# Add SkyBnB / Double / Insurance buttons that can be used right now give a little wiggle
-# every couple of seconds, so it's obvious the token in your inventory can go here.
+# Token cards you could add right now give a little wiggle every couple of seconds.
 var _jiggles: Array = []
 
-func _jiggle_tokens(shown: Array) -> void:
+func _jiggle_tokens() -> void:
 	for tween in _jiggles:
 		if tween and tween.is_valid():
 			tween.kill()
 	_jiggles.clear()
-	for i in shown.size():
-		var panel: Control = shown[i]
+	var i := 0
+	for key in token_slots:
+		var panel: Control = token_slots[key]["panel"]
 		panel.rotation = 0.0
+		if token_slots[key]["state"] != "add":
+			continue
 		panel.pivot_offset = panel.size / 2.0
 		var tween := panel.create_tween().set_loops()
-		tween.tween_interval(1.8 + i * 0.25)   # staggered, so they don't move in lockstep
-		for angle in [0.07, -0.07, 0.05, -0.04, 0.02, 0.0]:
+		tween.tween_interval(1.8 + i * 0.25)
+		tween.tween_callback(func(): panel.pivot_offset = panel.size / 2.0)
+		for angle in [0.06, -0.06, 0.04, -0.03, 0.015, 0.0]:
 			tween.tween_property(panel, "rotation", angle, 0.06)
 		_jiggles.append(tween)
+		i += 1
 
-## ---- ADD SKYBNB / DOUBLE / INSURANCE BUTTONS ----
-# Rounded pills in the theme's sage with a cream border, a soft shadow and the token's
-# own icon on the left, like the Sell button.
-const TOKEN_ICONS := {"skybnb": "res://Assets/icons/skybnb_icon.png", "double": "res://Assets/icons/double_icon.png",
-		"insurance": "res://Assets/icons/insurance_icon.png"}
-const TOKEN_ICON_SIZE := 40.0
-
-func _style_token_buttons() -> void:
-	var cream_shader := Shader.new()
-	cream_shader.code = CREAM_SHADER
-	for pair in [[addskybnb, "skybnb"], [adddouble, "double"], [addinsurance, "insurance"]]:
-		var panel: Panel = pair[0]
-		if panel == null:
-			continue
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color("5d6558")
-		style.border_color = Color("ddcf99")
-		style.set_border_width_all(3)
-		style.set_corner_radius_all(45)
-		style.shadow_color = Color(0, 0, 0, 0.3)
-		style.shadow_size = 6
-		style.shadow_offset = Vector2(0, 4)
-		panel.add_theme_stylebox_override("panel", style)
-		var label: Label = panel.get_child(0)
-		label.offset_left = TOKEN_ICON_SIZE + 12   # the text sits right of the icon
-		label.offset_right = -10
-		label.add_theme_color_override("font_color", Color("f6f2e1"))
-		var icon := TextureRect.new()
-		icon.texture = load(TOKEN_ICONS[pair[1]])
-		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.anchor_top = 0.5
-		icon.anchor_bottom = 0.5
-		icon.offset_left = 16
-		icon.offset_right = 16 + TOKEN_ICON_SIZE
-		icon.offset_top = -TOKEN_ICON_SIZE / 2.0
-		icon.offset_bottom = TOKEN_ICON_SIZE / 2.0
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var material := ShaderMaterial.new()
-		material.shader = cream_shader
-		material.set_shader_parameter("tint", Color("f6f2e1"))
-		icon.material = material
-		icon.set_meta("ct_skip", true)
-		panel.add_child(icon)
-
-## ---- SELL BUTTON ----
-# A rounded terracotta button with a money bag, instead of the small grey square
-# that sat over the token buttons.
-const SELL_ICON := preload("res://Assets/icons/sell_icon.png")
-const CREAM_SHADER := """
-shader_type canvas_item;
-uniform vec4 tint : source_color;
-void fragment() { COLOR = vec4(tint.rgb, texture(TEXTURE, UV).a * COLOR.a); }
-"""
-
-const SELL_SIZE := 112.0   # the round Sell button, bottom right (where it first was)
-const SELL_ROOM := 128.0   # how much of the token row's right end it needs
-
-# Apartment you own: this round's tenants, first thing in the description (so it's never
-# below the fold) and under the rent figure: "6 tenants x $3".
-func _show_tenants(details: Dictionary) -> void:
-	var caption: Label = e_rent.get_node_or_null("tenants")
-	var owned: bool = details["name"] == "Apartment" and details.has("tenants") and Cards.properties_owned.has(details)
-	if not owned:
-		if caption:
-			caption.visible = false
+## ---- SUITES (Hotel Resort / Luxury Cruise) ----
+func _show_suites(added_one: bool = false) -> void:
+	var is_host: bool = current_property.get("special", "") == "suite_host" and Network.expansion_on()
+	suites_section.visible = is_host
+	if not is_host:
 		return
-	var tenants := int(details["tenants"])
-	var plural := "" if tenants == 1 else "s"
-	text_edit.text = "This round: %d tenant%s, $%d rent.\n\n%s" % [tenants, plural, int(details["rent"]), text_edit.text]
-	if caption == null:
-		caption = Label.new()
-		caption.name = "tenants"
-		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		caption.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-		caption.grow_horizontal = Control.GROW_DIRECTION_BOTH
-		caption.offset_top = -4
-		caption.offset_bottom = 30
-		caption.add_theme_font_size_override("font_size", 22)
-		caption.modulate.a = 0.85
-		caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		e_rent.add_child(caption)
-	caption.visible = true
-	var each := 3 * (2 if details.get("has_double", false) else 1)
-	caption.text = "%d tenant%s x $%d" % [tenants, plural, each]
+	var suites: Array = current_property.get("suites", [])
+	(suites_title.get_child(1) as Label).text = "SUITES  %d / %d  ·  +$%d rent" % [suites.size(), Expansion.MAX_SUITES, suites.size() * Expansion.SUITE_RENT]
+	for child in suites_row.get_children():
+		child.queue_free()
+	for i in Expansion.MAX_SUITES:
+		var slot := Panel.new()
+		slot.custom_minimum_size = Vector2(120, 120)
+		var filled := i < suites.size()
+		var style := _style(SLOT_BG, 20, CARD_EDGE if filled else Color(CARD_EDGE, 0.35), 3 if filled else 2)
+		slot.add_theme_stylebox_override("panel", style)
+		if filled:
+			var art := TextureRect.new()
+			art.texture = _rounded_art(str(suites[i].get("art", "")), 17)
+			art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			for side in ["left", "top"]:
+				art.set("offset_" + side, 3)
+			for side in ["right", "bottom"]:
+				art.set("offset_" + side, -3)
+			art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			art.stretch_mode = TextureRect.STRETCH_SCALE
+			art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			ColorTheme.keep(art)
+			slot.add_child(art)
+		else:
+			var plus := _label("+", FONT, 48, Color(CARD_EDGE, 0.45))
+			plus.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			plus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			plus.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			slot.add_child(plus)
+		suites_row.add_child(slot)
+		if added_one and i == suites.size() - 1:   # the new Suite drops in
+			slot.pivot_offset = Vector2(60, 60)
+			slot.scale = Vector2(1.5, 1.5)
+			slot.modulate.a = 0.0
+			var drop := slot.create_tween().set_parallel(true)
+			drop.tween_property(slot, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			drop.tween_property(slot, "modulate:a", 1.0, 0.2)
 
-func _style_sell_button() -> void:
-	var panel: Panel = $CanvasLayer/Sell
-	panel.custom_minimum_size = Vector2.ZERO
-	# Bottom right, over the card's corner just above the menu bar. The token buttons
-	# (Add SkyBnB / Insurance / Double) stop short of it: see _layout_token_buttons.
-	panel.offset_right = -10
-	panel.offset_left = -10 - SELL_SIZE
-	panel.offset_bottom = 1118
-	panel.offset_top = 1118 - SELL_SIZE
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("b76051")
-	style.border_color = Color("f6f2e1")
-	style.set_border_width_all(4)
-	style.set_corner_radius_all(int(SELL_SIZE / 2.0))
-	style.shadow_color = Color(0, 0, 0, 0.35)
-	style.shadow_size = 8
-	style.shadow_offset = Vector2(0, 5)
-	panel.add_theme_stylebox_override("panel", style)
-	var label: Label = panel.get_node("Label")
-	label.text = ""
-	var column := VBoxContainer.new()
-	column.alignment = BoxContainer.ALIGNMENT_CENTER
-	column.add_theme_constant_override("separation", -2)
-	column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(column)
-	panel.move_child(column, 0)   # under the (invisible) button that takes the tap
-	var icon := TextureRect.new()
-	icon.texture = SELL_ICON
-	icon.custom_minimum_size = Vector2(44, 44)
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var shader := Shader.new()
-	shader.code = CREAM_SHADER
-	var material := ShaderMaterial.new()
-	material.shader = shader
-	material.set_shader_parameter("tint", Color("f6f2e1"))
-	icon.material = material
-	icon.set_meta("ct_skip", true)
-	column.add_child(icon)
-	var text := Label.new()
-	text.text = "Sell"
-	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	text.add_theme_font_override("font", preload("res://Assets/fonts/Comfortaa-Regular.ttf"))
-	text.add_theme_font_size_override("font_size", 28)
-	text.add_theme_color_override("font_color", Color("f6f2e1"))
-	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_child(text)
-	sell.pressed.connect(func():   # a quick press-down feel
-		panel.pivot_offset = panel.size / 2.0
-		var pop := panel.create_tween()
-		pop.tween_property(panel, "scale", Vector2(0.92, 0.92), 0.06)
-		pop.tween_property(panel, "scale", Vector2.ONE, 0.08))
 
-func _add_build_button() -> void:
-	_build_btn = Button.new()
-	_build_btn.text = "Build with Contractor"
-	_build_btn.custom_minimum_size = Vector2(0, 80)
-	_build_btn.add_theme_font_size_override("font_size", 34)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.482353, 0.494118, 0.388235)
-	style.set_corner_radius_all(30)
-	for state in ["normal", "hover", "pressed"]:
-		_build_btn.add_theme_stylebox_override(state, style)
-	_build_btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	_build_btn.pressed.connect(_on_build_pressed)
-	text_edit.add_sibling(_build_btn)
+## ---- FILLING IN THE CARD ----
+# Safe to call again after a token is used (keeps the frame and its banner alive).
+func setup_card() -> void:
+	var p := current_property
+	property_name.text = str(p["name"])
+	_fit_title()
+	var art_path: String = p.get("art", "")
+	property_icon.texture = _rounded_art(art_path, 23)
+	var region: String = p.get("region", "")
+	region_icon.visible = Network.expansion_on() and region != ""
+	if region_icon.visible:
+		region_icon.texture = Expansion.region_icon(region)
+		region_icon.tooltip_text = region
+	value_label.text = "$%d" % int(p.get("value", 0))
+	rent_label.text = "$%d" % int(p.get("rent", 0))
+	_show_condition(str(p.get("condition", "")))
+	_show_table()
+	_show_tenants()
+	_show_tokens()
+	_show_suites()
+	_show_description()
+	_show_actions()
+	_card_style.border_color = GOLD if p.get("has_golden_lock", false) else CARD_EDGE
+
+func _fit_title() -> void:
+	var size := 56
+	var width := 560.0 if not region_icon.visible else 500.0
+	while size > 32 and TITLE_FONT.get_string_size(property_name.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > width:
+		size -= 2
+	property_name.add_theme_font_size_override("font_size", size)
+
+func _show_condition(condition: String) -> void:
+	var p := current_property
+	if Cards.is_lot(p):
+		condition_text.text = "Empty lot"
+		_chip_style.bg_color = GREEN
+	elif p.get("has_condition", false):
+		condition_text.text = condition.capitalize()
+		_chip_style.bg_color = CONDITION_COLORS.get(condition, GREEN)
+	else:
+		condition_text.text = "Fixed value"
+		_chip_style.bg_color = BAND
+
+func _show_table() -> void:
+	var p := current_property
+	var has := bool(p.get("has_condition", false))
+	conditions_toggle.visible = has
+	if not has:
+		conditions_table.visible = false
+		return
+	if conditions_toggle.text == "":
+		_open_conditions(false)
+	for tier in _rows:
+		var labels: Array = _rows[tier].get_meta("labels")
+		labels[1].text = "$%s" % p.get(tier + "_value", 0)
+		labels[2].text = "$%s" % p.get(tier + "_rent", 0)
+	var both: bool = not p.get("two_conditions", false)   # Traditional Japanese Home: Excellent / Poor
+	_rows["g"].visible = both
+	_rows["f"].visible = both
+	_show_band(str(p.get("condition", "")))
+
+func _show_band(condition: String) -> void:
+	for tier in _rows:
+		var band: Panel = _rows[tier].get_meta("band")
+		band.visible = Fortunas.CONDITION_PREFIX.get(condition, "") == tier
+
+# Apartment you own: this round's tenants, right under the rent.
+func _show_tenants() -> void:
+	var p := current_property
+	var owned: bool = p["name"] == "Apartment" and p.has("tenants")
+	tenants_label.visible = owned
+	if not owned:
+		return
+	var tenants := int(p["tenants"])
+	var each := 3 * (2 if p.get("has_double", false) else 1)
+	tenants_label.text = "%d tenant%s × $%d" % [tenants, "" if tenants == 1 else "s", each]
+
+func _show_description() -> void:
+	var p := current_property
+	var text := str(p.get("p_details", ""))
+	if p.get("has_golden_lock", false):
+		text += "\n\nGolden Lock: protected from harm and can't be sold."
+	if p.get("has_insurance", false):
+		text += "\n\nInsured: the next disaster Fortuna that Insurance covers is blocked."
+	if p["name"] == "Terraced House":
+		text += "\n\nRounds owned: %d" % int(p.get("round", 0))
+	if int(p.get("no_rent_rounds", 0)) > 0:
+		text += "\n\nNo rent next round."
+	text += _expansion_notes(p)
+	text_edit.text = text.strip_edges()
+	_show_purchase_loan(p)
+	text_edit.text = text_edit.text.strip_edges()
+	text_edit.visible = text_edit.text != ""
+	_about_title.visible = text_edit.visible
+
+## ---- THE BUTTONS AT THE BOTTOM ----
+func _show_actions() -> void:
+	var p := current_property
+	# Expansion: swap a Cabin.
+	special_button.visible = p.get("special", "") == "cabin" and not p.get("cabin_swapped", false) and Network.is_online()
+	special_button.text = "Swap Cabin"
+	# The main action: build on a lot, add a Suite, or upgrade with a Contractor.
+	var text := ""
+	if Cards.is_lot(p):
+		text = "Build"
+	elif _can_add_suite(p):
+		text = "Add Suite  $%d" % Expansion.SUITE_COST
+	elif p.get("has_condition", false) and p.get("condition", "") != "excellent" and Actions.actions_owned.has("contractor"):
+		var next: String = CONDITION_ORDER[mini(CONDITION_ORDER.find(str(p["condition"])) + 1, 3)]
+		text = "Upgrade to %s" % next.capitalize()
+	upgrade_button.visible = text != ""
+	upgrade_button.text = text
+	_fit_button_text(upgrade_button)
+	sell_button.size_flags_horizontal = Control.SIZE_SHRINK_END if (upgrade_button.visible or special_button.visible) else Control.SIZE_EXPAND_FILL
+	sell_button.modulate.a = 0.5 if p.get("has_golden_lock", false) else 1.0   # a locked property can't be sold
+	_nudge_upgrade()
+
+func _fit_button_text(button: Button) -> void:
+	var size := 32
+	var room := 640.0 - 190.0 - 14.0 - 90.0
+	while size > 22 and BOLD.get_string_size(button.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > room:
+		size -= 1
+	button.add_theme_font_size_override("font_size", size)
+
+# A Contractor could upgrade this property: the button gives a little shake now and then.
+var _nudge_tween: Tween
+
+func _nudge_upgrade() -> void:
+	if _nudge_tween:
+		_nudge_tween.kill()
+		_nudge_tween = null
+	upgrade_button.rotation = 0.0
+	if not upgrade_button.visible or not upgrade_button.text.begins_with("Upgrade"):
+		return
+	_nudge_tween = upgrade_button.create_tween().set_loops()
+	_nudge_tween.tween_interval(2.0)
+	_nudge_tween.tween_callback(func(): upgrade_button.pivot_offset = upgrade_button.size / 2.0)
+	for angle in [0.03, -0.03, 0.02, -0.015, 0.0]:
+		_nudge_tween.tween_property(upgrade_button, "rotation", angle, 0.06)
+
+func _on_upgrade_pressed() -> void:
+	var p := current_property
+	if Cards.is_lot(p):
+		_on_build_pressed()
+	elif p.get("special", "") == "suite_host":
+		if _has_action_left():
+			await _build_suite()
+	else:
+		_on_use_contractor_pressed()
 
 # Empty lot -> property_reveal in build mode (pick any property, then a condition).
 func _on_build_pressed() -> void:
@@ -430,435 +760,6 @@ func _on_build_pressed() -> void:
 	Global.build_lot_id = current_property["id"]
 	Global.save_scene(current_scene)
 	get_tree().change_scene_to_file("res://Scenes/property_reveal.tscn")
-
-## ---- NOT ALLOWED ----
-# A property that can't take a SkyBnB / Double shows that token's badge crossed out
-# (tap it to be told), so a token you own that won't go on it doesn't look like a bug.
-func _mark_not_allowed(badge: Panel, not_allowed: bool, token: String) -> void:
-	var cross: Control = badge.get_node_or_null("not_allowed")
-	if not not_allowed:
-		if cross:
-			cross.queue_free()
-			badge.modulate.a = 1.0
-		return
-	badge.visible = true
-	badge.modulate.a = 0.75
-	if cross:
-		return
-	cross = Control.new()
-	cross.name = "not_allowed"
-	cross.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	cross.mouse_filter = Control.MOUSE_FILTER_STOP
-	cross.z_index = 2
-	cross.draw.connect(func():
-		var r := cross.size
-		cross.draw_line(Vector2(r.x * 0.15, r.y * 0.15), Vector2(r.x * 0.85, r.y * 0.85), Color("c94040"), maxf(5.0, r.x * 0.09), true))
-	cross.gui_input.connect(func(event: InputEvent):
-		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-			Global.error("A %s can't be added to the %s." % [token, current_property.get("name", "property")]))
-	badge.add_child(cross)
-
-## ---- EXPANSION ----
-# Region, environment token, Suites on a Hotel / Cruise, a Cabin that already swapped.
-func _expansion_notes(details: Dictionary) -> String:
-	if not Network.expansion_on():
-		return ""
-	var notes := ""
-	var region: String = details.get("region", "")
-	if region != "":
-		notes += "\n\nRegion: %s" % region
-		if region.to_lower() == Expansion.my_region.to_lower():
-			notes += "  (your region: earns an Environment token)"
-	if details.get("special", "") == "suite_host":
-		var suites: Array = details.get("suites", [])
-		notes += "\n\nSuites: %d of %d  (+$%d rent)" % [suites.size(), Expansion.MAX_SUITES, suites.size() * Expansion.SUITE_RENT]
-	if details.get("cabin_swapped", false):
-		notes += "\n\nThis Cabin has already been swapped once."
-	return notes
-
-# One button for the expansion actions that live on a property's page:
-# Cabin -> swap it, Suite -> add it to your Hotel / Cruise.
-var _special_btn: Button
-
-func _add_special_button() -> void:
-	_special_btn = Button.new()
-	_special_btn.custom_minimum_size = Vector2(0, 80)
-	_special_btn.add_theme_font_size_override("font_size", 32)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.482353, 0.494118, 0.388235)
-	style.set_corner_radius_all(30)
-	for state in ["normal", "hover", "pressed"]:
-		_special_btn.add_theme_stylebox_override(state, style)
-	_special_btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	_special_btn.pressed.connect(_on_special_pressed)
-	_special_btn.visible = false
-	text_edit.add_sibling(_special_btn)
-
-func _show_special_button(details: Dictionary) -> void:
-	if _special_btn == null:
-		return
-	var kind: String = details.get("special", "")
-	if kind == "cabin" and not details.get("cabin_swapped", false) and Network.is_online():
-		_special_btn.text = "Swap this Cabin (1 action)"
-		_special_btn.visible = true
-	elif _can_add_suite(details):
-		_special_btn.text = "Add Suite for $%d + Contractor" % Expansion.SUITE_COST
-		_special_btn.visible = true
-	else:
-		_special_btn.visible = false
-
-func _on_special_pressed() -> void:
-	if not _has_action_left():
-		return
-	Sound.play("click")
-	match current_property.get("special", ""):
-		"cabin":
-			_special_btn.disabled = true
-			var message: String = await Expansion.cabin_swap(current_property)
-			_special_btn.disabled = false
-			if message != "":
-				Global.banner(message)
-			if not Cards.properties_owned.has(current_property):
-				get_tree().change_scene_to_file("res://Scenes/my_properties.tscn")
-		"suite_host":
-			await _build_suite()
-
-# Hotel Resort / Luxury Cruise: a Contractor adds the next Suite, right here on the page.
-func _build_suite() -> void:
-	var problem := Expansion.suite_problem(current_property)
-	if problem != "":
-		Global.error(problem, "market" if problem.contains("Contractor") else "")
-		return
-	# Say what it costs before building.
-	var popup = load("res://Scenes/pop_up.tscn").instantiate()
-	get_tree().root.add_child(popup)
-	popup.layout("Add Suite for $%d?\nUses a Contractor and 1 action.\n+$%d rent." \
-			% [Expansion.SUITE_COST, Expansion.SUITE_RENT], "Yes", "No")
-	var answer := [false]
-	popup.left_pressed.connect(func(): answer[0] = true)
-	await popup.tree_exited
-	if not answer[0] or not is_inside_tree():
-		return
-	if _special_btn:
-		_special_btn.disabled = true
-	var before := current_property.duplicate()
-	var message: String = await Expansion.build_suite(current_property)
-	if _special_btn:
-		_special_btn.disabled = false
-	if message.begins_with("Suite added"):
-		Global.banner(message)
-		_refresh(before)
-		_show_suites(true)
-	else:
-		Global.error(message, "market" if message.contains("Contractor") else "")
-
-func _can_add_suite(details: Dictionary) -> bool:
-	return details.get("special", "") == "suite_host" and Network.expansion_on() \
-			and details.get("suites", []).size() < Expansion.MAX_SUITES
-
-## ---- SUITE STACK ----
-# The Suites on a Hotel Resort / Luxury Cruise: their pictures, stacked to the left of its
-# picture like cards (newest on top; the Contractor sits on the right). A Suite added now
-# drops onto the stack.
-const SUITE_ICON := 112.0
-const SUITE_STEP := 40.0
-var _suite_stack: Control
-
-func _show_suites(added_one: bool = false) -> void:
-	if not is_instance_valid(property_icon):
-		return
-	if _suite_stack == null:
-		_suite_stack = Control.new()
-		_suite_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		property_icon.add_child(_suite_stack)
-	for child in _suite_stack.get_children():
-		child.queue_free()
-	var suites: Array = current_property.get("suites", [])
-	if current_property.get("special", "") != "suite_host" or suites.is_empty():
-		return
-	# Left of the round picture (which is centred in its box).
-	var side := minf(property_icon.size.x, property_icon.size.y)
-	_suite_stack.position = Vector2(property_icon.size.x / 2.0 - side / 2.0 - SUITE_ICON + 4.0, (property_icon.size.y - side) / 2.0 - 12.0)
-	for i in suites.size():
-		var icon := TextureRect.new()
-		icon.texture = Cards.round_icon(str(suites[i].get("art", "")))
-		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.size = Vector2(SUITE_ICON, SUITE_ICON)
-		icon.position = Vector2(-(i % 2) * 14.0, i * SUITE_STEP)
-		icon.pivot_offset = icon.size / 2.0
-		icon.rotation = [-0.08, 0.06, -0.04, 0.09][i % 4]
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		ColorTheme.keep(icon)
-		_suite_stack.add_child(icon)
-		if added_one and i == suites.size() - 1:   # the new Suite drops onto the stack
-			icon.scale = Vector2(1.6, 1.6)
-			icon.modulate.a = 0.0
-			var drop := icon.create_tween().set_parallel(true)
-			drop.tween_property(icon, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-			drop.tween_property(icon, "modulate:a", 1.0, 0.2)
-
-func _refresh(before: Dictionary = {}) -> void:
-	setup_card()
-	ui_menu_frame.refresh_labels()   # expected rent may have changed
-	if not before.is_empty():
-		_animate_changes(before)
-
-
-## ---- NUMBERS GOING UP ----
-# Compares the property before/after a token and counts every changed number up.
-# Contractor: the new condition row counts up from the old condition's value and rent,
-# and its highlight fades in.
-func _animate_changes(before: Dictionary) -> void:
-	var rows := {
-		"e": [e_value, e_rent], "g": [g_value, g_rent],
-		"f": [f_value, f_rent], "p": [p_value, p_rent],
-	}
-	var after := current_property
-	for tier in rows:
-		for i in 2:
-			var key: String = tier + ("_value" if i == 0 else "_rent")
-			if before.get(key) is int and after.get(key) is int and before[key] != after[key]:
-				_count_up(rows[tier][i], before[key], after[key])
-
-	var old_condition: String = before.get("condition", "")
-	var new_condition: String = after.get("condition", "")
-	if after.get("has_condition", false) and old_condition != new_condition:
-		var tier: String = Fortunas.CONDITION_PREFIX[new_condition]
-		_count_up(rows[tier][0], before["value"], after["value"])
-		_count_up(rows[tier][1], before["rent"], after["rent"])
-		var highlight: Panel = {"e": excellent_condition, "g": good_condition,
-				"f": fair_condition, "p": poor_condition}[tier]
-		highlight.modulate.a = 0.0
-		highlight.create_tween().tween_property(highlight, "modulate:a", 1.0, COUNT_TIME)
-
-func _count_up(label: Label, from: int, to: int) -> void:
-	label.pivot_offset = label.size / 2
-	var tween := label.create_tween()
-	tween.tween_method(func(v: int): label.text = "$%d" % v, from, to, COUNT_TIME) \
-			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.parallel().tween_property(label, "modulate", RISE_COLOR if to >= from else FALL_COLOR, COUNT_TIME * 0.4)
-	tween.parallel().tween_property(label, "scale", Vector2(1.25, 1.25), COUNT_TIME * 0.4) \
-			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(label, "modulate", Color.WHITE, 0.4)
-	tween.parallel().tween_property(label, "scale", Vector2.ONE, 0.4)
-
-func _has_action_left() -> bool:
-	if not _still_owned():
-		return false
-	if Global.ACTIONS <= 0:
-		Global.error("You are out of Actions. End your turn for more.", "home")
-		return false
-	return true
-
-# Bought (or built) with a loan: say what's still owed on it, with a button to My Loans.
-var _loan_button: Button
-
-## ---- KEEPING THE DETAILS CARD TIDY ----
-# Long descriptions (an Apartment bought with a loan: tenants, the loan line and its button)
-# used to make the card's contents taller than the card, so the Value / Rent heading poked
-# out above it. The card now grows into the free space below it, then the description
-# text shrinks, then the picture, until everything fits inside the card.
-const CARD_MIN_HEIGHT := 550.0
-const TEXT_SIZE := 24
-const TEXT_MIN := 17
-const ICON_MIN := 210.0
-
-func _fit_details_card() -> void:
-	await get_tree().process_frame
-	if not is_inside_tree():
-		return
-	var card: Control = get_node("CanvasLayer/Panel/VBoxContainer/box/MarginContainer2/Panel")
-	var contents: Control = card.get_child(0)
-	var column: Control = get_node("CanvasLayer/Panel/VBoxContainer")
-	contents.grow_vertical = Control.GROW_DIRECTION_END   # never up past the card's top edge
-	text_edit.add_theme_font_size_override("font_size", TEXT_SIZE)
-	property_icon.custom_minimum_size.y = 300
-	for attempt in 12:
-		var needed := contents.get_combined_minimum_size().y - 16.0
-		var room := column.size.y - property_icon.custom_minimum_size.y - 30.0
-		card.custom_minimum_size.y = clampf(needed, CARD_MIN_HEIGHT, maxf(room, CARD_MIN_HEIGHT))
-		if needed <= room:
-			break
-		var text_size := text_edit.get_theme_font_size("font_size")
-		if text_size > TEXT_MIN:
-			text_edit.add_theme_font_size_override("font_size", text_size - 2)
-		elif property_icon.custom_minimum_size.y > ICON_MIN:
-			property_icon.custom_minimum_size.y = maxf(ICON_MIN, property_icon.custom_minimum_size.y - 30.0)
-		else:
-			break
-		await get_tree().process_frame
-		if not is_inside_tree():
-			return
-
-## ---- BUBBLE POP (a token just went on) ----
-# The SkyBnB / Double / Insurance badge pops in like a bubble: it swells past full size
-# and settles with a wobble, a ring ripples out from it and a few small bubbles float up.
-func _bubble_pop(badge: Control) -> void:
-	badge.modulate.a = 0.0   # hidden until its row has put it in place
-	await get_tree().process_frame
-	await get_tree().process_frame
-	if not is_instance_valid(badge) or not badge.visible:
-		return
-	badge.modulate.a = 1.0
-	Sound.play("double")
-	var centre := badge.size / 2.0
-	badge.pivot_offset = centre
-	badge.scale = Vector2(0.2, 0.2)
-	var pop := badge.create_tween()
-	pop.tween_property(badge, "scale", Vector2(1.25, 1.25), 0.18).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	pop.tween_property(badge, "scale", Vector2(0.9, 1.08), 0.1)
-	pop.tween_property(badge, "scale", Vector2(1.06, 0.95), 0.1)
-	pop.tween_property(badge, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_SINE)
-	# The ripple: a thin ring that grows and fades.
-	var ring := Panel.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0, 0, 0, 0)
-	style.border_color = Color("f6f2e1")
-	style.set_border_width_all(4)
-	style.set_corner_radius_all(200)
-	ring.add_theme_stylebox_override("panel", style)
-	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ring.size = badge.size
-	ring.pivot_offset = centre
-	ring.set_meta("ct_skip", true)
-	badge.add_child(ring)
-	var ripple := ring.create_tween().set_parallel(true)
-	ripple.tween_property(ring, "scale", Vector2(1.9, 1.9), 0.55).set_ease(Tween.EASE_OUT)
-	ripple.tween_property(ring, "modulate:a", 0.0, 0.55)
-	ripple.chain().tween_callback(ring.queue_free)
-	# A few little bubbles drifting up and popping.
-	for i in 5:
-		var bubble := Panel.new()
-		var b_style := StyleBoxFlat.new()
-		b_style.bg_color = Color(1, 1, 1, 0.25)
-		b_style.border_color = Color(1, 1, 1, 0.8)
-		b_style.set_border_width_all(2)
-		b_style.set_corner_radius_all(40)
-		bubble.add_theme_stylebox_override("panel", b_style)
-		var d := randf_range(12.0, 24.0)
-		bubble.size = Vector2(d, d)
-		bubble.pivot_offset = bubble.size / 2.0
-		bubble.position = centre + Vector2(randf_range(-30, 30), randf_range(0, 25)) - bubble.size / 2.0
-		bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		bubble.set_meta("ct_skip", true)
-		badge.add_child(bubble)
-		var rise := bubble.create_tween().set_parallel(true)
-		var time := randf_range(0.5, 0.8)
-		rise.tween_property(bubble, "position:y", bubble.position.y - randf_range(70, 110), time).set_ease(Tween.EASE_OUT).set_delay(i * 0.05)
-		rise.tween_property(bubble, "position:x", bubble.position.x + randf_range(-18, 18), time).set_delay(i * 0.05)
-		rise.tween_property(bubble, "scale", Vector2(1.5, 1.5), 0.08).set_delay(i * 0.05 + time - 0.08)
-		rise.tween_property(bubble, "modulate:a", 0.0, 0.08).set_delay(i * 0.05 + time - 0.08)
-		rise.chain().tween_callback(bubble.queue_free)
-
-func _show_purchase_loan(details: Dictionary) -> void:
-	var loan: Dictionary = {}
-	for l in Global.loans:
-		if l["loan_number"] == details.get("loan_number", -1):
-			loan = l
-	if loan.is_empty():
-		if _loan_button:
-			_loan_button.visible = false
-		return
-	text_edit.text += "\n\nBought with Loan #%d: $%d still owed." % [loan["loan_number"], loan["loan_balance"]]
-	if _loan_button == null:
-		_loan_button = Button.new()
-		_loan_button.add_theme_font_size_override("font_size", 24)
-		_loan_button.custom_minimum_size = Vector2(0, 52)
-		_loan_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		InkBox.apply(_loan_button, Color("ddcf99"))
-		_loan_button.pressed.connect(func(): Global.open_link("my_loans"))
-		text_edit.add_sibling(_loan_button)
-	_loan_button.text = "  View loan ($%d owed)  >  " % loan["loan_balance"]
-	_loan_button.visible = true
-
-# The highlight lives inside the condition's label; make it span the whole row (label,
-# value and rent) at any screen width.
-func _stretch_highlight(highlight: Control) -> void:
-	var label := highlight.get_parent() as Control
-	var row := label.get_parent() as Control
-	highlight.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	highlight.position = Vector2(-label.position.x + 6, 0)
-	highlight.size = Vector2(row.size.x - 12, label.size.y)
-
-# A sabotage, auction or swap can take this property while its page is open.
-func _still_owned() -> bool:
-	for p in Cards.properties_owned:
-		if p["id"] == current_property.get("id", -1):
-			return true
-	Global.error("You no longer own this property.")
-	get_tree().change_scene_to_file("res://Scenes/my_properties.tscn")
-	return false
-
-
-func _on_add_double_pressed() -> void:
-	if not _has_action_left():
-		return
-	var before := current_property.duplicate()
-	Global.activate_double(current_property)   # spends the action
-	Actions.consume("double")
-	Global.banner("Double applied. Value doubled.")
-	_refresh(before)
-	_bubble_pop.call_deferred(double_status)
-
-func _on_add_skybnb_pressed() -> void:
-	if not _has_action_left():
-		return
-	var before := current_property.duplicate()
-	Global.activate_skybnb(current_property)   # spends the action
-	Actions.consume("skybnb")
-	Global.banner("SkyBnB applied. Rent doubled.")
-	_refresh(before)
-	_bubble_pop.call_deferred(skybnb_status)
-
-# A Contractor could upgrade this property: the hammer gives a little shake every couple
-# of seconds and an "Upgrade?" tag (like the money notices) sits beside it. Tapping
-# either uses the Contractor.
-const NUDGE_GREEN := Color("4c9a52")
-var _upgrade_tag: Panel
-var _nudge_tween: Tween
-
-func _nudge_contractor() -> void:
-	if _nudge_tween:
-		_nudge_tween.kill()
-		_nudge_tween = null
-	contractor.rotation = 0.0
-	contractor.scale = Vector2.ONE
-	if _upgrade_tag:
-		_upgrade_tag.visible = contractor.visible
-	if not contractor.visible:
-		return
-	if _upgrade_tag == null:
-		_upgrade_tag = Panel.new()
-		var style := StyleBoxFlat.new()
-		style.bg_color = NUDGE_GREEN.darkened(0.15)
-		style.set_corner_radius_all(26)
-		_upgrade_tag.add_theme_stylebox_override("panel", style)
-		var label := Label.new()
-		label.text = "Add Suite: $%d" % Expansion.SUITE_COST if current_property.get("special", "") == "suite_host" else "Upgrade?"
-		label.add_theme_font_size_override("font_size", 26)
-		label.add_theme_color_override("font_color", Color("f6f2e1"))
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_upgrade_tag.add_child(label)
-		_upgrade_tag.size = Vector2(190 if current_property.get("special", "") == "suite_host" else 150, 52)
-		_upgrade_tag.position = contractor.position + Vector2(contractor.size.x + 10, (contractor.size.y - 52) / 2.0)
-		_upgrade_tag.z_index = contractor.z_index
-		_upgrade_tag.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		_upgrade_tag.gui_input.connect(func(event: InputEvent):
-			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-				_on_use_contractor_pressed())
-		contractor.add_sibling(_upgrade_tag)   # beside the hammer, so it doesn't shake with it
-		_upgrade_tag.modulate.a = 0.0
-		_upgrade_tag.create_tween().tween_property(_upgrade_tag, "modulate:a", 1.0, 0.4).set_delay(0.3)
-	contractor.pivot_offset = contractor.size / 2.0
-	_nudge_tween = contractor.create_tween().set_loops()
-	_nudge_tween.tween_interval(1.6)
-	for angle in [0.18, -0.18, 0.14, -0.12, 0.06, 0.0]:
-		_nudge_tween.tween_property(contractor, "rotation", angle, 0.06)
-	_nudge_tween.parallel().tween_property(contractor, "scale", Vector2.ONE, 0.1)
 
 func _on_use_contractor_pressed() -> void:
 	if not _has_action_left():
@@ -879,6 +780,87 @@ func _on_use_contractor_pressed() -> void:
 	Global.banner("Contractor used. Now in %s condition." % current_property["condition"])
 	_refresh(before)
 
+func _on_special_pressed() -> void:
+	if not _has_action_left():
+		return
+	Sound.play("click")
+	if current_property.get("special", "") == "cabin":
+		special_button.disabled = true
+		var message: String = await Expansion.cabin_swap(current_property)
+		if is_instance_valid(special_button):
+			special_button.disabled = false
+		if message != "":
+			Global.banner(message)
+		if not Cards.properties_owned.has(current_property):
+			get_tree().change_scene_to_file("res://Scenes/my_properties.tscn")
+
+# Hotel Resort / Luxury Cruise: a Contractor adds the next Suite, right here on the page.
+func _build_suite() -> void:
+	var problem := Expansion.suite_problem(current_property)
+	if problem != "":
+		Global.error(problem, "market" if problem.contains("Contractor") else "")
+		return
+	var popup = load("res://Scenes/pop_up.tscn").instantiate()
+	get_tree().root.add_child(popup)
+	popup.layout("Add Suite for $%d?\nUses a Contractor and 1 action.\n+$%d rent." \
+			% [Expansion.SUITE_COST, Expansion.SUITE_RENT], "Yes", "No")
+	var answer := [false]
+	popup.left_pressed.connect(func(): answer[0] = true)
+	await popup.tree_exited
+	if not answer[0] or not is_inside_tree():
+		return
+	upgrade_button.disabled = true
+	var before := current_property.duplicate()
+	var message: String = await Expansion.build_suite(current_property)
+	if is_instance_valid(upgrade_button):
+		upgrade_button.disabled = false
+	if message.begins_with("Suite added"):
+		Global.banner(message)
+		_refresh(before)
+		_show_suites(true)
+	else:
+		Global.error(message, "market" if message.contains("Contractor") else "")
+
+func _can_add_suite(details: Dictionary) -> bool:
+	return details.get("special", "") == "suite_host" and Network.expansion_on() \
+			and details.get("suites", []).size() < Expansion.MAX_SUITES
+
+func _on_sell_pressed() -> void:
+	if not _still_owned():
+		return
+	if current_property.get("has_golden_lock", false):
+		Global.error("This property has a Golden Lock and can't be sold.")
+		return
+	Sound.play("click")
+	sell_button.pivot_offset = sell_button.size / 2.0
+	var pop := sell_button.create_tween()
+	pop.tween_property(sell_button, "scale", Vector2(0.94, 0.94), 0.06)
+	pop.tween_property(sell_button, "scale", Vector2.ONE, 0.08)
+	Global.save_scene(current_scene)
+	get_tree().change_scene_to_file("res://Scenes/sell_property.tscn")
+
+
+## ---- PUTTING TOKENS ON ----
+func _on_add_double_pressed() -> void:
+	if not _has_action_left():
+		return
+	var before := current_property.duplicate()
+	Global.activate_double(current_property)   # spends the action
+	Actions.consume("double")
+	Global.banner("Double applied. Value doubled.")
+	_refresh(before)
+	_bubble_pop.call_deferred(token_slots["double"]["panel"])
+
+func _on_add_skybnb_pressed() -> void:
+	if not _has_action_left():
+		return
+	var before := current_property.duplicate()
+	Global.activate_skybnb(current_property)   # spends the action
+	Actions.consume("skybnb")
+	Global.banner("SkyBnB applied. Rent doubled.")
+	_refresh(before)
+	_bubble_pop.call_deferred(token_slots["skybnb"]["panel"])
+
 # Insurance: protects this property from the Fortunas insurance covers (used up when it does).
 func _on_add_insurance_pressed() -> void:
 	if not _has_action_left():
@@ -894,112 +876,120 @@ func _on_add_insurance_pressed() -> void:
 	Sound.play("continue")
 	Global.banner("%s is insured." % current_property["name"])
 	_refresh()
-	_bubble_pop.call_deferred(insurance_status)
+	_bubble_pop.call_deferred(token_slots["insurance"]["panel"])
 
-func _on_sell_pressed() -> void:
+# Golden Lock, straight from the card (same as My Properties' Golden Lock button).
+func _on_add_lock_pressed() -> void:
+	if not _has_action_left():
+		return
+	var popup = load("res://Scenes/pop_up.tscn").instantiate()
+	get_tree().root.add_child(popup)
+	popup.layout("Lock your %s with the Golden Lock?\nIt can't be harmed or sold." % current_property["name"], "Yes", "No")
+	var answer := [false]
+	popup.left_pressed.connect(func(): answer[0] = true)
+	await popup.tree_exited
+	if not answer[0] or not is_inside_tree() or not _has_action_left():
+		return
+	if not Actions.consume("golden_lock"):
+		Global.error("You need a Golden Lock token.", "market")
+		return
+	current_property["has_golden_lock"] = true
+	Global.action_used()
+	Sound.play("sparkle")
+	var note := "%s is locked: it can't be harmed or sold." % current_property["name"]
+	Activity.add(note, "info")
+	Global.banner_requested.emit(note, "")
+	_refresh()
+	_bubble_pop.call_deferred(token_slots["golden_lock"]["panel"])
+
+func _has_action_left() -> bool:
 	if not _still_owned():
-		return
-	if current_property.get("has_golden_lock", false):
-		Global.error("This property has a Golden Lock and can't be sold.")
-		return
-	Sound.play("click")
-	Global.save_scene(current_scene)
-	get_tree().change_scene_to_file("res://Scenes/sell_property.tscn")
+		return false
+	if Global.ACTIONS <= 0:
+		Global.error("You are out of Actions. End your turn for more.", "home")
+		return false
+	return true
+
+# A sabotage, auction or swap can take this property while its page is open.
+func _still_owned() -> bool:
+	if _owned_quietly():
+		return true
+	Global.error("You no longer own this property.")
+	get_tree().change_scene_to_file("res://Scenes/my_properties.tscn")
+	return false
+
+func _refresh(before: Dictionary = {}) -> void:
+	setup_card()
+	ui_menu_frame.refresh_labels()   # expected rent may have changed
+	if not before.is_empty():
+		_animate_changes(before)
 
 
-## ---- WHAT'S NEW (notices.gd) ----
-# The property changed since its page was last opened. `before` is how it looked then
-# ({"new": true} = it just arrived). Tenants: the caption and rent pulse and the rent
-# counts to the new number. Condition: the highlight band slides from the old row to the
-# new one while the numbers count up or down. Other value/rent changes count too.
-func _play_news(before: Dictionary) -> void:
-	var was: String = before.get("condition", "")
-	if current_property.get("has_condition", false) and Fortunas.CONDITION_PREFIX.has(was) \
-			and was != current_property.get("condition", ""):
-		for h in [excellent_condition, good_condition, fair_condition, poor_condition]:   # open on how it WAS
-			h.visible = h == {"e": excellent_condition, "g": good_condition,
-					"f": fair_condition, "p": poor_condition}[Fortunas.CONDITION_PREFIX[was]]
-	await get_tree().create_timer(0.45).timeout   # let the page appear first
-	if not is_inside_tree() or not _still_owned():
-		return
+## ---- NUMBERS GOING UP ----
+# After a token or Contractor: the value and rent count to their new numbers, and a new
+# condition pops its chip (and moves the band if the table is open).
+func _animate_changes(before: Dictionary) -> void:
 	var after := current_property
-	if before.get("new", false):
-		Notices.pulse_outline(property_icon, 200, 6.0, 3)
-		return
-	var tier_of: Dictionary = Fortunas.CONDITION_PREFIX
-	var rows := {"e": [e_value, e_rent], "g": [g_value, g_rent], "f": [f_value, f_rent], "p": [p_value, p_rent]}
-	var highlights := {"e": excellent_condition, "g": good_condition, "f": fair_condition, "p": poor_condition}
-
-	# Apartment tenants
-	if after.has("tenants") and before.get("tenants") != after.get("tenants"):
-		# The rent and the tenants caption grow and change colour (no boxes: Matt).
-		var caption: Label = e_rent.get_node_or_null("tenants")
-		if caption:
-			_flash(caption, after["tenants"] >= int(before.get("tenants", 0)))
-		if before.get("rent") is int and before["rent"] != after["rent"]:
-			_count_up(e_rent, before["rent"], after["rent"])
-		Sound.play("switch")
-
+	if before.get("value") is int and before["value"] != after.get("value"):
+		_count_up(value_label, before["value"], int(after["value"]))
+	if before.get("rent") is int and before["rent"] != after.get("rent"):
+		_count_up(rent_label, before["rent"], int(after["rent"]))
 	var old_condition: String = before.get("condition", "")
 	var new_condition: String = after.get("condition", "")
-	if after.get("has_condition", false) and old_condition != "" and old_condition != new_condition \
-			and tier_of.has(old_condition) and tier_of.has(new_condition):
-		var from: Panel = highlights[tier_of[old_condition]]
-		var to: Panel = highlights[tier_of[new_condition]]
-		var row: Array = rows[tier_of[new_condition]]
-		await _slide_condition(from, to)
-		if not is_inside_tree():
-			return
-		_count_up(row[0], int(before.get("value", 0)), int(after["value"]))
-		_count_up(row[1], int(before.get("rent", 0)), int(after["rent"]))
-		Notices.pulse_outline(to, 18, 4.0, 3)
-		var better := ["poor", "fair", "good", "excellent"].find(new_condition) > ["poor", "fair", "good", "excellent"].find(old_condition)
-		Sound.play("bloop" if better else "cash_out")
-		return
+	if after.get("has_condition", false) and old_condition != new_condition and old_condition != "":
+		_pop_chip(CONDITION_ORDER.find(new_condition) > CONDITION_ORDER.find(old_condition))
+		if conditions_table.visible:
+			_show_band(old_condition)
+			_slide_band(old_condition, new_condition)
 
-	# Same condition but the numbers moved (Terraced House, an appraisal...): count them.
-	var changed := false
-	for tier in rows:
-		for i in 2:
-			var key: String = tier + ("_value" if i == 0 else "_rent")
-			if before.get(key) is int and after.get(key) is int and before[key] != after[key]:
-				_count_up(rows[tier][i], before[key], after[key])
-				changed = true
-	if not changed and (tier_of.has(new_condition) or not after.get("has_condition", false)):
-		var row: Array = rows[tier_of[new_condition]] if after.get("has_condition", false) else rows["e"]
-		for i in 2:
-			var key: String = "value" if i == 0 else "rent"
-			if before.get(key) is int and before[key] != after.get(key):
-				_count_up(row[i], before[key], after[key])
+func _count_up(label: Label, from: int, to: int) -> void:
+	label.pivot_offset = label.size / 2
+	var tween := label.create_tween()
+	tween.tween_method(func(v: int): label.text = "$%d" % v, from, to, COUNT_TIME) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(label, "modulate", RISE_COLOR if to >= from else FALL_COLOR, COUNT_TIME * 0.4)
+	tween.parallel().tween_property(label, "scale", Vector2(1.2, 1.2), COUNT_TIME * 0.4) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(label, "modulate", Color.WHITE, 0.4)
+	tween.parallel().tween_property(label, "scale", Vector2.ONE, 0.4)
 
 # A label swells and flashes green (up) or red (down), then settles.
-func _flash(label: Label, up: bool) -> void:
+func _flash(label: Control, up: bool) -> void:
 	label.pivot_offset = label.size / 2
 	var tween := label.create_tween()
 	tween.tween_property(label, "modulate", RISE_COLOR if up else FALL_COLOR, COUNT_TIME * 0.4)
-	tween.parallel().tween_property(label, "scale", Vector2(1.3, 1.3), COUNT_TIME * 0.4) \
+	tween.parallel().tween_property(label, "scale", Vector2(1.25, 1.25), COUNT_TIME * 0.4) \
 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(label, "modulate", Color(1, 1, 1, 0.85), 0.4)
+	tween.tween_property(label, "modulate", Color.WHITE, 0.4)
 	tween.parallel().tween_property(label, "scale", Vector2.ONE, 0.4)
 
-# The condition band moves from one row to another (a copy of it glides between them).
-func _slide_condition(from: Panel, to: Panel) -> void:
-	for h in [excellent_condition, good_condition, fair_condition, poor_condition]:
-		h.visible = h == from
-		h.modulate.a = 1.0
-	await get_tree().create_timer(0.3).timeout   # show where it was
+# The condition chip flips over to the new condition.
+func _pop_chip(up: bool) -> void:
+	condition_chip.pivot_offset = condition_chip.size / 2
+	var tween := condition_chip.create_tween()
+	tween.tween_property(condition_chip, "scale", Vector2(1.0, 0.05), 0.12)
+	tween.tween_callback(func(): _show_condition(str(current_property.get("condition", ""))))
+	tween.tween_property(condition_chip, "scale", Vector2(1.15, 1.15), 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(condition_chip, "scale", Vector2.ONE, 0.18)
+	_flash(condition_text, up)
+
+# The band glides from one row of the table to another.
+func _slide_band(from_condition: String, to_condition: String) -> void:
+	var from: Panel = _rows[Fortunas.CONDITION_PREFIX[from_condition]].get_meta("band")
+	var to: Panel = _rows[Fortunas.CONDITION_PREFIX[to_condition]].get_meta("band")
+	await get_tree().create_timer(0.3).timeout
 	if not is_inside_tree():
 		return
 	var ghost := Panel.new()
 	ghost.add_theme_stylebox_override("panel", from.get_theme_stylebox("panel"))
-	ghost.self_modulate = from.self_modulate
 	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ghost.top_level = true
-	ghost.show_behind_parent = true   # under the writing, like the real band
+	ghost.show_behind_parent = true
 	ColorTheme.keep(ghost)
 	from.get_parent().add_child(ghost)
 	ghost.global_position = from.global_position
 	ghost.size = from.size
+	ghost.modulate.a = 0.6   # the rows' writing shows through as it passes
 	from.visible = false
 	Sound.play("switch")
 	var glide := ghost.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
@@ -1007,4 +997,245 @@ func _slide_condition(from: Panel, to: Panel) -> void:
 	await glide.finished
 	if is_instance_valid(ghost):
 		ghost.queue_free()
-	to.visible = true
+	if is_instance_valid(to):
+		to.visible = true
+		Notices.pulse_outline(to, 16, 4.0, 3)
+
+
+## ---- WHAT'S NEW (notices.gd) ----
+# The property changed since its page was last opened. `before` is how it looked then
+# ({"new": true} = it just arrived). Tenants: the caption and rent change size and colour.
+# Condition: the chip shows the OLD condition, then flips, while the table opens and its
+# band slides to the new row; value and rent count up or down.
+func _play_news(before: Dictionary) -> void:
+	var after := current_property
+	var was: String = before.get("condition", "")
+	var condition_moved: bool = after.get("has_condition", false) and Fortunas.CONDITION_PREFIX.has(was) \
+			and was != after.get("condition", "")
+	if condition_moved:   # open on how it WAS
+		_open_conditions(true)
+		_show_condition(was)
+		_show_band(was)
+	if before.has("value") and not before.get("new", false):
+		value_label.text = "$%d" % int(before["value"])
+		rent_label.text = "$%d" % int(before["rent"])
+	await get_tree().create_timer(0.45).timeout   # let the page appear first
+	if not is_inside_tree() or not _owned_quietly():
+		return
+	if before.get("new", false):
+		Notices.pulse_outline(art_frame, 26, 6.0, 3)
+		return
+	if after.has("tenants") and before.get("tenants") != after.get("tenants"):
+		_flash(tenants_label, int(after["tenants"]) >= int(before.get("tenants", 0)))
+		Sound.play("switch")
+	if int(before.get("value", 0)) != int(after.get("value", 0)):
+		_count_up(value_label, int(before["value"]), int(after["value"]))
+	if int(before.get("rent", 0)) != int(after.get("rent", 0)):
+		_count_up(rent_label, int(before["rent"]), int(after["rent"]))
+	if condition_moved:
+		var better := CONDITION_ORDER.find(str(after["condition"])) > CONDITION_ORDER.find(was)
+		_pop_chip(better)
+		Sound.play("bloop" if better else "cash_out")
+		await _slide_band(was, str(after["condition"]))
+
+
+## ---- NOTES ----
+# Region, environment token, Suites on a Hotel / Cruise, a Cabin that already swapped.
+func _expansion_notes(details: Dictionary) -> String:
+	if not Network.expansion_on():
+		return ""
+	var notes := ""
+	var region: String = details.get("region", "")
+	if region != "":
+		notes += "\n\nRegion: %s" % region
+		if region.to_lower() == Expansion.my_region.to_lower():
+			notes += " (your region: earns an Environment token)"
+	if details.get("cabin_swapped", false):
+		notes += "\n\nThis Cabin has already been swapped once."
+	return notes
+
+# Bought (or built) with a loan: say what's still owed on it, with a button to My Loans.
+func _show_purchase_loan(details: Dictionary) -> void:
+	var loan: Dictionary = {}
+	for l in Global.loans:
+		if l["loan_number"] == details.get("loan_number", -1):
+			loan = l
+	if loan.is_empty():
+		if _loan_button:
+			_loan_button.visible = false
+		return
+	text_edit.text += "\n\nBought with Loan #%d: $%d still owed." % [loan["loan_number"], loan["loan_balance"]]
+	if _loan_button == null:
+		_loan_button = Button.new()
+		_loan_button.add_theme_font_size_override("font_size", 26)
+		_loan_button.custom_minimum_size = Vector2(0, 60)
+		_loan_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		InkBox.apply(_loan_button, CARD_EDGE)
+		_loan_button.pressed.connect(func(): Global.open_link("my_loans"))
+		text_edit.add_sibling(_loan_button)
+	_loan_button.text = "  View loan ($%d owed)  >  " % loan["loan_balance"]
+	_loan_button.visible = true
+
+
+## ---- BUBBLE POP (a token just went on) ----
+# The token's card swells and settles with a wobble, a ring ripples out and a few small
+# bubbles float up.
+func _bubble_pop(badge: Control) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(badge) or not badge.visible:
+		return
+	Sound.play("double")
+	var centre := badge.size / 2.0
+	badge.pivot_offset = centre
+	badge.scale = Vector2(0.6, 0.6)
+	var pop := badge.create_tween()
+	pop.tween_property(badge, "scale", Vector2(1.15, 1.15), 0.18).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	pop.tween_property(badge, "scale", Vector2(0.95, 1.04), 0.1)
+	pop.tween_property(badge, "scale", Vector2(1.03, 0.97), 0.1)
+	pop.tween_property(badge, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_SINE)
+	var ring := Panel.new()
+	ring.add_theme_stylebox_override("panel", _style(Color(0, 0, 0, 0), 24, CREAM, 4))
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.top_level = true
+	ring.global_position = badge.global_position
+	ring.size = badge.size
+	ring.pivot_offset = centre
+	ring.set_meta("ct_skip", true)
+	badge.add_child(ring)
+	var ripple := ring.create_tween().set_parallel(true)
+	ripple.tween_property(ring, "scale", Vector2(1.5, 1.5), 0.55).set_ease(Tween.EASE_OUT)
+	ripple.tween_property(ring, "modulate:a", 0.0, 0.55)
+	ripple.chain().tween_callback(ring.queue_free)
+	for i in 5:
+		var bubble := Panel.new()
+		var b_style := _style(Color(1, 1, 1, 0.25), 40, Color(1, 1, 1, 0.8), 2)
+		bubble.add_theme_stylebox_override("panel", b_style)
+		var d := randf_range(12.0, 24.0)
+		bubble.size = Vector2(d, d)
+		bubble.top_level = true
+		bubble.global_position = badge.global_position + centre + Vector2(randf_range(-30, 30), randf_range(0, 25)) - bubble.size / 2.0
+		bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bubble.set_meta("ct_skip", true)
+		badge.add_child(bubble)
+		var rise := bubble.create_tween().set_parallel(true)
+		var time := randf_range(0.5, 0.8)
+		rise.tween_property(bubble, "global_position:y", bubble.global_position.y - randf_range(70, 110), time).set_ease(Tween.EASE_OUT).set_delay(i * 0.05)
+		rise.tween_property(bubble, "modulate:a", 0.0, 0.12).set_delay(i * 0.05 + time - 0.12)
+		rise.chain().tween_callback(bubble.queue_free)
+
+
+## ---- SMALL HELPERS ----
+# The picture as a square with rounded corners (centre-cropped; made once per picture).
+static var _rounded := {}
+func _rounded_art(path: String, radius: int) -> Texture2D:
+	var key := "%s@%d" % [path, radius]
+	if _rounded.has(key):
+		return _rounded[key]
+	if path == "" or not ResourceLoader.exists(path):
+		return null
+	var texture: Texture2D = load(path)
+	var image := texture.get_image() if texture else null
+	if image == null:
+		return texture
+	image = image.duplicate()
+	if image.is_compressed():
+		image.decompress()
+	image.convert(Image.FORMAT_RGBA8)
+	var side := mini(image.get_width(), image.get_height())
+	image = image.get_region(Rect2i((image.get_width() - side) / 2, (image.get_height() - side) / 2, side, side))
+	var r := int(radius * side / 244.0)   # the radius as drawn on screen (~244 px across)
+	for corner in [Vector2i(0, 0), Vector2i(side - r, 0), Vector2i(0, side - r), Vector2i(side - r, side - r)]:
+		var centre := Vector2(corner.x + (r if corner.x == 0 else 0), corner.y + (r if corner.y == 0 else 0))
+		for y in r:
+			for x in r:
+				var px := Vector2(corner.x + x + 0.5, corner.y + y + 0.5)
+				var d := px.distance_to(centre) - r
+				if d > -1.0:
+					var c := image.get_pixel(corner.x + x, corner.y + y)
+					c.a *= clampf(-d, 0.0, 1.0)
+					image.set_pixel(corner.x + x, corner.y + y, c)
+	var rounded := ImageTexture.create_from_image(image)
+	_rounded[key] = rounded
+	return rounded
+
+func _style(bg: Color, radius: int, border := Color(0, 0, 0, 0), width := 0) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg
+	style.set_corner_radius_all(radius)
+	style.anti_aliasing = true
+	if width > 0:
+		style.border_color = border
+		style.set_border_width_all(width)
+	return style
+
+func _label(text: String, font: Font, size: int, colour: Color) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_override("font", font)
+	label.add_theme_font_size_override("font_size", size)
+	label.add_theme_color_override("font_color", colour)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return label
+
+# "── TOKENS ──────": a small heading with a line after it.
+func _divider(title: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	var left := ColorRect.new()
+	left.color = Color(CARD_EDGE, 0.5)
+	left.custom_minimum_size = Vector2(18, 2)
+	left.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(left)
+	row.add_child(_label(title, BOLD, 22, CARD_EDGE))
+	var line := ColorRect.new()
+	line.color = Color(CARD_EDGE, 0.5)
+	line.custom_minimum_size = Vector2(0, 2)
+	line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(line)
+	return row
+
+func _action_button(text: String, colour: Color, icon: Texture2D) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.focus_mode = Control.FOCUS_NONE
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.custom_minimum_size.y = 88
+	button.add_theme_font_override("font", BOLD)
+	button.add_theme_font_size_override("font_size", 32)
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color"]:
+		button.add_theme_color_override(c, CREAM)
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		var style := _style(colour.darkened(0.12) if state == "pressed" else colour, 44, CREAM, 3)
+		style.shadow_color = Color(0, 0, 0, 0.35)
+		style.shadow_size = 8
+		style.shadow_offset = Vector2(0, 5)
+		style.content_margin_left = 20
+		style.content_margin_right = 24
+		button.add_theme_stylebox_override(state, style)
+	if icon:
+		button.icon = _cream_copy(icon)   # the icon in cream, like the text
+		button.expand_icon = true
+		button.add_theme_constant_override("icon_max_width", 46)
+		button.add_theme_constant_override("h_separation", 12)
+	return button
+
+# A one-colour cream copy of an icon (kept, so it's only made once).
+static var _cream_icons := {}
+func _cream_copy(texture: Texture2D) -> Texture2D:
+	if _cream_icons.has(texture):
+		return _cream_icons[texture]
+	var image := texture.get_image()
+	if image == null:
+		return texture
+	image = image.duplicate()
+	if image.is_compressed():
+		image.decompress()
+	image.convert(Image.FORMAT_RGBA8)
+	for y in image.get_height():
+		for x in image.get_width():
+			var a := image.get_pixel(x, y).a
+			image.set_pixel(x, y, Color(CREAM, a))
+	var copy := ImageTexture.create_from_image(image)
+	_cream_icons[texture] = copy
+	return copy
