@@ -100,117 +100,88 @@ func _end_practice_game() -> void:
 # or nothing (wait for Next). "enter" runs when the step starts.
 func _make_steps() -> Array:
 	return [
-		{"title": "Welcome!", "text": "This quick tour walks you through a practice game. Nothing here counts, so tap around without worry.\n\nYou can skip it any time."},
-		# 1. The numbers at the top
-		{"title": "Your cash", "text": "The big number is the cash in your account. Buying properties, tokens and actions spends it; rent fills it back up.\n\nThe thin gold bar under it fills as you get closer to ending the game (more than the End Goal in cash, with no loans). The highest net worth wins. Tap the bar for the numbers.",
+		{"title": "Welcome!", "text": "This short practice game shows you the basics. Nothing here counts, so tap around without worry.\n\nYou can skip it any time."},
+		# 1. The header
+		{"title": "Your cash", "text": "The big number is your cash. Expected rent is what your properties will pay you next round.\n\nThe gold bar fills as you near the End Goal: more than that in cash, with no loans, ends the game, and the highest net worth wins. Tap the bar any time for the numbers.",
 			"target": _frame_part.bind("checking_bal")},
-		{"title": "Expected rent", "text": "What your properties will pay you at the start of the next round.",
-			"target": _frame_part.bind("misc")},
-		{"title": "Round", "text": "Everyone plays each round at the same time. When all players have ended their turn, a new round begins.",
-			"target": _frame_part.bind("round_number")},
-		{"title": "Players", "text": "Tap your name any time to see everyone in the game and how their turn is going: how many Actions they have left, or that they've finished.",
-			"target": _frame_part.bind("player_name")},
-		{"title": "Actions", "text": "Buying, selling, upgrading and paying a loan each use 1 Action. You get 3 every round (5 with an LLC).\n\nFor this practice you have 6.",
+		{"title": "Actions", "text": "Everyone plays each round at the same time. Buying, selling, upgrading and paying a loan each use 1 Action: you get 3 a round (5 with an LLC), and 6 in this practice.\n\nTap your name any time to see how everyone else's turn is going.",
 			"target": _frame_part.bind("actions_left")},
-		# 2. My Properties
+		# 2. Your properties
 		{"title": "My Properties", "text": "Let's look at what you own. Tap My Properties.",
 			"target": _tile.bind("my_properties_button"), "do": _scene_is.bind("my_properties")},
-		{"title": "Capacity", "text": "You can hold up to 4 properties. A Land Expansion or an Inheritance gives you room for one more each.",
-			"target": _capacity_pill},
-		# 3. Property details
-		{"title": "Value", "text": "Value is what the property is worth. It counts toward your net worth, and it's what you're paid when you sell.",
-			"target": _first_row_part.bind("current_value")},
-		{"title": "Rent", "text": "Rent is paid to you for this property at the start of every round.",
-			"target": _first_row_part.bind("current_rent")},
-		{"title": "Condition", "text": "Excellent, Good, Fair or Poor. Better condition means more value and more rent. Bad luck (Fortuna cards) can knock it down.",
-			"target": _first_row_part.bind("condition")},
-		# 4. Open the property
-		{"title": "Take a closer look", "text": "Tap the property to see its details.",
+		{"title": "Your properties", "text": "Each one shows its value (what it's worth, and what it sells for), its rent (paid to you every round) and its condition (better condition, more of both). You can hold 4.\n\nTap the Two Story Home.",
 			"target": _first_row_part.bind("panel"), "do": _scene_is.bind("property_info")},
-		{"title": "The card", "text": "Its value and rent in big numbers, and its condition. Tap All conditions to compare every condition's value and rent.",
+		{"title": "The card", "text": "Tap All conditions to compare every condition's value and rent. Tokens glow green when they're on; a + means you own one (tap to add it); faded ones are sold in the Shop.\n\nYou own a Contractor, so Upgrade appears: it raises the condition.",
 			"target": _info_table},
-		{"title": "Tokens", "text": "Tokens on this property glow green. A + means you own one: tap it to put it on. Faded ones are bought in the Shop (in Actions); a red strike means it can't go here.",
-			"target": _page_part.bind("tokens_row")},
-		# 5. Contractor
-		{"title": "Upgrades", "text": "You own a Contractor, so this button appears: Upgrade raises the property one condition, so it's worth more and earns more rent. Contractors are sold in the Shop (in Actions).",
-			"target": _page_part.bind("upgrade_button")},
-		# 6. Selling
-		{"title": "Selling", "text": "Need cash? You can sell a property. Tap Sell.",
+		# 3. Selling, with a Listing Agent from the Shop
+		{"title": "Selling", "text": "Need cash? Sell a property. Tap Sell.",
 			"target": _page_part.bind("sell_button"), "do": _scene_is.bind("sell_property")},
-		{"title": "Private sale", "text": "Sell it yourself: you roll a die with SOLD on only 2 of its 6 sides. Free, but risky.",
-			"target": _sell_choice.bind("Private Sale")},
-		{"title": "Listing Agent", "text": "With a Listing Agent, 5 of the 6 sides say SOLD: much safer. You don't have one yet, so let's buy one.",
+		{"title": "Two ways to sell", "text": "On your own, the die says SOLD on only 2 of its 6 sides. A Listing Agent makes it 5 of 6. You don't have one yet, so let's buy one.",
 			"target": _sell_choice.bind("Realtor")},
-		# 7. The Shop (My Actions)
-		{"title": "Go Home", "text": "Tap Home.",
-			"target": _frame_part.bind("home_btn"), "do": _scene_is.bind("home_screen")},
-		{"title": "Actions app", "text": "Tokens and helpers are your Actions. Tap Actions.",
-			"target": _tile.bind("actions_button"), "do": _scene_is.bind("my_actions")},
-		{"title": "The Shop", "text": "Mine shows what you own. Swipe left (or tap Shop) to see what you can buy.",
-			"target": _actions_part.bind("shop_tab"), "do": _on_shop_page},
+		{"title": "The Shop", "text": "Tokens and helpers live in the Actions app: Mine is what you own, Shop is what you can buy.\n\nTap Home, then Actions, then Shop.",
+			"target": _first_found.bind([_actions_part.bind("shop_tab"), _tile.bind("actions_button"), _frame_part.bind("home_btn")]),
+			"do": _on_shop_page},
 		{"title": "Buy a Listing Agent", "text": "Tap Listing Agent, then BUY, then Yes.",
 			"target": _listing_agent_target, "do": _owns_listing_agent},
-		# 8. Selling, all the way through
-		{"title": "Sell a property", "text": "Let's sell your Two Story Home. The Listing Agent is available now: tap its card, then tap Sell.",
+		{"title": "Sell a property", "text": "Back to the Two Story Home. Tap the Listing Agent card, then Sell.",
 			"enter": _open_sell_page, "target": _sell_target, "do": _dice_open},
-		{"title": "Roll the die", "text": "With your Listing Agent, 5 of the die's 6 sides say SOLD. Press on the tray, pull back (down), and let go to throw it. The further you pull, the harder it flies.\n\nIn this practice a FAIL just lets you throw again.",
+		{"title": "Roll the die", "text": "Press on the tray, pull back (down), and let go to throw. The further you pull, the harder it flies.\n\nIn this practice a FAIL just lets you throw again.",
 			"target": _dice_part.bind("roll"), "do": _scene_is.bind("my_properties")},
-		{"title": "Room for more", "text": "Sold! The result shows in the banner, the property's value went into your cash, and the Listing Agent is used up.\n\nThe Two Story Home is gone, so you have room for another property. Let's buy one.",
-			"target": _capacity_pill},
-		# 9. Buying, all the way through
-		{"title": "Go Home", "text": "Tap Home.",
-			"target": _frame_part.bind("home_btn"), "do": _scene_is.bind("home_screen")},
-		{"title": "The Market", "text": "The Market is where you buy property. Tap it.",
-			"target": _tile.bind("market_button"), "do": _scene_is.bind("realtor_or_random")},
-		{"title": "Use Realtor", "text": "A Realtor shows you three listings to choose from. You'd buy one in the Shop (in Actions) first.",
-			"target": _buy_choice.bind("Realtor")},
-		{"title": "Buy Solo", "text": "Buy Solo shows you one random listing, no Realtor needed. Tap its Select.",
-			"target": _buy_choice.bind("Private Purchase"), "do": _solo_chosen},
-		{"title": "Proceed", "text": "Tap Proceed to see the listing.",
-			"target": _scene_node.bind("CanvasLayer/Panel/VBoxContainer/list_of_properties/MarginContainer2/Panel/MarginContainer/VBoxContainer/proceed"), "do": _scene_is.bind("property_reveal")},
-		{"title": "The listing", "text": "Here's what came up: its price, rent and condition. Tap it to choose it.",
-			"target": _first_listing, "do": _listing_chosen},
-		{"title": "Purchase", "text": "Tap Purchase. You pay the price and use 1 Action. Short of cash? A Loan Agreement opens: pick the amount and sign it to borrow the rest. (If bad luck makes you pay more than you have, the bank lends the rest automatically.)",
-			"target": _scene_node.bind("CanvasLayer/Panel/VBoxContainer/revealed_properties/MarginContainer2/Panel/MarginContainer/VBoxContainer/HBoxContainer/Purchase"),
-			"do": _scene_is.bind("my_properties")},
-		{"title": "It's yours", "text": "Your new property is in My Properties now. It pays rent from the start of next round.",
-			"target": _newest_row},
-		# 10-11. The Bank, and paying off a loan
-		{"title": "Go Home", "text": "Tap Home.",
-			"target": _frame_part.bind("home_btn"), "do": _scene_is.bind("home_screen")},
-		{"title": "The Bank", "text": "Tap the Bank.",
-			"target": _tile.bind("bank_button"), "do": _scene_is.bind("bank_account")},
-		{"title": "Your account", "text": "Your cash, the value of your properties, your savings and anything you owe. Together they make your net worth: the highest net worth wins.",
+		# 4. Buying
+		{"title": "The Market", "text": "Sold! Its value went into your cash and the Listing Agent is used up, so there's room for a new property.\n\nTap Home, then Market.",
+			"target": _first_found.bind([_tile.bind("market_button"), _frame_part.bind("home_btn")]),
+			"do": _scene_is.bind("realtor_or_random")},
+		{"title": "Buy Solo", "text": "A Realtor (from the Shop) shows you three listings to pick from. Buy Solo shows one at random, and backing out still uses an Action.\n\nTap Buy Solo, then Reveal 1 Property.",
+			"target": _buy_target, "do": _scene_is.bind("property_reveal")},
+		{"title": "Purchase", "text": "Tap the listing, then Purchase. It costs its price and 1 Action. Short of cash? A Loan Agreement opens so you can borrow the rest.",
+			"target": _purchase_target, "do": _scene_is.bind("my_properties")},
+		# 5. The Bank and loans
+		{"title": "The Bank", "text": "It's yours, and it pays rent from next round.\n\nNow tap Home, then the Bank.",
+			"target": _first_found.bind([_tile.bind("bank_button"), _frame_part.bind("home_btn")]),
+			"do": _scene_is.bind("bank_account")},
+		{"title": "Your account", "text": "Cash, properties, savings and loans make up your net worth.\n\nYou have a $%d loan from earlier. Loans grow 10%% every round, and you can't end the game while you owe anything." % PRACTICE_LOAN,
 			"target": _part.bind("bank_account", "account_card")},
-		{"title": "You owe $%d" % PRACTICE_LOAN, "text": "You have a loan from earlier: it shows under Loans. Loans grow 10% every round, and you can't win while you owe anything.",
-			"target": _part.bind("bank_account", "loans_line")},
-		{"title": "Pay it off", "text": "Tap Make a Payment.",
-			"target": _part.bind("bank_account", "pay_button"), "do": _scene_is.bind("my_loans")},
-		{"title": "My Loans", "text": "Each loan shows what you owe and the interest coming next round. Tap Make a Payment on it.",
-			"target": _loan_part.bind("pay_button"), "do": _loan_open},
-		{"title": "Pay", "text": "The full balance is filled in (tap - to pay part of it). Tap Pay. It uses 1 Action.",
-			"target": _loan_part.bind("panel"), "do": _loans_paid},
-		{"title": "Debt free!", "text": "Loan paid off. Keep an eye on loans: the interest adds up fast."},
-		# 12. The other apps
-		{"title": "Go Home", "text": "Tap Home.",
+		{"title": "Pay it off", "text": "Tap Make a Payment, then Make a Payment on the loan, then Pay. It uses 1 Action.",
+			"target": _pay_target, "do": _loans_paid},
+		{"title": "Debt free!", "text": "Keep an eye on loans: the interest adds up fast. Tap Home.",
 			"target": _frame_part.bind("home_btn"), "do": _scene_is.bind("home_screen")},
-		{"title": "My Loans", "text": "My Loans is always here on Home too, for paying loans back.",
-			"target": _tile.bind("my_loans_button")},
-		{"title": "Actions app", "text": "The tokens you own (Sabotage, Insurance, Contractor...) and the lucky cards you keep. Tap one to use it: it takes you to where it's used, or tells you what it does. Swipe to the Shop to buy more.",
-			"target": _tile.bind("actions_button")},
-		{"title": "Red dots", "text": "A red dot on an app means something changed there: a new round, a Fortuna, a purchase. Open it and what's new is highlighted (a red dot on a property, a loan's new balance...).\n\nYou can turn them off in Settings.",
+		# 6. Home
+		{"title": "Red dots", "text": "A red dot on an app means something changed there: a new round, a Fortuna, a purchase. Open it and what's new is highlighted. You can turn them off in Settings.",
 			"target": _tile.bind("my_properties_button")},
-		{"title": "Messages", "text": "Texts from the other players (rent their Gothic Mansion took, a sabotage, a swap), the table's big moments, and the Bank and your Fortunas. Send back a quick reply like \"Ha!\" or \"Revenge is coming\".",
+		{"title": "Messages", "text": "Texts from the other players (rent their Gothic Mansion took, a sabotage, a swap), the table's big moments, the Bank and your Fortunas. Send back a quick reply like \"Ha!\".",
 			"target": _tile.bind("messages_button")},
-		{"title": "End Turn", "text": "When you're done, end your turn. When everyone has, a recap shows the round's highlights and who's ahead. Then the new round starts: with $25 or more you draw a Fortuna card (pick any card from the deck), two with $100 or more. Then rent is paid and interest is added to your loans.",
+		{"title": "End Turn", "text": "When you're done, end your turn. When everyone has, a recap shows who's ahead, then the new round starts: with $25 or more you draw a Fortuna card (two with $100 or more), rent is paid and interest is added to loans.\n\nSwipe left on Home to see everything that happened.",
 			"target": _tile.bind("end_turn_btn")},
-		{"title": "Activity", "text": "Swipe left on Home to see everything that happened: rent, purchases, Fortunas and more."},
-		# 13. Settings
 		{"title": "Settings", "text": "Tap the menu button for your settings.",
 			"target": _frame_part.bind("settings_btn"), "do": _settings_open},
-		{"title": "Settings", "text": "Change your name, turn sounds, red dot alerts or the round recap on or off, pick a colour theme, or leave a game here.", "at": "top"},
-		{"title": "You're ready!", "text": "Tap New Game to host a game and share the room key, or Play Solo on your own. Or join a friend's game with their key. Have fun!", "last": true},
+		{"title": "You're ready!", "text": "Change your name, sounds, red dots, the round recap or the colour theme here, or leave a game.\n\nTap New Game to host and share the room key, or Play Solo on your own. Have fun!", "at": "top", "last": true},
 	]
+
+# The first of these targets that's on screen now (a step that crosses screens).
+func _first_found(targets: Array) -> Control:
+	for target in targets:
+		var node = target.call()
+		if node is Control and is_instance_valid(node) and node.is_visible_in_tree():
+			return node
+	return null
+
+# Buy Solo's card until it's chosen, then the Reveal button.
+func _buy_target() -> Control:
+	if _solo_chosen():
+		return _scene_node("CanvasLayer/Panel/VBoxContainer/list_of_properties/MarginContainer2/Panel/MarginContainer/VBoxContainer/proceed")
+	return _buy_choice("Private Purchase")
+
+# The listing until it's chosen, then Purchase.
+func _purchase_target() -> Control:
+	if _listing_chosen():
+		return _scene_node("CanvasLayer/Panel/VBoxContainer/revealed_properties/MarginContainer2/Panel/MarginContainer/VBoxContainer/HBoxContainer/Purchase")
+	return _first_listing()
+
+# The Bank's Make a Payment, then the loan's Make a Payment, then its Pay box.
+func _pay_target() -> Control:
+	if _scene_is("bank_account"):
+		return _part("bank_account", "pay_button")
+	return _loan_part("panel" if _loan_open() else "pay_button")
 
 
 ## ---- FINDING THINGS ON SCREEN ----
