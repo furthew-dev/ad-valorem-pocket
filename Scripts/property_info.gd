@@ -73,7 +73,9 @@ var condition_chip: PanelContainer
 var condition_text: Label
 var _chip_style: StyleBoxFlat
 var tenants_label: Label
-var conditions_toggle: Button
+var conditions_toggle: HBoxContainer   # "All conditions" + a drawn arrow
+var _chevron: Control
+var _table_ready := false
 var conditions_table: VBoxContainer
 var _rows := {}                      # "e"/"g"/"f"/"p" -> the row
 # The table's labels and the band behind the current row (names kept from the old page).
@@ -207,6 +209,7 @@ func _build() -> void:
 	text_edit.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text_edit.add_theme_constant_override("line_spacing", 4)
 	body.add_child(text_edit)
+	_let_swipes_through(scroll)
 
 	action_bar = HBoxContainer.new()
 	action_bar.name = "Actions"
@@ -318,15 +321,21 @@ func _stat(caption: String) -> VBoxContainer:
 func _conditions_section() -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
-	conditions_toggle = Button.new()
-	conditions_toggle.flat = true
-	conditions_toggle.focus_mode = Control.FOCUS_NONE
-	conditions_toggle.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	conditions_toggle.add_theme_font_override("font", BOLD)
-	conditions_toggle.add_theme_font_size_override("font_size", 26)
-	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-		conditions_toggle.add_theme_color_override(c, CARD_EDGE)
-	conditions_toggle.pressed.connect(func(): _open_conditions(not conditions_table.visible, true))
+	# The arrow is drawn: phone browsers have no font with a ▾ in it (it showed as "25BE").
+	conditions_toggle = HBoxContainer.new()
+	conditions_toggle.custom_minimum_size.y = 52
+	conditions_toggle.add_theme_constant_override("separation", 12)
+	conditions_toggle.add_child(_label("All conditions", BOLD, 26, CARD_EDGE))
+	_chevron = Control.new()
+	_chevron.custom_minimum_size = Vector2(22, 22)
+	_chevron.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_chevron.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_chevron.draw.connect(func():
+		var w := _chevron.size
+		_chevron.draw_polyline(PackedVector2Array([Vector2(3, w.y * 0.32), Vector2(w.x / 2.0, w.y * 0.72), Vector2(w.x - 3, w.y * 0.32)]),
+				ColorTheme.map_color(CARD_EDGE, "text"), 3.5, true))
+	conditions_toggle.add_child(_chevron)
+	_on_tap(conditions_toggle, func(): _open_conditions(not conditions_table.visible, true))
 	box.add_child(conditions_toggle)
 	conditions_table = VBoxContainer.new()
 	conditions_table.add_theme_constant_override("separation", 2)
@@ -374,7 +383,12 @@ func _table_row(first: String, second: String, third: String, size: int) -> Pane
 
 func _open_conditions(open: bool, sound: bool = false) -> void:
 	conditions_table.visible = open
-	conditions_toggle.text = "All conditions  %s" % ("▴" if open else "▾")
+	_table_ready = true
+	_chevron.pivot_offset = _chevron.custom_minimum_size / 2.0
+	if sound:
+		_chevron.create_tween().tween_property(_chevron, "rotation", PI if open else 0.0, 0.18)
+	else:
+		_chevron.rotation = PI if open else 0.0
 	if sound:
 		Sound.play("open" if open else "back")
 
@@ -446,14 +460,7 @@ func _token_slot(token: Dictionary) -> Control:
 		plus.draw_rect(Rect2(c.x - bar / 2.0, c.y - arm, bar, arm * 2.0), GLOW_BG))
 	plus.set_meta("ct_skip", true)
 	holder.add_child(plus)
-	var tap := Button.new()   # the whole badge takes the tap
-	tap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	tap.flat = true
-	tap.focus_mode = Control.FOCUS_NONE
-	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
-		tap.add_theme_stylebox_override(state, StyleBoxEmpty.new())
-	tap.pressed.connect(_on_token_pressed.bind(token))
-	holder.add_child(tap)
+	_on_tap(holder, _on_token_pressed.bind(token))   # the whole badge takes the tap
 	token_slots[token["key"]] = {"panel": holder, "icon": icon, "slash": slash, "plus": plus,
 			"look": look, "state": "", "glow": null}
 	return holder
@@ -643,7 +650,7 @@ func _show_table() -> void:
 	if not has:
 		conditions_table.visible = false
 		return
-	if conditions_toggle.text == "":
+	if not _table_ready:
 		_open_conditions(false)
 	for tier in _rows:
 		var labels: Array = _rows[tier].get_meta("labels")
@@ -1070,7 +1077,7 @@ func _show_purchase_loan(details: Dictionary) -> void:
 		_loan_button.custom_minimum_size = Vector2(0, 60)
 		_loan_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		InkBox.apply(_loan_button, CARD_EDGE)
-		_loan_button.pressed.connect(func(): Global.open_link("my_loans"))
+		_on_tap(_loan_button, func(): Global.open_link("my_loans"))
 		text_edit.add_sibling(_loan_button)
 	_loan_button.text = "  View loan ($%d owed)  >  " % loan["loan_balance"]
 	_loan_button.visible = true
@@ -1123,6 +1130,36 @@ func _bubble_pop(badge: Control) -> void:
 		rise.chain().tween_callback(bubble.queue_free)
 
 
+## ---- SWIPING AND TAPPING ----
+# The card scrolls with a finger swipe anywhere on it. Every part of the card lets the
+# finger through to the scroll list (by default a panel or a button keeps it, so a swipe
+# that started on the picture or a token didn't scroll). Tappable parts use _on_tap: it
+# only counts when the finger barely moved and the card didn't scroll.
+func _let_swipes_through(node: Node) -> void:
+	if node is Control and node != scroll and (node as Control).mouse_filter == Control.MOUSE_FILTER_STOP:
+		(node as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+	for child in node.get_children():
+		_let_swipes_through(child)
+
+func _on_tap(control: Control, action: Callable) -> void:
+	control.mouse_filter = Control.MOUSE_FILTER_PASS
+	if control is BaseButton:
+		(control as BaseButton).action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE
+	control.gui_input.connect(func(event: InputEvent):
+		if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT):
+			return
+		if event.pressed:
+			control.set_meta("tap_from", event.global_position)
+			control.set_meta("tap_scroll", scroll.scroll_vertical)
+			return
+		var from: Vector2 = control.get_meta("tap_from", Vector2.INF)
+		control.set_meta("tap_from", Vector2.INF)
+		if from.distance_to(event.global_position) > Global.TAP_SLOP:
+			return   # a swipe, not a tap
+		if absi(scroll.scroll_vertical - int(control.get_meta("tap_scroll", 0))) > 4:
+			return   # the card scrolled under the finger
+		action.call())
+
 ## ---- SMALL HELPERS ----
 # The picture as a square with rounded corners (centre-cropped; made once per picture).
 static var _rounded := {}
@@ -1174,6 +1211,10 @@ func _label(text: String, font: Font, size: int, colour: Color) -> Label:
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", colour)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if colour == CREAM:
+		# The card is dark in every theme, so its writing stays cream. (Retro and Rosey
+		# turn cream writing dark brown / plum for their light screens: unreadable here.)
+		ColorTheme.keep(label)
 	return label
 
 # "── TOKENS ──────": a small heading with a line after it.
@@ -1204,6 +1245,7 @@ func _action_button(text: String, colour: Color, icon: Texture2D) -> Button:
 	button.add_theme_font_size_override("font_size", 32)
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color"]:
 		button.add_theme_color_override(c, CREAM)
+	ColorTheme.keep_text(button)   # cream writing on the themed button in every theme
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 		var style := _style(colour.darkened(0.12) if state == "pressed" else colour, 44, CREAM, 3)
 		style.shadow_color = Color(0, 0, 0, 0.35)

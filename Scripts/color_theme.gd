@@ -213,6 +213,11 @@ func _flush() -> void:
 func keep(node: Node) -> void:
 	node.set_meta("ct_skip", true)
 
+# Keeps a node's writing colour as designed (its background still follows the theme):
+# light writing on a button that stays dark in every theme.
+func keep_text(node: Node) -> void:
+	node.set_meta("ct_keep_text", true)
+
 # Keeps a node as designed in the Glass theme only (the sticky notes on the desk).
 func keep_in_glass(node: Node) -> void:
 	node.set_meta("ct_glass_keep", true)
@@ -224,8 +229,11 @@ func _recolor_node(node: Node) -> void:
 		return   # drawn on an illustration: Glass leaves it as designed
 	if node is Control:
 		var control := node as Control
+		var keep_text := control.has_meta("ct_keep_text")   # see keep_text()
 		for prop_name in _override_props(control):
 			var value = control.get(prop_name)
+			if value is Color and keep_text:
+				continue
 			if value is Color:
 				control.set(prop_name, _remap(control, prop_name, value, "text"))
 			elif value is StyleBoxFlat:

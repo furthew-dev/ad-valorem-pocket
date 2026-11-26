@@ -151,10 +151,13 @@ func _card(kind: String) -> Control:
 	tick.size = Vector2(30, 30)
 	tick.position = Vector2(42, -4)
 	tick.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var mark := _label("✓", 20, BODY_FONT)
+	var mark := Control.new()   # drawn: phone browsers have no font with a ✓ in it
 	mark.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	mark.add_theme_color_override("font_color", Color("f6f2e1"))
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mark.draw.connect(func():
+		var w := mark.size
+		mark.draw_polyline(PackedVector2Array([Vector2(w.x * 0.27, w.y * 0.52), Vector2(w.x * 0.44, w.y * 0.69), Vector2(w.x * 0.74, w.y * 0.33)]),
+				Color("f6f2e1"), 3.0, true))
 	tick.add_child(mark)
 	icon.add_child(tick)
 	card.set_meta("label", name)
