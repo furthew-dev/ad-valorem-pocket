@@ -148,6 +148,7 @@ func _owned_quietly() -> bool:
 ## ---- BUILDING THE CARD ----
 func _build() -> void:
 	var column := VBoxContainer.new()
+	_column = column
 	column.name = "Card Column"
 	column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	column.offset_top = 176
@@ -219,7 +220,14 @@ func _build() -> void:
 	for side in ["left", "right"]:
 		bar_margin.add_theme_constant_override("margin_" + side, 22)
 	bar_margin.add_child(action_bar)
+	_dots_row = HBoxContainer.new()   # which of your properties this is (swipe for the others)
+	_dots_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_dots_row.add_theme_constant_override("separation", 10)
+	_dots_row.custom_minimum_size.y = 12
+	_dots_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(_dots_row)
 	column.add_child(bar_margin)
+	scroll.gui_input.connect(_on_swipe_input)
 	special_button = _action_button("", GREEN, null)
 	special_button.pressed.connect(_on_special_pressed)
 	action_bar.add_child(special_button)
@@ -623,6 +631,7 @@ func setup_card() -> void:
 	_show_description()
 	_show_actions()
 	_card_style.border_color = GOLD if p.get("has_golden_lock", false) else CARD_EDGE
+	_show_dots()
 
 func _fit_title() -> void:
 	var size := 56
@@ -1129,6 +1138,226 @@ func _bubble_pop(badge: Control) -> void:
 		rise.tween_property(bubble, "modulate:a", 0.0, 0.12).set_delay(i * 0.05 + time - 0.12)
 		rise.chain().tween_callback(bubble.queue_free)
 
+
+## ---- SWIPING BETWEEN PROPERTIES ----
+# Swipe left or right anywhere on the card for your next / previous property, in the
+# order My Properties shows them (like Home's swipe to Activity). The card follows the
+# finger; let go past ~18% of the screen and the next one slides in, otherwise it springs
+# back. A mostly up/down swipe still scrolls the card. Dots show where you are.
+const SWIPE_DECIDE := 24.0      # finger movement before we decide sideways vs up/down
+const SWIPE_CHANGE := 0.18      # share of the width to let go past
+var _column: VBoxContainer
+var _dots_row: HBoxContainer
+var _swipe_from := Vector2.INF
+var _swipe_scroll := 0
+var _swipe_mode := ""           # "" undecided, "side", "scroll"
+var _swipe_tween: Tween
+
+# Your properties in My Properties' order (its Sort button: as bought, A-Z or by value).
+func _ordered() -> Array:
+	var list: Array = Cards.properties_owned.duplicate()
+	match Network.load_setting("my_properties", "sort", ""):
+		"name":
+			list.sort_custom(func(a, b): return str(a["name"]).naturalnocasecmp_to(str(b["name"])) < 0)
+		"value":
+			list.sort_custom(func(a, b):
+				if a.get("value", 0) != b.get("value", 0):
+					return a.get("value", 0) > b.get("value", 0)
+				return str(a["name"]).naturalnocasecmp_to(str(b["name"])) < 0)
+	return list
+
+func _index_of_current() -> int:
+	var list := _ordered()
+	for i in list.size():
+		if list[i].get("id", -1) == current_property.get("id", -2):
+			return i
+	return -1
+
+func _show_dots() -> void:
+	var count := Cards.properties_owned.size()
+	var at := _index_of_current()
+	while _dots_row.get_child_count() < count:
+		var dot := Panel.new()
+		dot.custom_minimum_size = Vector2(10, 10)
+		dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		dot.add_theme_stylebox_override("panel", _style(CARD_EDGE, 5))
+		_dots_row.add_child(dot)
+	while _dots_row.get_child_count() > count:
+		var extra := _dots_row.get_child(_dots_row.get_child_count() - 1)
+		_dots_row.remove_child(extra)
+		extra.queue_free()
+	for i in count:
+		(_dots_row.get_child(i) as Control).modulate.a = 1.0 if i == at else 0.35
+	_dots_row.visible = count > 1
+
+func _swiping_allowed() -> bool:
+	return not get_tree().root.has_node("Tutorial") and Cards.properties_owned.size() > 0
+
+func _on_swipe_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			if _swipe_tween and _swipe_tween.is_running():
+				return
+			_swipe_from = event.global_position
+			_swipe_scroll = scroll.scroll_vertical
+			_swipe_mode = ""
+		else:
+			if _swipe_mode == "side":
+				_end_side_swipe(event.global_position.x - _swipe_from.x)
+			_swipe_from = Vector2.INF
+			_swipe_mode = ""
+		return
+	if not (event is InputEventMouseMotion) or _swipe_from == Vector2.INF:
+		return
+	if not (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
+		return
+	var moved: Vector2 = event.global_position - _swipe_from
+	if _swipe_mode == "":
+		if moved.length() < SWIPE_DECIDE:
+			return
+		_swipe_mode = "side" if absf(moved.x) > absf(moved.y) * 1.3 and _swiping_allowed() else "scroll"
+	if _swipe_mode == "side":
+		scroll.scroll_vertical = _swipe_scroll   # stay put while it's a sideways swipe
+		_column.position.x = _drag_offset(moved.x)
+		_place_peek(_column.position.x)
+
+# Past the first / last property the card only stretches a little (rubber band).
+func _drag_offset(dx: float) -> float:
+	var at := _index_of_current()
+	var last := Cards.properties_owned.size() - 1
+	if (at <= 0 and dx > 0) or (at >= last and dx < 0):
+		return dx * 0.3
+	return dx
+
+func _end_side_swipe(dx: float) -> void:
+	var width := get_viewport().get_visible_rect().size.x
+	var at := _index_of_current()
+	var list := _ordered()
+	var step := 0
+	if dx < -width * SWIPE_CHANGE and at < list.size() - 1:
+		step = 1
+	elif dx > width * SWIPE_CHANGE and at > 0:
+		step = -1
+	if step == 0:   # spring back
+		_swipe_tween = _column.create_tween()
+		_swipe_tween.tween_method(func(x: float):
+			_column.position.x = x
+			_place_peek(x), _column.position.x, 0.0, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_swipe_tween.tween_callback(_clear_peek)
+		return
+	show_property(list[at + step], step)
+
+# While swiping, a preview of the neighbouring property (name, picture, numbers,
+# condition) rides in beside the card, like Home's pages; the full card replaces it.
+var _peek: Control
+var _peek_for := 0   # -1 = the previous property, 1 = the next
+
+func _place_peek(x: float) -> void:
+	var side := -1 if x > 0 else 1
+	var list := _ordered()
+	var at := _index_of_current() + side
+	if x == 0.0 or at < 0 or at >= list.size():
+		_clear_peek()
+		return
+	if _peek == null or _peek_for != side:
+		_clear_peek()
+		_peek = _make_peek(list[at])
+		_peek_for = side
+	var width := get_viewport().get_visible_rect().size.x
+	_peek.position.x = _column.position.x + side * width + 22
+
+func _clear_peek() -> void:
+	if _peek:
+		_peek.queue_free()
+		_peek = null
+		_peek_for = 0
+
+func _make_peek(p: Dictionary) -> Control:
+	var area := scroll.get_global_rect()
+	var peek := PanelContainer.new()
+	peek.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := _card_style.duplicate()
+	style.border_color = GOLD if p.get("has_golden_lock", false) else CARD_EDGE
+	peek.add_theme_stylebox_override("panel", style)
+	peek.position = Vector2(22, area.position.y + 6)
+	peek.size = Vector2(area.size.x - 44, minf(area.size.y - 20, 560))
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 14)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	peek.add_child(box)
+	box.add_child(_label(str(p.get("name", "")), TITLE_FONT, 52, CREAM))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 20)
+	var art := TextureRect.new()
+	art.texture = _rounded_art(str(p.get("art", "")), 23)
+	art.custom_minimum_size = Vector2(250, 250)
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_SCALE
+	ColorTheme.keep(art)
+	row.add_child(art)
+	var stats := VBoxContainer.new()
+	stats.alignment = BoxContainer.ALIGNMENT_CENTER
+	stats.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var numbers := HBoxContainer.new()
+	for pair in [["VALUE", p.get("value", 0)], ["RENT", p.get("rent", 0)]]:
+		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.add_theme_constant_override("separation", -4)
+		var small := _label(pair[0], BOLD, 20, CARD_EDGE)
+		small.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(small)
+		var big := _label("$%d" % int(pair[1]), BOLD, 64, CREAM)
+		big.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(big)
+		numbers.add_child(col)
+	stats.add_child(numbers)
+	var chip := PanelContainer.new()
+	var chip_style := _style(BAND, 30)
+	chip_style.content_margin_top = 6
+	chip_style.content_margin_bottom = 8
+	var condition := ""
+	if Cards.is_lot(p):
+		condition = "Empty lot"
+	elif p.get("has_condition", false):
+		condition = str(p.get("condition", "")).capitalize()
+		chip_style.bg_color = CONDITION_COLORS.get(str(p.get("condition", "")), GREEN)
+	else:
+		condition = "Fixed value"
+	chip.add_theme_stylebox_override("panel", chip_style)
+	ColorTheme.keep(chip)
+	var chip_text := _label(condition, BOLD, 28, CREAM)
+	chip_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	chip.add_child(chip_text)
+	stats.add_child(chip)
+	row.add_child(stats)
+	box.add_child(row)
+	page.add_child(peek)
+	page.move_child(peek, _column.get_index())   # under the card, above the background
+	return peek
+
+# Slides the card out to one side and the next property in from the other.
+func show_property(property: Dictionary, direction: int = 1) -> void:
+	var width := get_viewport().get_visible_rect().size.x
+	Sound.play("switch")
+	_swipe_tween = _column.create_tween()
+	_swipe_tween.tween_method(func(x: float):
+		_column.position.x = x
+		_place_peek(x), _column.position.x, -direction * width, 0.16).set_ease(Tween.EASE_OUT)
+	await _swipe_tween.finished
+	if not is_inside_tree():
+		return
+	Notices.mark_property(int(current_property.get("id", 0)))
+	current_property = property
+	Cards.selected_id = int(property.get("id", 0))   # Back from the sale screen returns here
+	scroll.scroll_vertical = 0
+	setup_card()
+	_column.position.x = 0.0   # the full card takes the preview's place, where it landed
+	_clear_peek()
+	var news := Notices.property_before(int(property.get("id", 0)))
+	Notices.mark_property(int(property.get("id", 0)))
+	if not news.is_empty():
+		_play_news(news)
 
 ## ---- SWIPING AND TAPPING ----
 # The card scrolls with a finger swipe anywhere on it. Every part of the card lets the
