@@ -141,7 +141,7 @@ func income_loss(type: String, total: int, reason: String = "") -> void:
 
 # Shows the standard pop-up with a single OK button and waits until it is closed.
 ## ---- WEB LINKS ----
-const SUBSCRIBE_URL := "https://www.kickstarter.com/projects/furthew/ad-valorem-a-real-estate-strategy-game"
+const SUBSCRIBE_URL := "https://furthew.com/subscribe/"   # the launch list (Matt, 11-26)
 
 # Opens a web page in a new tab (the game keeps running here). If the browser blocks the
 # tab, the address is shown instead so the player can type it.
@@ -180,7 +180,7 @@ func subscribe_button(text: String = "Get Kickstarter updates") -> Button:
 	button.add_theme_stylebox_override("pressed", pressed)
 	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		button.add_theme_color_override(state, Color("f6f2e1"))
-	button.pressed.connect(open_web.bind(SUBSCRIBE_URL, "kickstarter.com/projects/furthew/ad-valorem-a-real-estate-strategy-game"))
+	button.pressed.connect(open_web.bind(SUBSCRIBE_URL, "furthew.com/subscribe"))
 	return button
 
 func show_notice(message: String) -> void:

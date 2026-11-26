@@ -299,6 +299,8 @@ func show_title(title: String, subtitle: String = "") -> void:
 			size -= 2
 		h1.add_theme_font_size_override("font_size", size)
 
+const TITLE_CREAM := Color("ddcf99")   # the header's writing in the Default theme
+
 func _title_label(text: String, size: int) -> Label:
 	var label := Label.new()
 	label.text = text
@@ -306,8 +308,11 @@ func _title_label(text: String, size: int) -> Label:
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.clip_text = true   # don't let a long title push the header wider than the screen
 	label.add_theme_font_override("font", checking_bal.get_theme_font("font"))
-	label.add_theme_color_override("font_color", checking_bal.get_theme_color("font_color"))
+	# The header's own (Default theme) colour: other themes recolour it as usual, but Glass
+	# keeps it, so the main menu title reads like the Default one (Matt).
+	label.add_theme_color_override("font_color", TITLE_CREAM)
 	label.add_theme_font_size_override("font_size", size)
+	ColorTheme.keep_in_glass(label)
 	return label
 
 func disable_buttons() -> void:
