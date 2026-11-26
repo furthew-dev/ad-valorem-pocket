@@ -1211,7 +1211,7 @@ func get_target_property(rule: String, needs_condition: bool = false, skip_locke
 	var target_value = pool[index]["value"]
 	var tied = pool.filter(func(p): return p["value"] == target_value)
 	if tied.size() > 1:
-		return await ask_player_to_choose("Tied properties -- choose which is affected:", tied)
+		return await ask_player_to_choose("These properties are tied. Choose which one is affected:", tied)
 	return pool[index]
 
 func set_condition(prop: Dictionary, level: String) -> void:

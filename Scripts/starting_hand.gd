@@ -20,6 +20,26 @@ static func unbox(tree: SceneTree, cards: Array, title: String) -> Node:
 	tree.root.add_child(overlay)
 	return overlay
 
+# A deed face up, as it looks once opened (ribbon, picture, name, numbers, stamp), for other
+# screens that show deeds, e.g. choosing between tied properties. Same in every theme.
+static func deed(property: Dictionary) -> Control:
+	var maker = load("res://Scripts/starting_hand.gd").new()
+	var card := Control.new()
+	card.custom_minimum_size = CARD
+	card.size = CARD
+	card.pivot_offset = CARD / 2.0
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var face: Control = maker._make_face(property)
+	face.visible = true
+	face.get_node("stamp").modulate.a = 1.0
+	card.add_child(face)
+	var look: Array = maker._look(property)
+	if look == LOOKS["excellent"] or look == LOOKS["special"]:
+		maker._glow(card, look[0])
+	maker._keep_all(card)
+	maker.free()
+	return card
+
 const FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
 const BODY_FONT = preload("res://Assets/fonts/Comfortaa-Regular.ttf")
 
