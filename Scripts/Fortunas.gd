@@ -754,7 +754,8 @@ func _play_fortuna(saboteur_id: int, mystery: bool = false) -> void:
 		Global.banner("You kept %s" % card["name"])
 		return
 
-	if saboteur_id != 0 and card["effect"] in BENEFICIAL_EFFECTS:
+	# Good cards (and Swap, which is good for whoever plays it) go to the saboteur.
+	if saboteur_id != 0 and (card["effect"] in BENEFICIAL_EFFECTS or card["effect"] == "swap_property"):
 		var saboteur_name: String = Network.players.get(saboteur_id, "Your saboteur")
 		_resolve_for_saboteur.rpc_id(saboteur_id, card["key"], Global.PLAYER)
 		Global.banner("%s gets the benefit of %s." % [saboteur_name, card["name"]])

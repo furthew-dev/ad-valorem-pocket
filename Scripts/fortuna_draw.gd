@@ -1,9 +1,10 @@
 extends CanvasLayer
 ## The new-round Fortuna draw, with a little mystery: a deck of face-down Fortuna cards
-## fans out on a dark curtain and shuffles while the card is drawn. Then one card rises,
+## rolls out into a fan on a dark curtain (no card covers another, so any can be tapped)
+## while the card is drawn. Then the picked card rises,
 ## trembles, and flips over to show the drawn card's picture with a flash, and the normal
 ## Fortuna card screen (fortuna.tscn, layer 100) takes over on top.
-## After a few shuffles the player picks any card (luck of the draw); that one turns over.
+## The player picks any card (luck of the draw); that one turns over.
 ## A second Fortuna in the same round shows the first pick face-up in its place, and the
 ## player picks from the rest.
 ##     var draw = FortunaDraw.start(get_tree(), earlier)   # earlier: [{slot, card}] this round
@@ -14,22 +15,24 @@ extends CanvasLayer
 const FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
 const BODY_FONT = preload("res://Assets/fonts/Comfortaa-Regular.ttf")
 
-const SCREEN := Vector2(720, 1280)
-const CARD := Vector2(200, 290)
-const BIG := 1.75               # the chosen card's size, raised and turned over
+const SCREEN := Vector2(720, 1280)   # the design size; laid out on the real screen (it can be wider)
+const CARD := Vector2(126, 182)      # five side by side fit across the screen without covering each other
+const SPACING := 134.0
+const BIG := 2.75               # the chosen card's size, raised and turned over
 const DECK := 5
-const CENTRE := Vector2(360, 690)
 const CURTAIN := Color("1d1426")
 const BACK := Color("3a1f4d")
 const GOLD := Color("d4af37")
 const CREAM := Color("f6f2e1")
-const MIN_SHUFFLE := 1.1        # seconds of shuffling, however fast the card is drawn
+const MIN_SHUFFLE := 1.1        # seconds of fanning out, however fast the card is drawn
 const SHOW_FACE := 1.6          # seconds the turned-over card is shown before its details
 const MARKS = preload("res://Assets/icons/question_marks_icon.png")
 # Draws a one-colour icon (black art) in one colour: the question marks in gold.
 const SOLID_SHADER := "shader_type canvas_item;\nuniform vec4 tint : source_color;\nvoid fragment() { COLOR = vec4(tint.rgb, COLOR.a * tint.a); }"
 
 var _curtain: ColorRect
+var CENTRE := Vector2(360, 690)   # middle of the table, set from the real screen size in _build()
+var _screen := SCREEN
 var _title: Label
 var _cards: Array[Control] = []
 var _shuffled := false
@@ -60,6 +63,8 @@ func _ready() -> void:
 
 ## ---- BUILDING ----
 func _build() -> void:
+	_screen = get_viewport().get_visible_rect().size
+	CENTRE = Vector2(_screen.x / 2.0, _screen.y * 690.0 / 1280.0)
 	_curtain = ColorRect.new()
 	_curtain.color = CURTAIN
 	_curtain.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -71,8 +76,8 @@ func _build() -> void:
 	_title = Label.new()
 	_title.text = "Fortuna"
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title.position = Vector2(0, 250)
-	_title.size = Vector2(SCREEN.x, 90)
+	_title.position = Vector2(0, CENTRE.y - 440)
+	_title.size = Vector2(_screen.x, 90)
 	_title.add_theme_font_override("font", FONT)
 	_title.add_theme_font_size_override("font_size", 84)
 	_title.add_theme_color_override("font_color", GOLD)
@@ -82,8 +87,8 @@ func _build() -> void:
 	sub.text = "Fate deals you a card..."
 	sub.name = "sub"
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub.position = Vector2(0, 345)
-	sub.size = Vector2(SCREEN.x, 40)
+	sub.position = Vector2(0, CENTRE.y - 345)
+	sub.size = Vector2(_screen.x, 40)
 	sub.add_theme_font_override("font", BODY_FONT)
 	sub.add_theme_font_size_override("font_size", 28)
 	sub.add_theme_color_override("font_color", Color(CREAM, 0.8))
@@ -126,15 +131,15 @@ func _card_back() -> Control:
 	var style := StyleBoxFlat.new()
 	style.bg_color = BACK
 	style.border_color = GOLD
-	style.set_border_width_all(5)
-	style.set_corner_radius_all(18)
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(12)
 	style.shadow_color = Color(0, 0, 0, 0.45)
 	style.shadow_size = 10
 	style.shadow_offset = Vector2(0, 6)
 	card.add_theme_stylebox_override("panel", style)
 	card.draw.connect(func():   # solid purple with an inner gold frame
-		var inner := Rect2(Vector2(14, 14), CARD - Vector2(28, 28))
-		card.draw_rect(inner, Color(GOLD, 0.7), false, 2))
+		var inner := Rect2(Vector2(9, 9), CARD - Vector2(18, 18))
+		card.draw_rect(inner, Color(GOLD, 0.7), false, 1.5))
 	var mark := TextureRect.new()   # Matt's question marks, in gold
 	mark.name = "mark"
 	mark.texture = MARKS
@@ -150,8 +155,8 @@ func _card_back() -> Control:
 	card.add_child(mark)
 	var face := TextureRect.new()   # the drawn card's picture, shown after the flip
 	face.name = "face"
-	face.position = Vector2(16, 16)
-	face.size = CARD - Vector2(32, 32)
+	face.position = Vector2(9, 9)
+	face.size = CARD - Vector2(18, 18)
 	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	face.visible = false
@@ -168,40 +173,36 @@ func _solid_shader() -> Shader:
 # Where card i sits in the fan.
 func _fan(i: int) -> Vector2:
 	var offset := (i - (DECK - 1) / 2.0)
-	return CENTRE - CARD / 2.0 + Vector2(offset * 92, absf(offset) * 18)
+	return CENTRE - CARD / 2.0 + Vector2(offset * SPACING, offset * offset * 9.0)
 
 func _fan_angle(i: int) -> float:
-	return (i - (DECK - 1) / 2.0) * 0.12
+	return (i - (DECK - 1) / 2.0) * 0.09
 
 
-## ---- THE SHUFFLE ----
+## ---- THE FAN ----
+# The deck rises as one stack in the middle, then rolls out into a fan, card by card.
 func _play_shuffle() -> void:
 	var fade := create_tween().set_parallel(true)
 	fade.tween_property(_curtain, "modulate:a", 1.0, 0.25)
 	fade.tween_property(_title, "scale", Vector2.ONE, 0.45).from(Vector2(0.6, 0.6)).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	Sound.play("open")
-	# Deal the fan up from the bottom (a card sound for every other card: five at once blur).
+	var stack := CENTRE - CARD / 2.0
+	for i in DECK:   # the stack comes up from below
+		var card := _cards[i]
+		var up := card.create_tween().set_parallel(true)
+		up.tween_property(card, "position", stack + Vector2(0, -2.0 * i), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		up.tween_property(card, "modulate:a", 1.0, 0.15)
+	Sound.play("deal")
+	await get_tree().create_timer(0.35).timeout
+	# Roll out from the middle: each card swings to its place in the fan.
 	for i in DECK:
 		var card := _cards[i]
-		var deal := card.create_tween().set_parallel(true)
-		deal.tween_property(card, "position", _fan(i), 0.35).set_delay(0.06 * i).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		deal.tween_property(card, "rotation", _fan_angle(i), 0.35).set_delay(0.06 * i)
-		deal.tween_property(card, "modulate:a", 1.0, 0.15).set_delay(0.06 * i)
+		var roll := card.create_tween().set_parallel(true)
+		roll.tween_property(card, "position", _fan(i), 0.32).set_delay(0.07 * i).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		roll.tween_property(card, "rotation", _fan_angle(i), 0.32).set_delay(0.07 * i).set_trans(Tween.TRANS_SINE)
 		if i % 2 == 0:
-			get_tree().create_timer(0.06 * i).timeout.connect(func(): Sound.play("deal"))
-	await get_tree().create_timer(0.35 + 0.06 * DECK).timeout
-	# Shuffle: pairs of face-down cards swap places with a hop, a few times.
-	var free := _free_slots()
-	for rounds in 4:
-		if not is_inside_tree() or free.size() < 2:
-			break
-		var a: int = free.pick_random()
-		var b: int = a
-		while b == a:
-			b = free.pick_random()
-		_swap(a, b)
-		Sound.play("deal")
-		await get_tree().create_timer(0.3).timeout
+			get_tree().create_timer(0.07 * i).timeout.connect(func(): Sound.play("deal"))
+	await get_tree().create_timer(0.32 + 0.07 * DECK).timeout
 	_shuffled = true
 	_start_picking()
 
@@ -226,13 +227,13 @@ func _start_picking() -> void:
 	var nudge := sub.create_tween()
 	nudge.tween_property(sub, "scale", Vector2(1.1, 1.1), 0.15)
 	nudge.tween_property(sub, "scale", Vector2.ONE, 0.2)
-	for i in _free_slots():
+	for i in _free_slots():   # one little wave along the fan; then they hold still to be tapped
 		var card := _cards[i]
 		var rest := _fan(i)
-		var bob := card.create_tween().set_loops()
-		bob.tween_property(card, "position:y", rest.y - 14, 0.5 + 0.07 * i).set_trans(Tween.TRANS_SINE)
-		bob.tween_property(card, "position:y", rest.y, 0.5 + 0.07 * i).set_trans(Tween.TRANS_SINE)
-		_bobs.append(bob)
+		var hop := card.create_tween()
+		hop.tween_property(card, "position:y", rest.y - 16, 0.14).set_delay(0.06 * i).set_trans(Tween.TRANS_SINE)
+		hop.tween_property(card, "position:y", rest.y, 0.16).set_trans(Tween.TRANS_SINE)
+		_bobs.append(hop)
 	var timer := Timer.new()   # (a child, so it goes away with this screen)
 	timer.one_shot = true
 	timer.wait_time = AUTO_PICK
@@ -256,22 +257,6 @@ func _pick(card: Control) -> void:
 	picked.emit()
 
 var _card_ready := false
-
-func _swap(a: int, b: int) -> void:
-	var card_a := _cards[a]
-	var card_b := _cards[b]
-	_cards[a] = card_b
-	_cards[b] = card_a
-	for pair in [[card_b, a, -1.0], [card_a, b, 1.0]]:
-		var card: Control = pair[0]
-		var slot: int = pair[1]
-		var hop := card.create_tween().set_parallel(true)
-		hop.tween_property(card, "position", _fan(slot), 0.26).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		hop.tween_property(card, "rotation", _fan_angle(slot), 0.26)
-		var lift := card.create_tween()
-		lift.tween_property(card, "scale", Vector2(1.12, 1.12), 0.13)
-		lift.tween_property(card, "scale", Vector2.ONE, 0.13)
-	_curtain.move_child(card_a, -1)   # the moving cards pass over the others
 
 
 ## ---- THE REVEAL ----

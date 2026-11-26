@@ -10,6 +10,7 @@ extends CanvasLayer
 
 signal finished
 
+var _screen := SCREEN   # set in _build()
 var gift: Array = []      # deeds to unbox instead of the starting hand
 var gift_title := ""
 
@@ -43,7 +44,7 @@ static func deed(property: Dictionary) -> Control:
 const FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
 const BODY_FONT = preload("res://Assets/fonts/Comfortaa-Regular.ttf")
 
-const SCREEN := Vector2(720, 1280)
+const SCREEN := Vector2(720, 1280)   # the design size; the real screen can be wider or taller (stretch "expand")
 const CARD := Vector2(272, 356)
 const GAP := Vector2(26, 24)
 const GRID_TOP := 330.0
@@ -93,6 +94,7 @@ func _ready() -> void:
 
 ## ---- BUILDING ----
 func _build() -> void:
+	_screen = get_viewport().get_visible_rect().size   # lay out on the real screen, so it stays centred
 	_dim = ColorRect.new()
 	_dim.color = Color(0.07, 0.05, 0.06, 0.82)
 	_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -100,12 +102,12 @@ func _build() -> void:
 	add_child(_dim)
 
 	_title = _label(gift_title if gift_title != "" else "Your Starting Portfolio", 58, FONT, CREAM)
-	_title.position = Vector2(0, 190)
-	_title.size = Vector2(SCREEN.x, 70)
+	_title.position = Vector2(0, 190 + _extra_top())
+	_title.size = Vector2(_screen.x, 70)
 	_dim.add_child(_title)
 	_hint = _label(_hint_text(), 26, BODY_FONT, Color(CREAM, 0.85))
-	_hint.position = Vector2(30, 262)
-	_hint.size = Vector2(SCREEN.x - 60, 40)
+	_hint.position = Vector2(30, 262 + _extra_top())
+	_hint.size = Vector2(_screen.x - 60, 40)
 	_hint.clip_text = true
 	_dim.add_child(_hint)
 
@@ -116,11 +118,11 @@ func _build() -> void:
 		_cards.append(card)
 
 	_open_all = _button("Open all", _on_open_all)
-	_open_all.position = Vector2((SCREEN.x - 300) / 2.0, 1110)
+	_open_all.position = Vector2((_screen.x - 300) / 2.0, _screen.y - 170)
 	_open_all.size = Vector2(300, 84)
 	_dim.add_child(_open_all)
 	_ok = _button("OK", _on_ok)
-	_ok.position = Vector2((SCREEN.x - 420) / 2.0, 1100)
+	_ok.position = Vector2((_screen.x - 420) / 2.0, _screen.y - 180)
 	_ok.size = Vector2(420, 100)
 	_ok.add_theme_font_size_override("font_size", 52)
 	_ok.visible = false
@@ -141,9 +143,13 @@ func _slot(i: int) -> Vector2:
 	var col := i % cols
 	var in_row := mini(cols, n - row * cols)
 	var row_width := in_row * CARD.x + (in_row - 1) * GAP.x
-	var left := (SCREEN.x - row_width) / 2.0
+	var left := (_screen.x - row_width) / 2.0
 	var top := GRID_TOP if n > 2 else GRID_TOP + (CARD.y + GAP.y) / 2.0
-	return Vector2(left + col * (CARD.x + GAP.x), top + row * (CARD.y + GAP.y))
+	return Vector2(left + col * (CARD.x + GAP.x), top + _extra_top() + row * (CARD.y + GAP.y))
+
+# On a taller screen than the design, the title and deeds move down by half the extra height.
+func _extra_top() -> float:
+	return maxf(0.0, (_screen.y - SCREEN.y) / 2.0)
 
 # One card: the sealed envelope on top of the property's face (hidden until opened).
 func _make_card(property: Dictionary) -> Control:
@@ -290,7 +296,7 @@ func _arrive() -> void:
 	for i in _cards.size():
 		var card := _cards[i]
 		var rest := card.position
-		card.position.y = SCREEN.y + 40
+		card.position.y = _screen.y + 40
 		card.rotation = randf_range(-0.25, 0.25)
 		var slide := card.create_tween().set_parallel(true)
 		slide.tween_property(card, "position:y", rest.y, 0.45).set_delay(0.1 * i).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -383,7 +389,7 @@ func _on_ok() -> void:
 	_ok.disabled = true
 	Sound.play("continue")
 	var tile := _my_properties_tile()
-	var target := tile.get_global_rect().get_center() if tile else Vector2(SCREEN.x / 2.0, SCREEN.y - 90)
+	var target := tile.get_global_rect().get_center() if tile else Vector2(_screen.x / 2.0, _screen.y - 90)
 	var fade := create_tween().set_parallel(true)
 	for node in [_title, _hint, _ok]:
 		fade.tween_property(node, "modulate:a", 0.0, 0.2)

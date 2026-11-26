@@ -10,7 +10,6 @@ const ORDINALS := ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"]
 const INK := Color(0.1, 0.1, 0.1)
 const CREAM := Color("ddcf99")
 const PLUM := Color("533c44")
-const GOLD := Color("8a6a1c")
 const HAND_FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
 
 # {who} = winner name(s), {n} = the number, {s} = "" or "s", {ies} = "y" or "ies".
@@ -138,9 +137,15 @@ func _show_results() -> void:
 	# First place gets the till ringing; everyone else, the sad trumpet.
 	var won: bool = not list.is_empty() and str(list[0].get("name", "")) == str(Global.PLAYER)
 	_ending_sound = Sound.play("victory" if won else "lose_outro")
+	if won:   # you came first: say so, and throw confetti
+		title.text = "YOU WON!"
+		title.pivot_offset = title.size / 2.0
+		title.create_tween().tween_property(title, "scale", Vector2.ONE, 0.45).from(Vector2(0.4, 0.4)) \
+				.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		ConfettiFx.play(get_tree())
 
 func _add_standing(i: int, entry: Dictionary) -> void:
-	var place := _label(ORDINALS[mini(i, ORDINALS.size() - 1)], 46 if i == 0 else 36, GOLD if i == 0 else INK)
+	var place := _label(ORDINALS[mini(i, ORDINALS.size() - 1)], 46 if i == 0 else 36, INK)
 	place.add_theme_font_override("font", HAND_FONT)
 	place.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	player_list.add_child(place)

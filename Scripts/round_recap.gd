@@ -86,6 +86,8 @@ func _build() -> void:
 		standings.add_child(_standing_row(i + 1, players[i]))
 	var goal := _label("The game ends after a round where someone has more than $%d cash and no loans. Highest net worth wins." % int(data.get("goal", 0)), FONT, 19, Color(CREAM, 0.65))
 	goal.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	goal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # long: it wraps instead of widening the page
+	goal.custom_minimum_size.x = _page_width()
 	page.add_child(goal)
 
 	_button = Button.new()
@@ -155,7 +157,7 @@ func _highlight_card(caption: String, line: String, colour: Color) -> Control:
 	box.add_child(_label(caption, BOLD, 17, colour))
 	var text := _label(line, FONT, 25, CREAM)
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	text.custom_minimum_size.x = 600   # (a wrapping label needs a width, or it stands tall)
+	text.custom_minimum_size.x = _page_width() - 44   # (a wrapping label needs a width, or it stands tall)
 	box.add_child(text)
 	return card
 
@@ -256,6 +258,10 @@ func _style(bg: Color, radius: int, border := Color(0, 0, 0, 0), width := 0) -> 
 		style.border_color = border
 		style.set_border_width_all(width)
 	return style
+
+# The page's inner width on this screen (34 px margins), so nothing pushes past the edge.
+func _page_width() -> float:
+	return get_viewport().get_visible_rect().size.x - 68.0
 
 func _label(text: String, font: Font, size: int, colour: Color) -> Label:
 	var label := Label.new()
