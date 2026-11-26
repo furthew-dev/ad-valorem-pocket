@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3 uid="uid://deippgof1e1bj"]
+[gd_scene format=3 uid="uid://deippgof1e1bj"]
 
 [ext_resource type="Script" uid="uid://bns1cehq8gxbt" path="res://Scripts/property_info.gd" id="1_vw6oe"]
 [ext_resource type="Texture2D" uid="uid://byme73cvmjgba" path="res://Assets/bottom_art.png" id="2_jt2bh"]
@@ -8,12 +8,12 @@
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_nia8k"]
 bg_color = Color(0.478431, 0.427451, 0.47451, 1)
 
-[node name="property_info" type="Node2D"]
+[node name="property_info" type="Node2D" unique_id=658371074]
 script = ExtResource("1_vw6oe")
 
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1876561422]
 
-[node name="Panel" type="Panel" parent="CanvasLayer"]
+[node name="Panel" type="Panel" parent="CanvasLayer" unique_id=1052320567]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -22,7 +22,7 @@ grow_vertical = 2
 theme = ExtResource("3_jt2bh")
 theme_override_styles/panel = SubResource("StyleBoxFlat_nia8k")
 
-[node name="BottomDesign2" type="TextureRect" parent="CanvasLayer/Panel"]
+[node name="BottomDesign2" type="TextureRect" parent="CanvasLayer/Panel" unique_id=356588888]
 modulate = Color(0.32549, 0.27451, 0.313726, 1)
 custom_minimum_size = Vector2(720, 800)
 layout_mode = 1
@@ -34,5 +34,5 @@ grow_vertical = 2
 texture = ExtResource("2_jt2bh")
 expand_mode = 1
 
-[node name="UI Menu Frame" parent="CanvasLayer/Panel" instance=ExtResource("5_jt2bh")]
+[node name="UI Menu Frame" parent="CanvasLayer/Panel" unique_id=1275438655 instance=ExtResource("5_jt2bh")]
 layout_mode = 1

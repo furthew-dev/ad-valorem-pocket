@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=8 format=3 uid="uid://cjryg8ll4k0kw"]
+[gd_resource type="Theme" format=3 uid="uid://cjryg8ll4k0kw"]
 
 [ext_resource type="FontFile" uid="uid://dw6eqfioib8lx" path="res://Assets/fonts/Comfortaa-Regular.ttf" id="1_470mv"]
 [ext_resource type="FontFile" uid="uid://ct67wp5jkmuma" path="res://Assets/fonts/Comfortaa-Bold.ttf" id="2_a2l2q"]

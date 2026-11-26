@@ -111,9 +111,13 @@ func _build() -> void:
 	style.content_margin_right = 28
 	style.content_margin_top = 22
 	style.content_margin_bottom = 22
+	if ColorTheme.is_glass():   # the thin light edge every Glass panel has
+		style.border_color = ColorTheme.GLASS_BORDER
+		style.set_border_width_all(2)
 	card.add_theme_stylebox_override("panel", style)
 	ColorTheme.keep(card)
 	content.add_child(card)
+	ColorTheme.frost(card, true)   # Glass: frosted, so the writing reads over the picture
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)

@@ -690,9 +690,9 @@ func _show_description() -> void:
 	var p := current_property
 	var text := str(p.get("p_details", ""))
 	if p.get("has_golden_lock", false):
-		text += "\n\nGolden Lock: protected from harm and can't be sold."
+		text += "\n\nGolden Lock: protected from harm and can't be sold nor modified."
 	if p.get("has_insurance", false):
-		text += "\n\nInsured: the next disaster Fortuna that Insurance covers is blocked."
+		text += "\n\nInsured: the next disaster Fortuna that Insurance covers will be blocked or you will be compensated."
 	if p["name"] == "Terraced House":
 		text += "\n\nRounds owned: %d" % int(p.get("round", 0))
 	if int(p.get("no_rent_rounds", 0)) > 0:

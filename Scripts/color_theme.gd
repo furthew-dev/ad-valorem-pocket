@@ -218,6 +218,12 @@ func keep(node: Node) -> void:
 func keep_text(node: Node) -> void:
 	node.set_meta("ct_keep_text", true)
 
+# Frosted glass behind a panel that is otherwise kept as designed (keep()): in Glass it
+# blurs what's behind it so writing on it stays readable. `strong` = the heavy blur.
+func frost(control: Control, strong: bool = false) -> void:
+	if is_glass():
+		_add_blur(control, strong)
+
 # Keeps a node as designed in the Glass theme only (the sticky notes on the desk).
 func keep_in_glass(node: Node) -> void:
 	node.set_meta("ct_glass_keep", true)

@@ -106,6 +106,17 @@ func _add_environment_tile() -> void:
 	tint.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(tint)
+	# The picture is the icon: keep it whole in every theme. (Glass turns the panel see-through,
+	# and a see-through panel clips its children see-through too: the icon came out empty.)
+	var shape := panel.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
+	if shape:   # its own solid copy (the one it was copied from may already be see-through)
+		shape.bg_color = Color("533c44")
+		shape.border_width_left = 0; shape.border_width_top = 0
+		shape.border_width_right = 0; shape.border_width_bottom = 0
+		panel.add_theme_stylebox_override("panel", shape)
+	panel.self_modulate = Color.WHITE
+	for node in [panel, picture, tint]:
+		ColorTheme.keep(node)
 	var label: Label = tile.find_children("*", "Label", true, false)[0]
 	label.text = "Environment"
 	label.add_theme_font_size_override("font_size", 28)
