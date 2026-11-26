@@ -152,8 +152,7 @@ func _build() -> void:
 	column.offset_bottom = -182
 	column.add_theme_constant_override("separation", 10)
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	page.add_child(column)
-	page.move_child(column, ui_menu_frame.get_index())   # under the header / menu bar
+	page.add_child(column)   # above the frame: the frame covers the whole screen and would eat every tap
 
 	scroll = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -433,19 +432,19 @@ func _token_slot(token: Dictionary) -> Control:
 		slash.draw_line(Vector2(r.x * 0.2, r.y * 0.8), Vector2(r.x * 0.8, r.y * 0.2), NOT_ALLOWED, 7.0, true))
 	slash.set_meta("ct_skip", true)
 	holder.add_child(slash)
-	var plus := Panel.new()   # "you have one": a small + on the rim
-	plus.size = Vector2(38, 38)
-	plus.position = Vector2(TOKEN_SIZE - 34, -4)
-	plus.add_theme_stylebox_override("panel", _style(GREEN.lightened(0.15), 19, CREAM, 2))
+	var plus := Control.new()   # "you have one": a small green + on the rim (drawn, so it's dead centre)
+	plus.size = Vector2(40, 40)
+	plus.position = Vector2(TOKEN_SIZE - 36, -4)
 	plus.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var plus_sign := _label("+", BOLD, 30, CREAM)
-	plus_sign.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	plus_sign.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	plus_sign.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	plus_sign.offset_top = -3
-	plus.add_child(plus_sign)
-	ColorTheme.keep(plus)
-	ColorTheme.keep(plus_sign)
+	plus.draw.connect(func():
+		var c := plus.size / 2.0
+		plus.draw_circle(c, 19.0, GLOW, true, -1.0, true)
+		plus.draw_arc(c, 18.0, 0.0, TAU, 48, CREAM, 2.0, true)
+		var arm := 9.0
+		var bar := 4.0
+		plus.draw_rect(Rect2(c.x - arm, c.y - bar / 2.0, arm * 2.0, bar), GLOW_BG)
+		plus.draw_rect(Rect2(c.x - bar / 2.0, c.y - arm, bar, arm * 2.0), GLOW_BG))
+	plus.set_meta("ct_skip", true)
 	holder.add_child(plus)
 	var tap := Button.new()   # the whole badge takes the tap
 	tap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
