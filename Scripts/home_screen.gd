@@ -54,7 +54,7 @@ func _let_taps_through(node: Node) -> void:
 # the app was last opened (a new round, a Fortuna, a purchase...). Checked twice a second,
 # so dots appear as the round's changes land.
 const DOT_APPS := {"my_properties": "my_properties", "My Loans": "my_loans", "My Actions": "my_actions",
-		"environment": "environment"}
+		"environment": "environment", "messages": "messages"}
 
 func _setup_new_dots() -> void:
 	var timer := Timer.new()
@@ -83,17 +83,70 @@ var third_row: HBoxContainer
 func _rows() -> Array:
 	return [first_row, second_row] + ([third_row] if third_row else [])
 
-func _add_environment_tile() -> void:
-	if not Network.expansion_on():
+# Every game has Messages (messages_app.gd), on the third row; Expansion adds Environment.
+func _ensure_third_row() -> void:
+	if third_row:
 		return
 	third_row = HBoxContainer.new()
 	third_row.name = "third_row"
 	third_row.add_theme_constant_override("separation", 0)
 	second_row.add_sibling(third_row)
+
+# Same gap between apps as the rows above (they have a 25 px spacer between tiles).
+func _add_to_third_row(tile: Control) -> void:
+	if third_row.get_child_count() > 0:
+		var gap := Control.new()
+		gap.custom_minimum_size = Vector2(25, 0)
+		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		third_row.add_child(gap)
+	third_row.add_child(tile)
+
+# Matt's speech bubble is drawn in grey with a lighter shadow side. The app icons are black
+# line art that each theme recolours (light on dark themes, white in Glass); darkening the
+# picture (keeping its two tones) lets the theme treat it like the others.
+static var _messages_icon: Texture2D
+static func messages_icon() -> Texture2D:
+	if _messages_icon == null:
+		var image: Image = load("res://Assets/icons/messeges_icon.png").get_image().duplicate()
+		if image.is_compressed():
+			image.decompress()
+		image.convert(Image.FORMAT_RGBA8)
+		for y in image.get_height():
+			for x in image.get_width():
+				var c := image.get_pixel(x, y)
+				image.set_pixel(x, y, Color(c.r * 0.45, c.g * 0.45, c.b * 0.45, c.a))
+		_messages_icon = ImageTexture.create_from_image(image)
+	return _messages_icon
+
+func _add_messages_tile() -> void:
+	_ensure_third_row()
+	var source: Control = first_row.get_child(0)   # copy a tile's look (not its signals)
+	var tile: Control = source.duplicate(Node.DUPLICATE_GROUPS | Node.DUPLICATE_SCRIPTS)
+	tile.name = "messages"
+	_add_to_third_row(tile)
+	var panel: Panel = tile.find_children("*", "Panel", true, false)[0]
+	var shape := panel.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
+	if shape:
+		shape.bg_color = Color("625467")
+		if shape.has_meta("ct_bg_color"):
+			shape.remove_meta("ct_bg_color")   # its own colour, themed afresh
+		panel.add_theme_stylebox_override("panel", shape)
+	var picture: TextureRect = panel.find_children("*", "TextureRect", true, false)[0]
+	picture.texture = messages_icon()
+	var label: Label = tile.find_children("*", "Label", true, false)[0]
+	label.text = "Messages"
+	var button: Button = tile.find_children("*", "Button", true, false)[0]
+	button.name = "messages_button"   # (the tour finds the tile by it)
+	button.pressed.connect(func(): _open_app(Global.messages_app, "messages"))
+
+func _add_environment_tile() -> void:
+	if not Network.expansion_on():
+		return
+	_ensure_third_row()
 	var source: Control = first_row.get_child(0)   # copy a tile's look (not its signals)
 	var tile: Control = source.duplicate(Node.DUPLICATE_GROUPS | Node.DUPLICATE_SCRIPTS)
 	tile.name = "environment"
-	third_row.add_child(tile)
+	_add_to_third_row(tile)
 	var panel: Panel = tile.find_children("*", "Panel", true, false)[0]
 	panel.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW   # the picture takes the rounded corners
 	var picture: TextureRect = panel.find_children("*", "TextureRect", true, false)[0]
@@ -124,6 +177,7 @@ func _add_environment_tile() -> void:
 	button.pressed.connect(func(): _open_app(Global.environment_app, "environment"))
 
 func _setup_tiles() -> void:
+	_add_messages_tile()
 	_add_environment_tile()
 	for row in _rows():
 		for child in row.get_children():
@@ -150,12 +204,13 @@ func _slots() -> Array:
 
 func _apply_saved_order() -> void:
 	var order: Array = Network.load_setting("home", "app_order", [])
-	# The Environment app only exists in Expansion games: fit the saved order to this game.
-	var has_env := _tiles.any(func(t): return String(t.name) == "environment")
-	if has_env and not order.has("environment"):
-		order.append("environment")
-	elif not has_env:
-		order.erase("environment")
+	# Fit the saved order to this game: apps added since it was saved (Messages) or that
+	# only exist in some games (Environment: Expansion only) are added or dropped.
+	var names := _tiles.map(func(t): return String(t.name))
+	order = order.filter(func(n): return n in names)
+	for tile_name in names:
+		if not order.has(tile_name):
+			order.append(tile_name)
 	if order.size() != _tiles.size():
 		return
 	var by_name := {}

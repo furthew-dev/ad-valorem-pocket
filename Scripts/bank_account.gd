@@ -1,59 +1,114 @@
 extends Node2D
-## Bank app: balances and net worth. At game over it doubles as your final summary:
-## the button becomes OK and leads to the final standings.
+## Bank app: your net worth and how close you are to ending the game, then the account line by
+## line (cash, properties, investments, environment tokens, loans) and Make a Payment.
+## At game over it doubles as your final summary: the button becomes OK and leads to the
+## final standings. Built in code in the shared card look (cozy.gd); the scene's old
+## layout is hidden.
 
+const Cozy = preload("res://Scripts/cozy.gd")
 const RESULTS_SCENE := "res://Scenes/final_results.tscn"
+const CASH_ICON := preload("res://Assets/icons/bank_icon.png")
+const HOMES_ICON := preload("res://Assets/icons/home_icon.png")
+const SAVINGS_ICON := preload("res://Assets/icons/sell_icon.png")
+const LOAN_ICON := preload("res://Assets/icons/tokens/draft_icon.png")
 
-@onready var player_name: Label = $CanvasLayer/Panel/VBoxContainer/Panel4/header/player_name
-@onready var balances: VBoxContainer = $CanvasLayer/Panel/VBoxContainer/Panel2/VBoxContainer
-@onready var cash_bal: Label = $CanvasLayer/Panel/VBoxContainer/Panel2/VBoxContainer/checking/cash_bal
-@onready var assets_bal: Label = $CanvasLayer/Panel/VBoxContainer/Panel2/VBoxContainer/assets/assets_bal
-@onready var investments_bal: Label = $CanvasLayer/Panel/VBoxContainer/Panel2/VBoxContainer/investments/investments_bal
-@onready var loan_bal: Label = $CanvasLayer/Panel/VBoxContainer/Panel2/VBoxContainer/loans/loan_bal
-@onready var make_payment: Button = $CanvasLayer/Panel/VBoxContainer/Panel3/make_payment
-@onready var net_worth_bal: Label = $"CanvasLayer/Panel/VBoxContainer/Panel/Total Net Worth/net_worth_bal"
+@onready var old_layout: Control = $CanvasLayer/Panel/VBoxContainer
 @onready var ui_menu_frame: Control = $"CanvasLayer/Panel/UI Menu Frame"
 
 var current_scene := "res://Scenes/bank_account.tscn"
+var account_card: Control      # the account, line by line (the tour points at it)
+var loans_line: Control
+var pay_button: Button
+var make_payment: Button       # (same button; the old name, used by the Game Over flow)
+var _page: VBoxContainer
 
 
 func _ready() -> void:
-	player_name.text = "Hello, %s" % Global.PLAYER
-	cash_bal.text = "$%d" % Global.CASH
-	assets_bal.text = "$%d" % Global.equity()
-	investments_bal.text = "$%d" % Actions.get_CD_worth()
-	loan_bal.text = "$%d" % Global.all_loans()
-	_add_environment_line()
-	net_worth_bal.text = "$%d" % Global.net_worth()
+	old_layout.visible = false
+	_page = Cozy.page($CanvasLayer/Panel, ui_menu_frame)
+	_build()
 	if Turns.game_over:
 		_show_final_summary()
 
-# Expansion: "Environment Tokens (3)   $15", under Investments. Counted in net worth.
-func _add_environment_line() -> void:
-	if not Network.expansion_on():
-		return
-	var source: Control = investments_bal.get_parent()
-	var line: Control = source.duplicate(Node.DUPLICATE_GROUPS | Node.DUPLICATE_SCRIPTS)
-	line.name = "environment"
-	source.add_sibling(line)
-	for child in line.get_children():
-		if child is Label:
-			if child.name == "investments":
-				child.text = "Environment Tokens (%d)" % Expansion.tokens
-			else:
-				child.text = "$%d" % Expansion.token_worth()
+func _build() -> void:
+	# Hello
+	var hello := VBoxContainer.new()
+	hello.add_theme_constant_override("separation", 0)
+	var title := Cozy.label("Hello, %s" % Global.PLAYER, Cozy.HAND, 58, Cozy.CREAM, false)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hello.add_child(title)
+	var sub := Cozy.label("Bank of Ad Valorem  ·  Round %d" % Global.ROUND, Cozy.FONT, 20, Color(Cozy.CREAM, 0.75), false)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hello.add_child(sub)
+	_page.add_child(hello)
+
+	# Net worth, and how far you are from ending the game
+	var hero := Cozy.card(26)
+	_page.add_child(hero)
+	var hero_box := VBoxContainer.new()
+	hero_box.add_theme_constant_override("separation", 8)
+	hero.add_child(hero_box)
+	hero_box.add_child(Cozy.caption("Net worth"))
+	var worth := Cozy.label("$0", Cozy.BOLD, 76)
+	hero_box.add_child(worth)
+	Cozy.count(worth, 0, Global.net_worth(), "$%d", 0.9)
+	hero_box.add_child(Cozy.rule())
+	var bar := Cozy.bar(16.0)
+	hero_box.add_child(bar)
+	var won := Cozy.can_win()
+	var progress := Cozy.win_progress()
+	bar.create_tween().tween_method(func(v: float): Cozy.set_bar(bar, v, Cozy.UP if won else Cozy.GOLD), 0.0, progress, 0.9) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	var status := Cozy.label("You can end the game this round" if won
+			else "$%d away from ending the game" % Cozy.cash_to_end(), Cozy.BOLD, 22)
+	hero_box.add_child(status)
+	var how := Cozy.label(Cozy.end_rule(), Cozy.FONT, 19, Color(Cozy.CREAM, 0.75))
+	how.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hero_box.add_child(how)
+
+	# The account, line by line
+	account_card = Cozy.card(22)
+	_page.add_child(account_card)
+	var lines := VBoxContainer.new()
+	lines.add_theme_constant_override("separation", 12)
+	account_card.add_child(lines)
+	lines.add_child(Cozy.caption("Your account"))
+	lines.add_child(Cozy.line("Checking", "$%d" % Global.CASH, CASH_ICON))
+	var count := Cards.properties_owned.size()
+	lines.add_child(Cozy.line("Properties (%d)" % count, "$%d" % Global.equity(), HOMES_ICON))
+	lines.add_child(Cozy.line("Investments", "$%d" % Actions.get_CD_worth(), SAVINGS_ICON))
+	if Network.expansion_on():
+		var env := Cozy.line("Environment tokens (%d)" % Expansion.tokens, "$%d" % Expansion.token_worth())
+		env.add_child(Cozy.badge(Expansion.region_icon(Expansion.my_region) if Expansion.my_region != "" else null, 52, Cozy.INSET, "picture"))
+		env.move_child(env.get_child(env.get_child_count() - 1), 0)
+		lines.add_child(env)
+	var owed := Global.all_loans()
+	loans_line = Cozy.line("Loans", ("-$%d" % owed) if owed > 0 else "$0", LOAN_ICON, Cozy.DOWN if owed > 0 else Cozy.CREAM)
+	lines.add_child(loans_line)
+
+	pay_button = Cozy.button("Make a Payment" if owed > 0 else "No loans to pay")
+	pay_button.pressed.connect(_on_make_payment_pressed)
+	make_payment = pay_button
+	if owed <= 0 and not Turns.game_over:
+		pay_button.modulate.a = 0.55
+	_page.add_child(pay_button)
 
 func _show_final_summary() -> void:
-	player_name.text = "Final Summary: %s" % Global.PLAYER
-	make_payment.text = "OK"
+	pay_button.text = "OK"
+	pay_button.modulate.a = 1.0
 	ui_menu_frame.custom_navigation = true   # Home / Back do nothing now
-	balances.add_child(_property_icons())
-	var owned := Label.new()
-	owned.text = _owned_text()
+	var card := Cozy.card(22)
+	_page.add_child(card)
+	_page.move_child(card, pay_button.get_index())
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 12)
+	card.add_child(box)
+	box.add_child(Cozy.caption("Final summary"))
+	box.add_child(_property_icons())
+	var owned := Cozy.label(_owned_text(), Cozy.FONT, 22)
 	owned.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	owned.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	owned.add_theme_font_size_override("font_size", 22)
-	balances.add_child(owned)
+	box.add_child(owned)
 
 const ICON_SIZE := 78
 
@@ -76,10 +131,7 @@ func _property_icons() -> Control:
 				Global.banner(_property_caption(p)))
 		flow.add_child(icon)
 	if Cards.properties_owned.is_empty():
-		var none := Label.new()
-		none.text = "No properties"
-		none.add_theme_font_size_override("font_size", 22)
-		flow.add_child(none)
+		flow.add_child(Cozy.label("No properties", Cozy.FONT, 22))
 	return flow
 
 func _property_caption(p: Dictionary) -> String:
@@ -93,7 +145,7 @@ func _owned_text() -> String:
 		tokens[key] = tokens.get(key, 0) + 1
 	var token_text := PackedStringArray()
 	for key in tokens:
-		token_text.append("%s x%d" % [Actions.all_actions[key]["name"], tokens[key]])
+		token_text.append("%s ×%d" % [Actions.all_actions[key]["name"], tokens[key]])
 	return "Actions: %s" % (", ".join(token_text) if not token_text.is_empty() else "none")
 
 func _on_make_payment_pressed() -> void:

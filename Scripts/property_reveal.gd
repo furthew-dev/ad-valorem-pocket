@@ -25,9 +25,12 @@ var _loan_offer_open := false    # the "take a loan?" question or the loan form 
 var _purchase_loan := 0          # number of the loan taken on this screen to pay for the purchase
 
 
-var _actions_on_entry := 0   # backing out must never cost an action
+var _actions_on_entry := 0   # actions on arrival: backing out costs exactly one (solo) or the realtor fine
+
+const Cozy = preload("res://Scripts/cozy.gd")
 
 func _ready() -> void:
+	_cozy_look()
 	_actions_on_entry = Global.ACTIONS
 	button_group.pressed.connect(_on_group_pressed)
 	ui_menu_frame.disable_buttons()
@@ -49,6 +52,19 @@ func setup() -> void:
 		var listing = LISTING_SCENE.instantiate()
 		list_of_properties.add_child(listing)
 		listing.setup_property(card, button_group)
+
+# The shared card look (cozy.gd): the box under the listings is a card, the line about
+# your pick is cream on it, Purchase is the green button and Cancel a quieter purple one.
+func _cozy_look() -> void:
+	var box: Panel = get_node("CanvasLayer/Panel/VBoxContainer/revealed_properties/MarginContainer2/Panel")
+	box.add_theme_stylebox_override("panel", Cozy.style(Cozy.CARD, 36, Color(Cozy.EDGE, 0.45), 2, true))
+	details.add_theme_font_override("font", Cozy.FONT)
+	details.add_theme_font_size_override("font_size", 26)
+	details.add_theme_color_override("font_color", Cozy.CREAM)
+	ColorTheme.keep(details)
+	Cozy.panel_button(purchase_panel, get_node(VBOX + "HBoxContainer/Purchase/purchase"), Cozy.GREEN, 92)
+	Cozy.panel_button(get_node(VBOX + "Cancel"), get_node(VBOX + "Cancel/cancel_label"), Cozy.PURPLE, 80)
+	get_node(VBOX + "Cancel/cancel_label").add_theme_font_size_override("font_size", 28)
 
 # Purchase stays clickable (so it can explain itself) but looks dimmed until a pick is made.
 func _set_purchase_ready(is_ready: bool) -> void:
@@ -95,6 +111,7 @@ func _on_purchase_btn_pressed() -> void:
 	if _purchase_loan != 0:
 		selected_card["loan_number"] = _purchase_loan   # property details shows what's still owed
 	Cards.properties_owned.append(selected_card)
+	Messages.share_moment("buy", "bought %s %s for $%d" % [_a_or_an(str(selected_card["name"])), selected_card["name"], cost], cost)
 	Global.new_property_id = selected_card.get("id", 0)
 	Cards.return_revealed()
 	_bought_animation(selected_card)
@@ -226,7 +243,11 @@ func _bought_animation(card: Dictionary) -> void:
 func _on_cancel_btn_pressed() -> void:
 	var popup = POPUP_SCENE.instantiate()
 	add_child(popup)
-	popup.layout("Stop building?" if not build_lot.is_empty() else "Are you sure you want to back out?", "Yes", "No")
+	var question := "Stop building?"
+	if build_lot.is_empty():
+		question = "Back out? Your Realtor will fine you $%d." % REALTOR_FINE if Global.using_realtor \
+				else "Back out? Looking on your own still uses 1 Action."
+	popup.layout(question, "Yes", "No")
 	popup.left_pressed.connect(_on_cancel_confirmed)
 
 func _on_cancel_confirmed() -> void:
@@ -235,11 +256,19 @@ func _on_cancel_confirmed() -> void:
 		Cards.selected_id = build_lot["id"]
 		get_tree().change_scene_to_file("res://Scenes/property_info.tscn")
 		return
-	if Global.ACTIONS < _actions_on_entry:   # nothing was bought: give back any action taken
+	if Global.ACTIONS < _actions_on_entry:   # nothing was bought: undo anything taken on this screen first
 		Global.ACTIONS = _actions_on_entry
-	if Global.using_realtor:
+	if not Global.using_realtor:
+		# Solo looks cost the Action anyway, or a player could keep peeking until the right deed came up.
+		Global.action_used()
+		await Global.show_notice("Backing out used 1 Action")
+	else:
 		Global.remove_cash(REALTOR_FINE, "Realtor Fee")
 		Actions.consume("realtor")
 		await Global.show_notice("Realtor fined you $%d" % REALTOR_FINE)
 	Cards.return_revealed()   # back into the shared deck (no need to wait for the host)
 	get_tree().change_scene_to_file("res://Scenes/my_properties.tscn")
+
+
+func _a_or_an(word: String) -> String:
+	return "an" if word.left(1).to_lower() in ["a", "e", "i", "o", "u"] else "a"

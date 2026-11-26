@@ -72,6 +72,7 @@ func _ready() -> void:
 	refresh_labels()
 	_setup_banner_templates()
 	_make_tappable_name(player_name)
+	_build_goal_bar()
 
 ## ---- PLAYERS (tap your name or face: players_popup.gd) ----
 const PLAYERS_POPUP = preload("res://Scripts/players_popup.gd")
@@ -98,6 +99,66 @@ func open_players() -> void:
 		return
 	Sound.play("click")
 	get_tree().root.add_child(PLAYERS_POPUP.new())
+
+
+## ---- HOW CLOSE AM I (a slim bar along the bottom of the header) ----
+# Gold fills up as cash minus loans nears the End Goal; it turns green and glows once you'd
+# win at the end of the round (more than the goal in cash, no loans). Tap it for the numbers.
+const Cozy = preload("res://Scripts/cozy.gd")
+var _goal_bar: Control
+var _goal_shown := -1.0
+
+func _build_goal_bar() -> void:
+	if not Network.in_game:
+		return
+	var holder := Control.new()   # a taller invisible strip, so the thin bar is easy to tap
+	holder.name = "GoalBar"
+	holder.position = Vector2(46, 140)
+	holder.size = Vector2(get_viewport_rect().size.x - 92, 30)
+	holder.mouse_filter = Control.MOUSE_FILTER_STOP
+	$Panel.add_child(holder)
+	_goal_bar = Cozy.bar(8.0)
+	_goal_bar.position = Vector2(0, 14)
+	_goal_bar.size = Vector2(holder.size.x, 8)
+	holder.add_child(_goal_bar)
+	holder.gui_input.connect(func(event: InputEvent):
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+			_explain_goal())
+	var timer := Timer.new()   # cash, loans and the goal can change anywhere: look twice a second
+	timer.wait_time = 0.5
+	timer.autostart = true
+	timer.timeout.connect(_refresh_goal_bar)
+	holder.add_child(timer)
+	_goal_shown = Cozy.win_progress()
+	_refresh_goal_bar()
+
+func _hide_goal_bar() -> void:
+	if is_instance_valid(_goal_bar):
+		_goal_bar.get_parent().visible = false
+
+func _refresh_goal_bar() -> void:
+	if not is_instance_valid(_goal_bar):
+		return
+	var target := Cozy.win_progress()
+	var colour: Color = Color("7fd17f") if Cozy.can_win() else Cozy.GOLD
+	if absf(target - _goal_shown) > 0.001:
+		var from := _goal_shown
+		_goal_shown = target
+		var tween := _goal_bar.create_tween()
+		tween.tween_method(func(v: float): Cozy.set_bar(_goal_bar, v, colour), from, target, 0.6) \
+				.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	else:
+		Cozy.set_bar(_goal_bar, target, colour)
+
+func _explain_goal() -> void:
+	Sound.play("click")
+	var message := "Net worth $%d. " % Global.net_worth()
+	if Cozy.can_win():
+		message += "You can end the game this round. "
+	else:
+		message += "$%d away from ending the game. " % Cozy.cash_to_end()
+	message += Cozy.end_rule()
+	Global.banner(message)
 
 
 ## ---- LABELS ----
@@ -197,6 +258,7 @@ func _on_round_changed(new_value: int) -> void:
 	misc.text = "Expected Rent: $%d" % Global.expected_rent()
 
 func clear_ui() -> void:
+	_hide_goal_bar()
 	player_name.text = ""
 	_face_hidden = true
 	if is_instance_valid(_my_face):
@@ -214,6 +276,7 @@ const TITLE_SIZE := 64
 const SUBTITLE_SIZE := 34
 
 func show_title(title: String, subtitle: String = "") -> void:
+	_hide_goal_bar()
 	var top_menu: HBoxContainer = checking_bal.get_parent()
 	for child in top_menu.get_children():
 		child.visible = false

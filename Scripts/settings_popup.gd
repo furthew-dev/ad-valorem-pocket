@@ -96,6 +96,21 @@ func _build() -> void:
 	box.add_child(dots_row)
 	box.offset_top -= 70   # one more line: start higher so Close stays on the paper
 
+	# --- Round Recap between rounds (round_recap.gd) ---
+	var recap_row := HBoxContainer.new()
+	var recap_label := _label("Round Recap", 38)
+	recap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	recap_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	recap_row.add_child(recap_label)
+	var recap_toggle := InkSwitch.new()
+	recap_toggle.button_pressed = Network.load_setting("ui", "round_recap", true)
+	recap_toggle.toggled.connect(func(on: bool):
+		Sound.play("switch")
+		Network.save_setting("ui", "round_recap", on))
+	recap_row.add_child(recap_toggle)
+	box.add_child(recap_row)
+	box.offset_top -= 70
+
 	# --- Last-player timer (in a game; only the host can change it) ---
 	if Network.in_game and Network.is_online():
 		var timer_row := HBoxContainer.new()

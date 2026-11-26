@@ -529,7 +529,7 @@ func _on_token_pressed(token: Dictionary) -> void:
 		"active":
 			Global.banner("%s is on this property: it %s." % [token["name"], token["does"]])
 		"buy":
-			Global.banner("Buy a %s in the Market to put it here (it %s)." % [token["name"], token["does"]], "market")
+			Global.banner("Buy a %s in the Shop (in Actions) to put it here (it %s)." % [token["name"], token["does"]], "market")
 		"no":
 			Global.error("A %s can't be added to the %s." % [token["name"], current_property.get("name", "property")])
 		"add":

@@ -206,15 +206,15 @@ func pay_gothic_rent() -> void:
 		else:   # short: everything we have, and a loan for the rest
 			var shortfall := amount - Global.CASH
 			Global.remove_cash(Global.CASH, "Gothic Mansion")
-			Global.take_loan(shortfall)
-		Global.banner("You paid %s $%d rent for their Gothic Mansion." % [owner_name, amount])
+			Global.forced_loan(shortfall, "%s's Gothic Mansion rent" % owner_name)
+		Messages.incoming(owner_name, "%s took $%d from you for their Gothic Mansion rent." % [owner_name, amount], "loss")
 		_receive_gothic_rent.rpc_id(id, amount, Global.PLAYER)
 		await get_tree().create_timer(0.6).timeout
 
 @rpc("any_peer", "reliable")
 func _receive_gothic_rent(amount: int, from_name: String) -> void:
 	Global.add_cash(amount, "Gothic Mansion")
-	Global.banner("%s paid you $%d Gothic Mansion rent." % [from_name, amount])
+	Messages.incoming(from_name, "You received $%d from %s for your Gothic Mansion." % [amount, from_name], "gain")
 
 func _share_gothic_if_changed() -> void:
 	if not Network.is_online():
@@ -250,7 +250,7 @@ func cabin_swap(cabin: Dictionary) -> String:
 	var who = await Fortunas.ask_player_to_choose("Swap your Cabin with whom?", holdings.keys() + ["Cancel"])
 	if who == null or who == "Cancel":
 		return ""
-	var take = await Fortunas.ask_player_to_choose("Take which of %s's properties?" % who, holdings[who][1] + ["Cancel"])
+	var take = await Fortunas.ask_player_to_choose("%s's uninsured properties. Tap one to swap your Cabin for it:" % who, holdings[who][1] + ["Cancel"])
 	if take == null or not take is Dictionary:
 		return ""
 	if not Global.action_used():

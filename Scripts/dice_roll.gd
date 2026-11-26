@@ -80,6 +80,8 @@ var _rolling := false
 var _still := 0.0
 var _clock := 0.0
 var _done := false
+var _nudges := 0          # times it was nudged this throw (never more than MAX_NUDGES)
+const MAX_NUDGES := 3
 
 
 static func open(tree: SceneTree, agent: bool, settle: Callable) -> Node:
@@ -420,6 +422,7 @@ func _launch(direction: Vector2, power: float) -> void:
 	_rolling = true
 	_still = 0.0
 	_clock = 0.0
+	_nudges = 0
 	_title.remove_theme_color_override("font_color")
 	_title.add_theme_color_override("font_color", CREAM)
 	_title.text = "Rolling..."
@@ -512,7 +515,10 @@ func _physics_process(delta: float) -> void:
 		_still = 0.0
 	if _still >= SETTLE_TIME or _clock >= GIVE_UP_AFTER:
 		var face := _top_face()
-		if face < 0 or _clock >= GIVE_UP_AFTER:   # leaning on a wall or an edge: nudge it over
+		if _nudges >= MAX_NUDGES:   # wedged somewhere odd: read whichever face is most nearly up
+			face = _top_face(0.0)
+		elif face < 0 or _clock >= GIVE_UP_AFTER:   # leaning on a wall or an edge: nudge it over
+			_nudges += 1
 			_clock = 0.0
 			_still = 0.0
 			_die.apply_central_impulse(Vector3(randf_range(-1, 1), 2.5, randf_range(-1, 1)))
@@ -577,7 +583,7 @@ func _shake_in_hand() -> void:
 		await get_tree().create_timer(randf_range(0.05, 0.09)).timeout
 
 # The face pointing up, or -1 if none is flat enough to read.
-func _top_face() -> int:
+func _top_face(flat_enough := 0.97) -> int:
 	var best := -1
 	var best_dot := 0.0
 	for i in 6:
@@ -585,7 +591,7 @@ func _top_face() -> int:
 		if dot > best_dot:
 			best_dot = dot
 			best = i
-	return best if best_dot > 0.97 else -1
+	return best if best_dot > flat_enough else -1
 
 
 ## ---- THE RESULT ----

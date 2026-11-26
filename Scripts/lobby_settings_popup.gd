@@ -28,7 +28,7 @@ const RED := Color("b03030")
 const ROWS := [
 	["start_cash", "Starting Cash", "Each player starts with", 5, "$"],
 	["start_properties", "Starting Properties", "Deeds dealt to each player", 1, ""],
-	["end_goal", "End Goal", "Cash to win (no loans)", 10, "$"],
+	["end_goal", "End Goal", "Cash to end the game (no loans)", 10, "$"],
 ]
 
 var _boxes: Dictionary = {}   # key -> LineEdit (the number)

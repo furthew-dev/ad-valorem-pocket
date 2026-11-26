@@ -230,6 +230,7 @@ func _close(winner_id: int, winner_name: String, bid: int) -> void:
 		Cards.properties_owned.append(won)
 		Stats.add("auctions_won")
 		Global.banner("You won the %s for $%d!" % [item["name"], bid])
+		Messages.share_moment("auction", "won {target}'s %s at auction for $%d" % [item["name"], bid], bid, owner_name)
 	elif me != owner_id:
 		if winner_id == 0:
 			Global.banner("Auction over: no bids for %s's %s." % [owner_name, item["name"]])
@@ -247,8 +248,7 @@ func _pay(amount: int) -> void:
 		return
 	var shortfall := amount - Global.CASH
 	Global.remove_cash(Global.CASH, "Auction")
-	Global.take_loan(shortfall)
-	Global.banner("Auction loan: $%d" % shortfall)
+	Global.forced_loan(shortfall, "the auction")
 
 func _bid(increment: int) -> void:
 	var amount := high_bid + increment

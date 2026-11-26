@@ -28,9 +28,41 @@ func setup_property(data: Dictionary, button_group: ButtonGroup) -> void:
 	_fit.call_deferred(property_rent)
 	toggle_on_off.toggle_mode = true
 	toggle_on_off.button_group = button_group
+	_selection_look()
 	_add_region_badge()
 	_add_details()
 
+
+# Picked: a glowing green edge around the poster (like the chosen Realtor / Buy Solo card);
+# a faint light edge while a finger hovers.
+func _selection_look() -> void:
+	var picked := StyleBoxFlat.new()
+	picked.bg_color = Color(0, 0, 0, 0)
+	picked.draw_center = false
+	picked.border_color = Color("6fe07c")
+	picked.set_border_width_all(6)
+	picked.set_corner_radius_all(26)
+	picked.shadow_color = Color(Color("6fe07c"), 0.5)
+	picked.shadow_size = 18
+	picked.set_expand_margin_all(4)
+	var hover := picked.duplicate()
+	hover.border_color = Color(Color("ddcf99"), 0.6)
+	hover.set_border_width_all(3)
+	hover.shadow_size = 0
+	for state in ["pressed", "hover_pressed", "pressed_mirrored", "hover_pressed_mirrored"]:
+		toggle_on_off.add_theme_stylebox_override(state, picked)
+	for state in ["hover", "hover_mirrored"]:
+		toggle_on_off.add_theme_stylebox_override(state, hover)
+	toggle_on_off.flat = false
+	for state in ["normal", "focus", "disabled", "normal_mirrored"]:
+		toggle_on_off.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	ColorTheme.keep(toggle_on_off)
+	toggle_on_off.toggled.connect(func(on: bool):
+		if on:
+			pivot_offset = size / 2.0
+			var tween := create_tween()
+			tween.tween_property(self, "scale", Vector2(1.03, 1.03), 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			tween.tween_property(self, "scale", Vector2.ONE, 0.16))
 
 # A long price ("Cost $4-18" in build mode) gets a smaller font instead of running off
 # the poster's corner.

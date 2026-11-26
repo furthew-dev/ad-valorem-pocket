@@ -31,7 +31,7 @@ const AWARDS := [
 	{"key": "interest_paid", "money": true, "title": "The Bank's Best Friend", "text": "{who} paid {n} in loan interest."},
 	{"key": "loans_paid_off", "title": "Debt Slayer", "text": "{who} paid off {n} loan{s} in full."},
 	{"key": "auctions_won", "title": "Going, Going, Gone!", "text": "{who} won {n} auction{s}."},
-	{"key": "actions_bought", "title": "Shopaholic", "text": "{who} bought {n} item{s} from the Market."},
+	{"key": "actions_bought", "title": "Shopaholic", "text": "{who} bought {n} item{s} from the Shop."},
 	{"key": "blocks", "title": "Untouchable", "text": "{who} shut down {n} sabotage{s} with Just Say No."},
 	{"key": "peak_cash", "money": true, "title": "Money Bags", "text": "{who} once had {n} in cash at the same time."},
 	{"key": "fortuna_losses", "money": true, "title": "Disaster Magnet", "text": "{who} lost {n} to Fortunas and sabotage."},

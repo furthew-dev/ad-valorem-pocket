@@ -57,12 +57,39 @@ func _ready() -> void:
 
 ## ---- EVERYONE'S STATUS (tap your name in the header: players_popup.gd) ----
 # Each phone tells the others how many actions it has left and whether it ended its turn.
-var statuses: Dictionary = {}   # player name -> {"actions": n, "done": bool, "round": n}
+var statuses: Dictionary = {}   # player name -> {"actions", "done", "round", "worth", "cash", "loans"}
+var worth_start: Dictionary = {}  # player name -> {"round": n, "worth": net worth when round n began}
+
+## ---- ROUND RECAP (round_recap.gd) ----
+# Everything the recap shows, taken the moment the next round is called (before anyone's
+# new-round status can arrive): each player's worth, change this round and progress.
+func recap_data(finished_round: int) -> Dictionary:
+	var players := []
+	for player_name in statuses:
+		if Network.is_online() and not player_name in Network.players.values():
+			continue   # left the game
+		var s: Dictionary = statuses[player_name]
+		if not s.has("worth"):
+			continue
+		var start: Dictionary = worth_start.get(player_name, {})
+		var began: int = int(start.get("worth", s["worth"])) if int(start.get("round", -1)) == finished_round else int(s["worth"])
+		var progress := float(int(s.get("cash", 0)) - int(s.get("loans", 0))) / maxf(Global.END_GOAL, 1.0)
+		players.append({"name": player_name, "worth": int(s["worth"]), "delta": int(s["worth"]) - began, "progress": progress})
+	players.sort_custom(func(a, b): return a["worth"] > b["worth"])
+	return {"round": finished_round, "next_round": finished_round + 1, "players": players,
+			"moments": Messages.moments_in(finished_round), "goal": Global.END_GOAL}
+
+func _recap_wanted(number: int) -> bool:
+	return number > 1 and not _catching_up and not get_tree().root.has_node("Tutorial") \
+			and Network.load_setting("ui", "round_recap", true)
+
+var _catching_up := false   # Resume: replaying missed rounds, no recaps
 
 func share_status() -> void:
 	if not Network.in_game:
 		return
-	var status := {"actions": Global.ACTIONS, "done": my_turn_done, "round": Global.ROUND}
+	var status := {"actions": Global.ACTIONS, "done": my_turn_done, "round": Global.ROUND,
+			"worth": Global.net_worth(), "cash": Global.CASH, "loans": Global.all_loans()}
 	if Network.is_online():
 		_receive_status.rpc(status)
 	else:
@@ -79,6 +106,9 @@ func _store_status(player_name: String, status: Dictionary) -> void:
 	if player_name == "":
 		return
 	statuses[player_name] = status
+	# The first net worth we hear in a round is where that player started it (the recap's +/-).
+	if status.has("worth") and int(worth_start.get(player_name, {}).get("round", -1)) != int(status["round"]):
+		worth_start[player_name] = {"round": int(status["round"]), "worth": int(status["worth"])}
 	statuses_changed.emit()
 
 # "2 Actions Remaining", "Finished turn", "Reconnecting...": what the players pop-up shows.
@@ -294,6 +324,7 @@ func poke(player_name: String) -> void:
 			# Only the poked player hears the honk; here it's a quiet note.
 			var note := "You poked %s." % player_name
 			Activity.add(note, "info")
+			Messages.post(player_name, "Hurry up! (poke)", "reaction", true, my_name())
 			Global.banner_requested.emit(note, "")
 			poked_list_changed.emit()
 			return
@@ -302,10 +333,7 @@ func poke(player_name: String) -> void:
 func _receive_poke(from_name: String) -> void:
 	if my_turn_done:
 		return
-	Sound.play("honk")   # instead of the banner chime
-	var message := "%s is waiting on you!" % from_name
-	Activity.add(message, "info")
-	Global.banner_requested.emit(message, "home")
+	Messages.incoming(from_name, "%s is waiting on you! Hurry up!" % from_name, "reaction", false, "honk")
 
 func _on_players_changed() -> void:
 	if not (Network.in_game and multiplayer.is_server()):
@@ -346,8 +374,10 @@ func resume(current_round: int, saved_round: int, turn_done: bool) -> void:
 	game_over = false
 	if current_round > saved_round:
 		my_turn_done = false
+		_catching_up = true
 		for number in range(saved_round + 1, current_round + 1):
 			await _start_round(number)
+		_catching_up = false
 		return
 	my_turn_done = turn_done
 	if turn_done:
@@ -376,6 +406,10 @@ func _start_round(number: int) -> void:
 		_force_deadline = 0.0
 	countdown_changed.emit("", 0.0)
 	waiting_changed.emit([])
+	if _recap_wanted(number):
+		share_status()   # our own final numbers for last round (on this phone too)
+		var recap := recap_data(number - 1)
+		await load("res://Scripts/round_recap.gd").show_for(get_tree(), recap).closed
 	await _play_curtain("Round %d" % number, HOME_SCENE, func():
 		Global.ROUND = number
 		Global.ACTIONS = Global.A_CAPACITY)

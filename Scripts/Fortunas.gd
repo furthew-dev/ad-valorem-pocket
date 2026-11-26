@@ -784,12 +784,16 @@ func _wait_turn() -> void:
 func sabotage(target_id: int) -> void:
 	_receive_sabotage.rpc_id(target_id, Global.PLAYER)
 	Stats.add("sabotages_sent")
-	Global.banner("You sabotaged %s!" % Network.players.get(target_id, "them"))
+	var target_name: String = Network.players.get(target_id, "them")
+	Global.banner("You sabotaged %s!" % target_name)
+	Messages.post(target_name, "You sabotaged %s." % target_name, "event", true, Global.PLAYER)
+	Messages.share_moment("sabotage", "sabotaged {target}", 0, target_name)
 
 @rpc("any_peer", "reliable")
 func _receive_sabotage(saboteur_name: String) -> void:
 	var saboteur_id := multiplayer.get_remote_sender_id()
 	Stats.add("sabotages_received")
+	Messages.incoming(saboteur_name, "%s sabotaged you!" % saboteur_name, "event", true)   # (the red curtain says it)
 	# The whole sabotage (red screen, Just Say No question, the Fortuna) is one turn: when
 	# several players sabotage you at once they queue up and play one after another.
 	await _wait_turn()
@@ -807,7 +811,7 @@ func _receive_sabotage(saboteur_name: String) -> void:
 
 @rpc("any_peer", "reliable")
 func _sabotage_blocked(victim_name: String) -> void:
-	Global.banner("%s blocked your sabotage with Just Say No." % victim_name)
+	Messages.incoming(victim_name, "%s blocked your sabotage with Just Say No." % victim_name)
 
 # Asks to play a Just Say No from hand (if we have one). Spends it and returns true on "Yes".
 func offer_just_say_no(question: String) -> bool:
@@ -833,8 +837,7 @@ func _resolve_for_saboteur(card_key: String, victim_name: String) -> void:
 	_busy = true
 	var card: Dictionary = all_fortunas[card_key].duplicate()
 	card["key"] = card_key
-	Global.banner("Sabotage paid off! %s drew %s for you." % [victim_name, card["name"]])
-	Sound.play("bloop")
+	Messages.incoming(victim_name, "Sabotage paid off! %s drew %s for you." % [victim_name, card["name"]], "event", false, "bloop")
 	await show_card(card)
 	var message: String = await resolve_fortuna(card)
 	if message != "":
@@ -845,7 +848,7 @@ func _resolve_for_saboteur(card_key: String, victim_name: String) -> void:
 @rpc("any_peer", "reliable")
 func _sabotage_payout(amount: int, victim_name: String) -> void:
 	Global.add_cash(amount, "Sabotage")
-	Global.banner("%s paid you $%d (sabotage)." % [victim_name, amount])
+	Messages.incoming(victim_name, "%s paid you $%d: your sabotage worked." % [victim_name, amount], "gain")
 
 func _play_sabotage_curtain(saboteur_name: String) -> void:
 	var layer := CanvasLayer.new()
@@ -935,7 +938,7 @@ func resolve_fortuna(card: Dictionary) -> String:
 	match effect:
 		"pay_flat":
 			var forced = pay(card["fee"], card["name"])
-			return _with_loan("Paid %d Rebucks (%s)." % [card["fee"], card["name"]], forced)
+			return _with_loan("Paid $%d (%s)." % [card["fee"], card["name"]], forced)
 
 		"pay_per_property":
 			var chargeable = 0
@@ -947,16 +950,16 @@ func resolve_fortuna(card: Dictionary) -> String:
 				chargeable += 1
 			var total = card["fee"] * chargeable
 			var forced = pay(total, card["name"])
-			return _with_loan("%s: paid %d Rebucks (%d properties)." % [card["name"], total, chargeable], forced)
+			return _with_loan("%s: paid $%d (%d properties)." % [card["name"], total, chargeable], forced)
 
 		"gain_flat":
 			gain(card["value"], card["name"])
-			return "Gained %d Rebucks!" % card["value"]
+			return "Gained $%d!" % card["value"]
 
 		"gain_per_property":
 			var total = card["value"] * _props().size()
 			gain(total, card["name"])
-			return "%s: gained %d Rebucks." % [card["name"], total]
+			return "%s: gained $%d." % [card["name"], total]
 
 		"destroy_property":
 			var lost_name = target["name"]
@@ -973,7 +976,7 @@ func resolve_fortuna(card: Dictionary) -> String:
 			_remove_property(target)
 			await DiscardFx.play(get_tree(), target, "A tornado destroyed your %s" % lost_name)
 			gain(payout, "Insurance Claim")
-			return "A tornado destroyed your %s. Insurance payout: %d Rebucks." % [lost_name, payout]
+			return "A tornado destroyed your %s. Insurance payout: $%d." % [lost_name, payout]
 
 		"seize_property_compensate":   # Eminent Domain
 			var compensation = target["value"]
@@ -981,7 +984,7 @@ func resolve_fortuna(card: Dictionary) -> String:
 			_remove_property(target)
 			await DiscardFx.play(get_tree(), target, "The government seized your %s" % lost_name)
 			gain(compensation, "Eminent Domain")
-			return "The government seized your %s. Compensation: %d Rebucks." % [lost_name, compensation]
+			return "The government seized your %s. Compensation: $%d." % [lost_name, compensation]
 
 		"raise_condition":   # Appraisal Revaluation
 			shift_condition(target, 1)
@@ -998,7 +1001,7 @@ func resolve_fortuna(card: Dictionary) -> String:
 		"repair_half_condition_price":   # Tree (half the current price, rounded up)
 			var repair_cost: int = ceili(target["value"] / 2.0)
 			var forced = pay(repair_cost, "Tree Repair")
-			return _with_loan("Tree repair on your %s cost %d Rebucks." % [target["name"], repair_cost], forced)
+			return _with_loan("Tree repair on your %s cost $%d." % [target["name"], repair_cost], forced)
 
 		"no_rent_next_round":   # Breach of Contract, Wasted
 			# Global.end_turn() increments ROUND *before* collecting rent, so skipping the collection
@@ -1119,11 +1122,17 @@ func _accept_swap(their_id: int, incoming: Dictionary, from_name: String) -> Dic
 		var p: Dictionary = _props()[i]
 		if p["id"] == their_id and not p.get("has_golden_lock", false):
 			_props()[i] = incoming
-			DiscardFx.play(get_tree(), p, "%s took your %s in a swap" % [from_name, p["name"]])   # don't wait: they're waiting on our answer
 			var how := "Cabin swap" if incoming.get("special", "") == "cabin" else "Swap Fortuna"
-			Global.banner("%s swapped your %s for their %s (%s)." % [from_name, p["name"], incoming["name"], how])
+			_show_stolen(p, incoming, from_name, how)   # don't wait: they're waiting on our answer
 			return p
 	return {}
+
+
+# The steal plays out first; the text and the refreshed lists follow once it's done.
+func _show_stolen(lost: Dictionary, incoming: Dictionary, from_name: String, how: String) -> void:
+	await StealFx.play(get_tree(), lost, incoming, from_name, how)
+	Global.properties_changed.emit()
+	Messages.incoming(from_name, "%s swapped your %s for their %s (%s)." % [from_name, lost["name"], incoming["name"], how])
 
 
 ## ---- ASKING ANOTHER PLAYER (request / reply) ----
@@ -1172,7 +1181,7 @@ func pay(amount: int, reason: String = "") -> int:
 		return 0
 	var shortfall = amount - Global.CASH
 	Global.remove_cash(Global.CASH, reason)
-	Global.take_loan(shortfall)
+	Global.forced_loan(shortfall, reason if reason != "" else "a Fortuna")
 	return shortfall
 
 func gain(amount: int, reason: String = "") -> void:

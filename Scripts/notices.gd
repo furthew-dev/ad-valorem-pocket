@@ -118,6 +118,8 @@ func app_dirty(app: String) -> bool:
 			return not new_actions().is_empty()
 		"environment":
 			return not env_news().is_empty()
+		"messages":
+			return Messages.total_unread() > 0
 	return false
 
 # Environment tokens since the app was last open: {} = nothing new, else

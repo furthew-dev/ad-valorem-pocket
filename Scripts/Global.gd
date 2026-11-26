@@ -93,14 +93,15 @@ func error(message: String, link: String = "") -> void:
 
 # Where a tappable banner can take you: key -> [screen, name shown in "Tap to open ..."].
 const LINKS := {
-	"market": ["res://Scenes/market_actions.tscn", "the Market"],
+	"market": ["res://Scenes/my_actions.tscn", "the Shop"],   # tokens: My Actions > Shop
 	"my_properties": ["res://Scenes/my_properties.tscn", "My Properties"],
-	"my_actions": ["res://Scenes/my_actions.tscn", "My Actions"],
+	"my_actions": ["res://Scenes/my_actions.tscn", "Actions"],
 	"environment": ["res://Scenes/environment.tscn", "your Environment"],
 	"my_loans": ["res://Scenes/my_loans.tscn", "My Loans"],
 	"home": ["res://Scenes/home_screen.tscn", "Home"],   # "Tap to open Home"
 	"bank": ["res://Scenes/bank_account.tscn", "the Bank"],
 	"real_estate": ["res://Scenes/realtor_or_random.tscn", "Real Estate"],
+	"messages": ["res://Scenes/messages.tscn", "Messages"],
 }
 
 # Opens a screen, then shows a tip there once it's up (My Actions: "Pick a property...").
@@ -111,12 +112,21 @@ func go_to(link: String, message: String) -> void:
 	banner(message)
 
 # A tapped banner: go there (Back returns to where you were).
+var actions_tab := ""   # "shop": My Actions opens on its Shop page
+
 func open_link(link: String) -> void:
 	if not LINKS.has(link):
 		return
 	var target: String = LINKS[link][0]
+	if link == "messages":
+		Messages.banner_tapped()
+	if link == "market":
+		actions_tab = "shop"   # My Actions opens on its Shop page
 	var scene := get_tree().current_scene
 	if scene and scene.scene_file_path == target:
+		if link == "market" and scene.has_method("show_page"):
+			actions_tab = ""
+			scene.show_page(1)
 		return   # already there
 	Sound.play("click")
 	if scene and scene.scene_file_path != "":
@@ -187,6 +197,7 @@ func show_notice(message: String) -> void:
 func start_game() -> void:
 	Stats.reset()
 	Activity.clear()
+	Messages.clear()
 	A_CAPACITY = 3
 	PROPERTY_CAPACITY = 4
 	loans.clear()
@@ -235,12 +246,18 @@ func process_new_round() -> void:
 	for property in Cards.properties_owned:
 		property["no_rent_rounds"] = max(property.get("no_rent_rounds", 0) - 1, 0)
 	income(rent_earned, "Rent")
+	if rent_earned > 0:
+		Messages.post(Messages.BANK, "$%d was deposited into your checking account." % rent_earned, "gain")
 	var castle_bonus := CASTLE_BONUS * others_castles()
 	if castle_bonus > 0:
 		await get_tree().create_timer(0.9).timeout   # after the rent notice
 		income(castle_bonus, "Castle Tours")
+		_text_castle_owners()
 	await Expansion.pay_gothic_rent()
+	var owed_before := all_loans()
 	updating_loan_balance()
+	if all_loans() > owed_before:
+		Messages.post(Messages.BANK, "$%d interest was added to your loans. You now owe $%d." % [all_loans() - owed_before, all_loans()], "loss")
 	round_progress["rent"] = true
 
 func round_start_finished() -> bool:
@@ -308,6 +325,16 @@ func _start_castle_sharing() -> void:
 	# A new game: everyone re-sends their count (old numbers get overwritten, not cleared,
 	# so a count that arrives before our own game_starting isn't lost).
 	Network.game_starting.connect(func(): _castles_shared = -1)
+
+# "You received $5 from Steve's Castle tours.": one quiet text in each Castle owner's thread.
+func _text_castle_owners() -> void:
+	var me := multiplayer.get_unique_id()
+	for id in castle_counts:
+		if id == me or not Network.players.has(id) or castle_counts[id] <= 0:
+			continue
+		var count: int = castle_counts[id]
+		Messages.incoming(Network.players[id], "You received $%d from %s's Castle%s (tours)." % [CASTLE_BONUS * count,
+				Network.players[id], "" if count == 1 else "s"], "gain", true)
 
 func my_castles() -> int:
 	return Cards.properties_owned.filter(func(p): return p["name"] == "Castle").size()
@@ -453,9 +480,23 @@ func interest_due(loan_balance: int) -> int:
 func take_loan(amount: int) -> Dictionary:
 	var loan = {"loan_number": randi_range(100000, 999999), "loan_balance": amount}
 	loans.append(loan)
+	Messages.post(Messages.BANK, "Loan #%d for $%d was approved." % [loan["loan_number"], amount], "loan")
 	new_loan = true
 	Stats.add("loans")
 	Stats.add("borrowed", amount)
+	return loan
+
+# You had to pay more than you had: the bank lends the rest, no form to sign (there's no
+# choice to make). The agreement flashes up already stamped "AUTO-ISSUED" instead
+# (auto_loan.gd), and the Bank texts you about it.
+func forced_loan(amount: int, reason: String) -> Dictionary:
+	if amount <= 0:
+		return {}
+	var loan := take_loan(amount)
+	var thread: Array = Messages.threads.get(Messages.BANK, [])
+	if not thread.is_empty():   # say why, instead of the plain "approved"
+		thread[-1]["text"] = "Loan #%d for $%d was issued automatically to cover %s." % [loan["loan_number"], amount, reason]
+	load("res://Scripts/auto_loan.gd").show_for(get_tree(), loan, reason)
 	return loan
 
 func pay_loan(loan_number: int, amount: int) -> bool:
@@ -481,6 +522,7 @@ func _celebrate_paid_off(loan_number: int) -> void:
 	Sound.play("bonus")   # the bonus jingle (instead of the banner chime)
 	var note := "Loan #%d is paid off!" % loan_number if all_loans() > 0 else "Loan paid off! You're debt free!"
 	Activity.add(note, "info")
+	Messages.post(Messages.BANK, note, "loan")
 	banner_requested.emit(note, "")
 
 
@@ -517,7 +559,8 @@ func activate_contractor(property: Dictionary) -> bool:
 
 ## ---- TRANSITION ANIMATION DATA ----
 var my_properties_app = {"app_color": "92868b", "app_anim": "my_properties", "app_url": "res://Scenes/my_properties.tscn"}
-var market_app = {"app_color": "b76051", "app_anim": "market", "app_url": "res://Scenes/market.tscn"}
+var market_app = {"app_color": "b76051", "app_anim": "market", "app_url": "res://Scenes/realtor_or_random.tscn"}   # properties only
+var messages_app = {"app_color": "625467", "app_anim": "", "app_url": "res://Scenes/messages.tscn"}
 var bank_app = {"app_color": "5d6558", "app_anim": "bank", "app_url": "res://Scenes/bank_account.tscn"}
 var my_loans_app = {"app_color": "744145", "app_anim": "my_loans", "app_url": "res://Scenes/my_loans.tscn"}
 var environment_app = {"app_color": "5d6558", "app_anim": "", "app_url": "res://Scenes/environment.tscn"}

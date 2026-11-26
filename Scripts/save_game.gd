@@ -62,12 +62,14 @@ func save_if_changed(force_activity: bool = false) -> void:
 	var snapshot := _snapshot()
 	var bytes := var_to_bytes(snapshot)
 	var now := Time.get_ticks_msec() / 1000.0
-	var activity_due := Activity.dirty and (force_activity or now - _activity_saved_at >= ACTIVITY_EVERY)
+	var activity_due := (Activity.dirty or Messages.dirty) and (force_activity or now - _activity_saved_at >= ACTIVITY_EVERY)
 	if bytes == _last_saved and not activity_due:
 		return
 	_last_saved = bytes
 	snapshot["private"]["activity"] = Activity.snapshot()
+	snapshot["private"]["messages"] = Messages.snapshot()
 	Activity.dirty = false
+	Messages.dirty = false
 	_activity_saved_at = now
 	snapshot["saved_at"] = int(Time.get_unix_time_from_system())
 	_write(var_to_bytes(snapshot))
@@ -202,6 +204,7 @@ func restore_private(snapshot: Dictionary) -> void:
 	Stats.restore(p.get("stats", {}))
 	Expansion.restore(p.get("expansion", {}))
 	Activity.restore(p.get("activity", []))
+	Messages.restore(p.get("messages", {}))
 	Notices.baseline()   # no "what's new" dots for what you already had
 	Global.erase_scenes()
 
