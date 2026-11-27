@@ -83,7 +83,7 @@ var third_row: HBoxContainer
 func _rows() -> Array:
 	return [first_row, second_row] + ([third_row] if third_row else [])
 
-# Every game has Messages (messages_app.gd), on the third row; Expansion adds Environment.
+# Every game has Messages and the Market on the third row; Expansion adds Environment.
 func _ensure_third_row() -> void:
 	if third_row:
 		return
@@ -139,6 +139,28 @@ func _add_messages_tile() -> void:
 	button.name = "messages_button"   # (the tour finds the tile by it)
 	button.pressed.connect(func(): _open_app(Global.messages_app, "messages"))
 
+# The Market: tokens and helpers for sale (its own app since 11-27; Dwellio sells property).
+func _add_shop_tile() -> void:
+	_ensure_third_row()
+	var source: Control = first_row.get_child(0)   # copy a tile's look (not its signals)
+	var tile: Control = source.duplicate(Node.DUPLICATE_GROUPS | Node.DUPLICATE_SCRIPTS)
+	tile.name = "shop"
+	_add_to_third_row(tile)
+	var panel: Panel = tile.find_children("*", "Panel", true, false)[0]
+	var shape := panel.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
+	if shape:
+		shape.bg_color = Color("c2855f")
+		if shape.has_meta("ct_bg_color"):
+			shape.remove_meta("ct_bg_color")   # its own colour, themed afresh
+		panel.add_theme_stylebox_override("panel", shape)
+	var picture: TextureRect = panel.find_children("*", "TextureRect", true, false)[0]
+	picture.texture = preload("res://Assets/icons/tokens_icon.png")
+	var label: Label = tile.find_children("*", "Label", true, false)[0]
+	label.text = "Market"
+	var button: Button = tile.find_children("*", "Button", true, false)[0]
+	button.name = "shop_button"   # (the tour finds the tile by it)
+	button.pressed.connect(func(): _open_app(Global.shop_app, "shop"))
+
 func _add_environment_tile() -> void:
 	if not Network.expansion_on():
 		return
@@ -178,6 +200,7 @@ func _add_environment_tile() -> void:
 
 func _setup_tiles() -> void:
 	_add_messages_tile()
+	_add_shop_tile()
 	_add_environment_tile()
 	for row in _rows():
 		for child in row.get_children():

@@ -111,15 +111,15 @@ func _make_steps() -> Array:
 			"target": _tile.bind("my_properties_button"), "do": _scene_is.bind("my_properties")},
 		{"title": "Your properties", "text": "Each one shows its value (what it's worth, and what it sells for), its rent (paid to you every round) and its condition (better condition, more of both). You can hold 4.\n\nTap the Two Story Home.",
 			"target": _first_row_part.bind("panel"), "do": _scene_is.bind("property_info")},
-		{"title": "The card", "text": "Tap All conditions to compare every condition's value and rent. Tokens glow green when they're on; a + means you own one (tap to add it); faded ones are sold in the Shop.\n\nYou own a Contractor, so Upgrade appears: it raises the condition.",
+		{"title": "The card", "text": "Tap All conditions to compare every condition's value and rent. Tokens glow green when they're on; a + means you own one (tap to add it); faded ones are sold in the Market.\n\nYou own a Contractor, so Upgrade appears: it raises the condition.",
 			"target": _info_table},
-		# 3. Selling, with a Listing Agent from the Shop
+		# 3. Selling, with a Listing Agent from the Market
 		{"title": "Selling", "text": "Need cash? Sell a property. Tap Sell.",
 			"target": _page_part.bind("sell_button"), "do": _scene_is.bind("sell_property")},
 		{"title": "Two ways to sell", "text": "On your own, the die says SOLD on only 2 of its 6 sides. A Listing Agent makes it 5 of 6. You don't have one yet, so let's buy one.",
 			"target": _sell_choice.bind("Realtor")},
-		{"title": "The Shop", "text": "Tokens and helpers live in the Actions app: Mine is what you own, Shop is what you can buy.\n\nTap Home, then Actions, then Shop.",
-			"target": _first_found.bind([_actions_part.bind("shop_tab"), _tile.bind("actions_button"), _frame_part.bind("home_btn")]),
+		{"title": "The Market", "text": "Tokens and helpers are sold in the Market app. The ones you own are in My Actions.\n\nTap Home, then Market.",
+			"target": _first_found.bind([_tile.bind("shop_button"), _frame_part.bind("home_btn")]),
 			"do": _on_shop_page},
 		{"title": "Buy a Listing Agent", "text": "Tap Listing Agent, then BUY, then Yes.",
 			"target": _listing_agent_target, "do": _owns_listing_agent},
@@ -128,10 +128,10 @@ func _make_steps() -> Array:
 		{"title": "Roll the die", "text": "Press on the tray, pull back (down), and let go to throw. The further you pull, the harder it flies.\n\nIn this practice a FAIL just lets you throw again.",
 			"target": _dice_part.bind("roll"), "do": _scene_is.bind("my_properties")},
 		# 4. Buying
-		{"title": "The Market", "text": "Sold! Its value went into your cash and the Listing Agent is used up, so there's room for a new property.\n\nTap Home, then Market.",
+		{"title": "Dwellio", "text": "Sold! Its value went into your cash and the Listing Agent is used up, so there's room for a new property. Properties are bought in Dwellio.\n\nTap Home, then Dwellio.",
 			"target": _first_found.bind([_tile.bind("market_button"), _frame_part.bind("home_btn")]),
 			"do": _scene_is.bind("realtor_or_random")},
-		{"title": "Buy Solo", "text": "A Realtor (from the Shop) shows you three listings to pick from. Buy Solo shows one at random, and backing out still uses an Action.\n\nTap Buy Solo, then Reveal 1 Property.",
+		{"title": "Buy Solo", "text": "A Realtor (from the Market) shows you three listings to pick from. Buy Solo shows one at random, and backing out still uses an Action.\n\nTap Buy Solo, then Reveal 1 Property.",
 			"target": _buy_target, "do": _scene_is.bind("property_reveal")},
 		{"title": "Purchase", "text": "Tap the listing, then Purchase. It costs its price and 1 Action. Short of cash? A Loan Agreement opens so you can borrow the rest.",
 			"target": _purchase_target, "do": _scene_is.bind("my_properties")},
@@ -148,7 +148,7 @@ func _make_steps() -> Array:
 		# 6. Home
 		{"title": "Red dots", "text": "A red dot on an app means something changed there: a new round, a Fortuna, a purchase. Open it and what's new is highlighted. You can turn them off in Settings.",
 			"target": _tile.bind("my_properties_button")},
-		{"title": "Messages", "text": "Texts from the other players (rent their Gothic Mansion took, a sabotage, a swap), the table's big moments, the Bank and your Fortunas. Send back a quick reply like \"Ha!\".",
+		{"title": "Messages", "text": "Receive texts from the other players, table's big moments, the Bank and your Fortunas. Send back a quick reply like \"Ha!\".",
 			"target": _tile.bind("messages_button")},
 		{"title": "End Turn", "text": "When you're done, end your turn. When everyone has, a recap shows who's ahead, then the new round starts: with $25 or more you draw a Fortuna card (two with $100 or more), rent is paid and interest is added to loans.\n\nSwipe left on Home to see everything that happened.",
 			"target": _tile.bind("end_turn_btn")},
@@ -260,7 +260,7 @@ func _buy_choice(which: String) -> Control:
 # The Listing Agent row until it's picked, then the BUY button.
 func _listing_agent_target() -> Control:
 	var scene := _scene()
-	if scene == null or not _scene_is("my_actions") or scene.page != 1:
+	if scene == null or not _scene_is("shop"):
 		return null
 	if scene.selected_action.get("name", "") == "Listing Agent":
 		return scene.buy
@@ -367,7 +367,7 @@ func _actions_part(part: String) -> Control:
 
 func _on_shop_page() -> bool:
 	var scene := _scene()
-	return scene != null and _scene_is("my_actions") and scene.page == 1
+	return scene != null and _scene_is("shop")
 
 func _owns_listing_agent() -> bool:
 	return Actions.actions_owned.has("listing_agent") and not _popup_open()

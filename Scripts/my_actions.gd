@@ -1,10 +1,11 @@
 extends Node2D
-## My Actions: two pages you swipe between (or tap the tabs at the top).
-##   Mine: the tokens you own (and the lucky Fortunas you keep), with how many. Tap one
-##   to use it: it opens the screen where it's used, or says what it's doing for you.
-##   Shop: every token for sale, with price and stock; tap one, then BUY.
-## (The Shop used to be Market > Actions; the Market now sells only properties.)
-## Open on the Shop with Global.actions_tab = "shop" (the "market" banner link does).
+## Two apps share this script (Matt, 11-27: each is its own Home app now):
+##   My Actions (Scenes/my_actions.tscn): the tokens you own (and the lucky Fortunas you
+##     keep), with how many. Tap one to use it: it opens the screen where it's used, or
+##     says what it's doing for you.
+##   Market (Scenes/shop.tscn): every token for sale, with price and stock; tap one, then BUY.
+## (Properties are bought in Dwellio.) Both pages are always built (buying refreshes Mine);
+## the scene decides which one shows, with a title in place of the old Mine | Shop tabs.
 
 const ROW_SCENE = preload("res://Scenes/actions_template.tscn")
 const POPUP_SCENE = preload("res://Scenes/pop_up.tscn")
@@ -26,7 +27,8 @@ const SWIPE_CHANGE := 0.2      # share of the width to let go past to change pag
 @onready var ui_menu_frame: Control = $"CanvasLayer/Panel/UI Menu Frame"
 
 var current_scene := "res://Scenes/my_actions.tscn"
-var page := 0                    # 0 = Mine, 1 = Shop
+var page := 0                    # 0 = Mine (My Actions), 1 = Shop (Market)
+var only_shop := false           # this is the Market app (shop.tscn)
 var list_of_actions: VBoxContainer   # Mine
 var shop_list: VBoxContainer         # Shop
 var buy: Button
@@ -52,21 +54,24 @@ var _touch := {"down": false, "at": Vector2.ZERO, "decided": false, "sideways": 
 
 func _ready() -> void:
 	Cards.reset_id()
-	_news = Notices.new_actions()
-	Notices.mark_app("my_actions")
+	only_shop = scene_file_path.ends_with("shop.tscn")
+	current_scene = scene_file_path
+	_news = [] if only_shop else Notices.new_actions()
+	if not only_shop:
+		Notices.mark_app("my_actions")
 	old_column.visible = false   # the old single list; rebuilt below as two pages
 	_build()
 	_build_mine()
 	_build_shop()
 	_news = []   # pulse once, not again after using a token
-	var start := 1 if Global.actions_tab == "shop" else 0
 	Global.actions_tab = ""
-	show_page(start, false)
+	show_page(1 if only_shop else 0, false)
 	Market.stock_changed.connect(_on_stock_changed)
 	get_viewport().size_changed.connect(func(): show_page(page, false))
 
 func _exit_tree() -> void:
-	Notices.mark_app("my_actions")
+	if not only_shop:
+		Notices.mark_app("my_actions")
 
 
 ## ---- LAYOUT ----
@@ -87,6 +92,18 @@ func _build() -> void:
 	tabs.add_child(_tab_marker)
 	mine_tab = _tab_button(tabs, 0, "Mine")
 	shop_tab = _tab_button(tabs, 1, "Shop")
+	tabs.visible = false   # one app, one page: a title instead of the tabs
+	var heading := Label.new()
+	heading.text = "Market" if only_shop else "My Actions"
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	heading.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	heading.position = Vector2(0, 182)
+	heading.size = Vector2(screen.x, 70)
+	heading.add_theme_font_override("font", preload("res://Assets/fonts/Handwriting-Regular.otf"))
+	heading.add_theme_font_size_override("font_size", 58)
+	heading.add_theme_color_override("font_color", CREAM)
+	heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(heading)
 
 	# The two pages, side by side in a strip that slides.
 	_pager = Control.new()
@@ -216,7 +233,8 @@ func _input(event: InputEvent) -> void:
 		if not _touch["decided"] and delta.length() >= SWIPE_DECIDE:
 			_touch["decided"] = true
 			# (Not under a pop-up, a Fortuna or the recap: then the pages stay put.)
-			_touch["sideways"] = absf(delta.x) > absf(delta.y) * 1.2 and not _overlay_open()
+			# One page per app now (My Actions / Market): never slide sideways, only tell taps from scrolls.
+			_touch["sideways"] = false
 		if _touch["sideways"]:
 			var width := get_viewport().get_visible_rect().size.x
 			var x := -width * page + delta.x
@@ -255,7 +273,7 @@ const HINTS := {
 	"sabotage": "Tap to pick a player",
 	"golden_lock": "Tap to pick a property",
 	"certificate_of_deposit": "Tap to see it in the Bank",
-	"realtor": "Tap to use in Real Estate",
+	"realtor": "Tap to use in Dwellio",
 	"llc": "Working for you",
 	"attorney": "Working for you",
 }
@@ -302,7 +320,7 @@ func _empty_mine() -> void:
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	list_of_actions.add_child(box)
 	var note := Label.new()
-	note.text = "You don't own any Actions yet.\nTokens and helpers are sold in the Shop."
+	note.text = "You don't own any Actions yet.\nTokens and helpers are sold in the Market."
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note.add_theme_font_override("font", FONT)
 	note.add_theme_font_size_override("font_size", 28)
@@ -310,7 +328,7 @@ func _empty_mine() -> void:
 	ColorTheme.keep(note)
 	box.add_child(note)
 	var go := Button.new()
-	go.text = "Go to the Shop"
+	go.text = "Go to the Market"
 	go.focus_mode = Control.FOCUS_NONE
 	go.custom_minimum_size = Vector2(340, 84)
 	go.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -323,7 +341,7 @@ func _empty_mine() -> void:
 		go.add_theme_stylebox_override(state, _style(Color("5d6558").darkened(0.12 if state == "pressed" else 0.0), 42, CREAM, 3))
 	go.pressed.connect(func():
 		Sound.play("switch")
-		show_page(1))
+		Global.open_link("market"))
 	box.add_child(go)
 
 # A new or extra token: its card's outline fades in and out (and it's scrolled into view).

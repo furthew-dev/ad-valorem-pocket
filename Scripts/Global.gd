@@ -93,14 +93,14 @@ func error(message: String, link: String = "") -> void:
 
 # Where a tappable banner can take you: key -> [screen, name shown in "Tap to open ..."].
 const LINKS := {
-	"market": ["res://Scenes/my_actions.tscn", "the Shop"],   # tokens: My Actions > Shop
+	"market": ["res://Scenes/shop.tscn", "the Market"],   # tokens for sale (the Market app)
 	"my_properties": ["res://Scenes/my_properties.tscn", "My Properties"],
-	"my_actions": ["res://Scenes/my_actions.tscn", "Actions"],
+	"my_actions": ["res://Scenes/my_actions.tscn", "My Actions"],
 	"environment": ["res://Scenes/environment.tscn", "your Environment"],
 	"my_loans": ["res://Scenes/my_loans.tscn", "My Loans"],
 	"home": ["res://Scenes/home_screen.tscn", "Home"],   # "Tap to open Home"
 	"bank": ["res://Scenes/bank_account.tscn", "the Bank"],
-	"real_estate": ["res://Scenes/realtor_or_random.tscn", "Real Estate"],
+	"real_estate": ["res://Scenes/realtor_or_random.tscn", "Dwellio"],   # buying property
 	"messages": ["res://Scenes/messages.tscn", "Messages"],
 }
 
@@ -120,13 +120,8 @@ func open_link(link: String) -> void:
 	var target: String = LINKS[link][0]
 	if link == "messages":
 		Messages.banner_tapped()
-	if link == "market":
-		actions_tab = "shop"   # My Actions opens on its Shop page
 	var scene := get_tree().current_scene
 	if scene and scene.scene_file_path == target:
-		if link == "market" and scene.has_method("show_page"):
-			actions_tab = ""
-			scene.show_page(1)
 		return   # already there
 	Sound.play("click")
 	if scene and scene.scene_file_path != "":
@@ -559,7 +554,8 @@ func activate_contractor(property: Dictionary) -> bool:
 
 ## ---- TRANSITION ANIMATION DATA ----
 var my_properties_app = {"app_color": "92868b", "app_anim": "my_properties", "app_url": "res://Scenes/my_properties.tscn"}
-var market_app = {"app_color": "b76051", "app_anim": "market", "app_url": "res://Scenes/realtor_or_random.tscn"}   # properties only
+var market_app = {"app_color": "b76051", "app_anim": "market", "app_url": "res://Scenes/realtor_or_random.tscn"}   # Dwellio: properties
+var shop_app = {"app_color": "8a6f5b", "app_anim": "", "app_url": "res://Scenes/shop.tscn"}   # the Market: tokens for sale
 var messages_app = {"app_color": "625467", "app_anim": "", "app_url": "res://Scenes/messages.tscn"}
 var bank_app = {"app_color": "5d6558", "app_anim": "bank", "app_url": "res://Scenes/bank_account.tscn"}
 var my_loans_app = {"app_color": "744145", "app_anim": "my_loans", "app_url": "res://Scenes/my_loans.tscn"}

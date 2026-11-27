@@ -16,7 +16,7 @@ const PAGES := [
 	{"title": "The Goal",
 	"body": "Build the best real estate portfolio.\n\nEveryone plays their turn at the same time. When a round ends with a player holding more than $200 cash (the host can change this) and no loans, the game is over.\n\nThe highest net worth wins: cash, properties and savings, minus anything you owe."},
 	{"title": "Your Turn",
-	"body": "You have 3 Actions each round (5 with an LLC).\n\nSpend them buying properties in the Market (up to 4), or tokens like SkyBnB, Insurance, Contractor and Sabotage in the Shop (in the Actions app).\n\nShort on cash? Sign a Loan Agreement to borrow, but loans grow 10% every round.\n\nTap End Turn when you're done."},
+	"body": "You have 3 Actions each round (5 with an LLC).\n\nSpend them buying properties in Dwellio (up to 4), or tokens like SkyBnB, Insurance, Contractor and Sabotage in the Market.\n\nShort on cash? Sign a Loan Agreement to borrow, but loans grow 10% every round.\n\nTap End Turn when you're done."},
 	{"title": "Each New Round",
 	"body": "Once everyone has ended their turn:\n\nFortunas: finish with $25 or more and you draw a Fortuna card, good luck or bad: pick any card from the deck. $100 or more draws two.\n\nThen rent is paid on every property you own, and interest is added to your loans.\n\nProtect your homes, sabotage your rivals, and watch your fortune grow!"},
 	{"title": "Keeping Track",

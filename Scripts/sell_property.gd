@@ -37,7 +37,7 @@ func _ready() -> void:
 	if not _has_agent:
 		listing_agent_toggle.toggle_mode = false
 		listing_agent_toggle.pressed.connect(func():
-			Global.error("You don't have a Listing Agent. Buy one in the Shop (in Actions).", "market"))
+			Global.error("You don't have a Listing Agent. Buy one in the Market.", "market"))
 	_paint()
 
 func _selected_property() -> Dictionary:

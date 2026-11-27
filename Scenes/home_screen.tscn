@@ -235,7 +235,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_fonts/font = ExtResource("2_yufik")
 theme_override_font_sizes/font_size = 40
-text = "Market"
+text = "Dwellio"
 horizontal_alignment = 1
 
 [node name="second_row" type="HBoxContainer" parent="Apps/Apps Container"]
@@ -319,8 +319,8 @@ flat = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_fonts/font = ExtResource("2_yufik")
-theme_override_font_sizes/font_size = 40
-text = "Actions"
+theme_override_font_sizes/font_size = 30
+text = "My Actions"
 horizontal_alignment = 1
 
 [node name="Control3" type="Control" parent="Apps/Apps Container/second_row"]
