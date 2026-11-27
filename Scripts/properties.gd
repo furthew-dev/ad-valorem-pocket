@@ -33,7 +33,7 @@ func setup_card(property_data: Dictionary) -> void:
 	var shown_condition := "excellent"
 	if property_data.get("has_condition", false):
 		shown_condition = property_data.get("condition", "excellent")
-	condition.text = "Condition: " + shown_condition.capitalize()
+	condition.text = shown_condition.capitalize()   # (no "Condition:" label: it crowded Value and Rent once text got bigger)
 	_show_region(str(property_data.get("region", "")))
 	if Cards.is_lot(property_data):
 		condition.text = "Empty lot: build here"

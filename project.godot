@@ -43,6 +43,7 @@ Expansion="*res://Scripts/expansion.gd"
 DebugMonitor="*res://Scripts/debug_monitor.gd"
 Notices="*res://Scripts/notices.gd"
 Messages="*res://Scripts/messages.gd"
+TextFloor="*res://Scripts/text_floor.gd"
 
 [display]
 

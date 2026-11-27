@@ -128,7 +128,7 @@ func _lay_out() -> void:
 	_make_card(true, row.get_node("Realtor"), realtor_toggle, realtor_select,
 			REALTOR_ICON, "Realtor", "See three, pick one")
 	_make_card(false, row.get_node("Private Purchase"), ps_toggle, personal_select,
-			PERSON_ICON, "Buy Solo", "See one, take it or leave it")
+			PERSON_ICON, "Buy Solo", "See one at random")
 
 	# Proceed: a big button that says what will happen.
 	var proceed: Panel = stack.get_node("proceed")

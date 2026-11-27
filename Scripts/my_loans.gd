@@ -64,7 +64,7 @@ func refresh_loans(news: Dictionary = {}) -> void:
 		list_of_loans.add_child(_debt_free_card())
 	else:
 		_summary.text = "You owe $%d in all" % owed
-		_summary_note.text = "Interest adds $%d next round. You can't win while you owe anything." % interest
+		_summary_note.text = "Interest adds $%d next round. Pay off every loan to end the game." % interest
 
 func _debt_free_card() -> Control:
 	var card := Cozy.card(26)
