@@ -43,7 +43,6 @@ var _strip: Control
 var _pages: Array[Control] = []
 var _scrolls: Array[ScrollContainer] = []
 var _tab_marker: Panel
-var _buy_label: Label
 var _button_group := ButtonGroup.new()
 var _buying_key := ""
 var _confirming := false
@@ -168,34 +167,31 @@ func _tab_button(tabs: Panel, index: int, text: String) -> Control:
 	tabs.add_child(tab)
 	return tab
 
-# The BUY button under the Shop list (the Market's look).
+# The Buy button under the Market list: the same rounded green button as "Go to the
+# Market" and Dwellio's "Reveal" (dimmed until a token is picked).
+const Cozy = preload("res://Scripts/cozy.gd")
 func _buy_bar() -> Control:
-	var holder := CenterContainer.new()
+	var holder := MarginContainer.new()
 	holder.custom_minimum_size.y = 112
-	var bar := Panel.new()
-	bar.theme = THEME
-	bar.custom_minimum_size = Vector2(500, 100)
-	holder.add_child(bar)
-	_buy_label = Label.new()
-	_buy_label.text = "BUY"
-	_buy_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_buy_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_buy_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_buy_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bar.add_child(_buy_label)
-	buy = Button.new()
-	buy.flat = true
-	buy.focus_mode = Control.FOCUS_NONE
-	buy.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right"]:
+		holder.add_theme_constant_override("margin_" + side, 40)
+	holder.add_theme_constant_override("margin_top", 10)
+	holder.add_theme_constant_override("margin_bottom", 10)
+	buy = Cozy.button("Choose a token to buy", Cozy.GREEN, 88, 30)
 	buy.disabled = true
 	buy.pressed.connect(_on_buy_pressed)
-	bar.add_child(buy)
+	holder.add_child(buy)
 	_refresh_buy()
 	return holder
 
 func _refresh_buy() -> void:
-	if _buy_label:
-		_buy_label.modulate.a = 0.45 if buy.disabled else 1.0
+	if buy == null:
+		return
+	Cozy.set_enabled(buy, not buy.disabled)
+	if selected_action.is_empty():
+		buy.text = "Choose a token to buy"
+	else:
+		buy.text = "Buy %s for $%d" % [selected_action.get("name", ""), Actions.price_of(selected_action)]
 
 # Slides to a page (0 Mine, 1 Shop) and moves the tab marker.
 func show_page(index: int, animate: bool = true) -> void:
@@ -460,9 +456,9 @@ func _key_of(action: Dictionary) -> String:
 func _on_group_pressed(button: BaseButton) -> void:
 	Sound.play("switch")
 	buy.disabled = false
-	_refresh_buy()
 	selected_card = button.get_meta("row", button.owner)   # the row the button belongs to
 	selected_action = selected_card.selected_card_data
+	_refresh_buy()
 
 func _on_buy_pressed() -> void:
 	if _confirming or _buying_key != "" or selected_action.is_empty():

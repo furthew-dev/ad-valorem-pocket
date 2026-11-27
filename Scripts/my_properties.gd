@@ -6,8 +6,7 @@ extends Node2D
 const PROPERTY_CARD_SCENE = preload("res://Scenes/properties.tscn")
 const POPUP_SCENE = preload("res://Scenes/pop_up.tscn")
 const FONT = preload("res://Assets/fonts/Handwriting-Regular.otf")
-# Sort button: tap to switch between A-Z and highest value first.
-# "" = the order you got them in (until you first sort).
+# Sort: the order you got them in (""), A-Z ("name") or highest value first ("value").
 
 @onready var list_of_properties: VBoxContainer = $CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_properties
 @onready var ui_menu_frame: Control = $"CanvasLayer/Panel/UI Menu Frame"
@@ -33,7 +32,6 @@ func _ready() -> void:
 	if arrived != 0:
 		Notices.mark_property(arrived)   # it slides in with a glow: no dot needed too
 	_sort_mode = Network.load_setting("my_properties", "sort", "")
-	_add_sort_button()
 	_build_list()
 	Global.properties_changed.connect(_build_list)   # e.g. a new round while this page is open
 	if arrived != 0:
@@ -81,34 +79,69 @@ func _add_capacity_label() -> void:
 	list_of_properties.add_child(centre)
 
 ## ---- SORTING ----
-func _add_sort_button() -> void:
-	# Sits in the empty space to the right of the (centred) property cards, under the header.
-	_sort_button = Button.new()
-	_sort_button.custom_minimum_size = Vector2(92, 92)
-	_sort_button.size = Vector2(92, 92)
-	_sort_button.add_theme_font_override("font", FONT)
-	_sort_button.add_theme_font_size_override("font_size", 30)
-	InkBox.apply(_sort_button, Color("ddcf99"))
-	_sort_button.pressed.connect(_on_sort_pressed)
-	$CanvasLayer/Panel.add_child(_sort_button)
-	_sort_button.text = _sort_text()
-	_place_sort_button.call_deferred()
+# A small "Sort  Bought | A-Z | Value" pill, centred under Capacity and above the list.
+# The chosen order is lit (purple with a gold edge) and remembered on this phone.
+const SORT_OPTIONS := [["", "Bought"], ["name", "A-Z"], ["value", "Value"]]
 
-func _place_sort_button() -> void:
-	var scroll: Control = list_of_properties.get_parent()
-	var area := scroll.get_global_rect()
-	var panel: Control = $CanvasLayer/Panel
-	var top_left := panel.get_global_transform().affine_inverse() * Vector2(area.end.x - 100, area.position.y + 12)
-	_sort_button.position = top_left
+func _add_sort_control() -> void:
+	var centre := CenterContainer.new()
+	centre.custom_minimum_size = Vector2(0, 74)
+	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	list_of_properties.add_child(centre)
+	var pill := PanelContainer.new()
+	var bg := _sort_style(Color("2e2328"), Color(Color("ddcf99"), 0.6), 2, 30)
+	bg.content_margin_left = 18
+	bg.content_margin_right = 6
+	bg.content_margin_top = 5
+	bg.content_margin_bottom = 5
+	pill.add_theme_stylebox_override("panel", bg)
+	centre.add_child(pill)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	pill.add_child(row)
+	var caption := Label.new()
+	caption.text = "Sort"
+	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	caption.add_theme_font_override("font", preload("res://Assets/fonts/Comfortaa-Regular.ttf"))
+	caption.add_theme_font_size_override("font_size", 24)
+	caption.add_theme_color_override("font_color", Color(Color("f6f2e1"), 0.7))
+	caption.custom_minimum_size.x = 70
+	row.add_child(caption)
+	for option in SORT_OPTIONS:
+		var b := Button.new()
+		b.text = option[1]
+		b.name = "sort_" + (option[0] if option[0] != "" else "bought")
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(112, 50)
+		b.add_theme_font_override("font", preload("res://Assets/fonts/Comfortaa-Bold.ttf"))
+		b.add_theme_font_size_override("font_size", 24)
+		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			b.add_theme_color_override(c, Color("f6f2e1"))
+		var on: bool = option[0] == _sort_mode
+		var look := _sort_style(Color("7a6d79"), Color("ddcf99"), 2, 25) if on else _sort_style(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 25)
+		for state in ["normal", "hover", "pressed", "focus"]:
+			b.add_theme_stylebox_override(state, look)
+		b.pressed.connect(_on_sort_chosen.bind(option[0]))
+		row.add_child(b)
+	_sort_button = row.get_child(1) as Button   # (kept for older callers: the first option)
+	for node in [pill, caption] + row.get_children():
+		ColorTheme.keep(node)   # the same dark pill in every theme
 
-func _sort_text() -> String:
-	return {"": "Sort", "name": "Sort\nA-Z", "value": "Sort\nValue"}[_sort_mode]
+func _sort_style(fill: Color, edge: Color, width: int, radius: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_color = edge
+	style.set_border_width_all(width)
+	style.set_corner_radius_all(radius)
+	style.anti_aliasing = true
+	return style
 
-func _on_sort_pressed() -> void:
+func _on_sort_chosen(mode: String) -> void:
+	if mode == _sort_mode:
+		return
 	Sound.play("switch")
-	_sort_mode = "value" if _sort_mode == "name" else "name"
+	_sort_mode = mode
 	Network.save_setting("my_properties", "sort", _sort_mode)
-	_sort_button.text = _sort_text()
 	_build_list()
 
 # The properties in display order (the list itself stays in the order you got them).
@@ -132,6 +165,7 @@ func _build_list() -> void:
 	for child in list_of_properties.get_children():
 		child.queue_free()
 	_add_capacity_label()
+	_add_sort_control()
 	for property_data in _sorted_properties():
 		var card_instance = PROPERTY_CARD_SCENE.instantiate()
 		list_of_properties.add_child(card_instance)
