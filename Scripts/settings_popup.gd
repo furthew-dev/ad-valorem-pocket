@@ -95,11 +95,11 @@ func _build() -> void:
 
 	# --- Sound & alerts ---
 	box.add_child(_heading("SOUND & ALERTS"))
-	_sound_toggle = _switch_row(box, "Sounds", "Taps, cards, cash and dice", Sound.enabled)
+	_sound_toggle = _switch_row(box, "Sounds", "", Sound.enabled)
 	_sound_toggle.toggled.connect(_on_sound_toggled)
-	var dots := _switch_row(box, "Red Dot Alerts", "A dot on an app when something changed", Notices.enabled)
+	var dots := _switch_row(box, "Red Dot Alerts", "", Notices.enabled)
 	dots.toggled.connect(_on_dots_toggled)
-	var recap := _switch_row(box, "Round Recap", "Highlights and standings between rounds", Network.load_setting("ui", "round_recap", true))
+	var recap := _switch_row(box, "Round Recap", "", Network.load_setting("ui", "round_recap", true))
 	recap.toggled.connect(func(on: bool):
 		Sound.play("switch")
 		Network.save_setting("ui", "round_recap", on))
@@ -115,7 +115,7 @@ func _build() -> void:
 
 	# --- Look ---
 	box.add_child(_heading("LOOK"))
-	var theme_row := _row("Colour Theme", "Tap to try the next one")
+	var theme_row := _row("Colour Theme", "") # Intentionally left blank for smaller text
 	_theme_button = _small_button(ColorTheme.theme_name(), ROW_DARK, _next_theme)
 	_theme_button.custom_minimum_size.x = 190
 	theme_row[1].add_child(_theme_button)

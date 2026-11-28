@@ -34,7 +34,7 @@ func _build() -> void:
 	# Hello
 	var hello := VBoxContainer.new()
 	hello.add_theme_constant_override("separation", 0)
-	var title := Cozy.label("Hello, %s" % Global.PLAYER, Cozy.HAND, 58, Cozy.CREAM, false)
+	var title := Cozy.label("Game Over" if Turns.game_over else "Hello, %s" % Global.PLAYER, Cozy.HAND, 58, Cozy.CREAM, false)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hello.add_child(title)
 	var sub := Cozy.label("Bank of Ad Valorem  ·  Round %d" % Global.ROUND, Cozy.FONT, 20, Color(Cozy.CREAM, 0.75), false)
@@ -59,12 +59,13 @@ func _build() -> void:
 	var progress := Cozy.win_progress()
 	bar.create_tween().tween_method(func(v: float): Cozy.set_bar(bar, v, Cozy.UP if won else Cozy.GOLD), 0.0, progress, 0.9) \
 			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	var status := Cozy.label("You can end the game this round" if won
-			else "$%d away from ending the game" % Cozy.cash_to_end(), Cozy.BOLD, 22)
-	hero_box.add_child(status)
-	var how := Cozy.label(Cozy.end_rule(), Cozy.FONT, 19, Color(Cozy.CREAM, 0.75))
-	how.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hero_box.add_child(how)
+	if not Turns.game_over:   # once the game is over these would only confuse
+		var status := Cozy.label("You can end the game this round" if won
+				else "$%d away from ending the game" % Cozy.cash_to_end(), Cozy.BOLD, 22)
+		hero_box.add_child(status)
+		var how := Cozy.label(Cozy.end_rule(), Cozy.FONT, 19, Color(Cozy.CREAM, 0.75))
+		how.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		hero_box.add_child(how)
 
 	# The account, line by line
 	account_card = Cozy.card(22)

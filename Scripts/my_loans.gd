@@ -60,7 +60,7 @@ func refresh_loans(news: Dictionary = {}) -> void:
 			row.show_news.call_deferred(news[loan["loan_number"]])
 	if Global.loans.is_empty():
 		_summary.text = "You're debt free!"
-		_summary_note.text = "No loans, no interest. Borrowing happens when you're short of cash for a purchase (you sign a Loan Agreement) or when bad luck costs more than you have."
+		_summary_note.text = "" # intentionally removed 
 		list_of_loans.add_child(_debt_free_card())
 	else:
 		_summary.text = "You owe $%d in all" % owed

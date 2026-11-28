@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 uid="uid://stqknfer11cv"]
+[gd_scene format=3 uid="uid://stqknfer11cv"]
 
 [ext_resource type="Script" uid="uid://f7eeosllv3uc" path="res://Scripts/my_loans.gd" id="1_l1koj"]
 [ext_resource type="Texture2D" uid="uid://byme73cvmjgba" path="res://Assets/bottom_art.png" id="2_6hj8k"]
@@ -15,12 +15,12 @@ bg_color = Color(0.482353, 0.494118, 0.388235, 1)
 border_width_bottom = 8
 border_color = Color(0.972549, 0.972549, 0.972549, 0)
 
-[node name="my_actions" type="Node2D"]
+[node name="my_actions" type="Node2D" unique_id=830052014]
 script = ExtResource("1_l1koj")
 
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1792103884]
 
-[node name="Panel" type="Panel" parent="CanvasLayer"]
+[node name="Panel" type="Panel" parent="CanvasLayer" unique_id=1313781445]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -30,7 +30,7 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_nia8k")
 
-[node name="BottomDesign" type="TextureRect" parent="CanvasLayer/Panel"]
+[node name="BottomDesign" type="TextureRect" parent="CanvasLayer/Panel" unique_id=1742357170]
 modulate = Color(0.482353, 0.494118, 0.388235, 1)
 custom_minimum_size = Vector2(720, 800)
 layout_mode = 1
@@ -42,11 +42,11 @@ grow_vertical = 2
 texture = ExtResource("2_6hj8k")
 expand_mode = 1
 
-[node name="UI Menu Frame" parent="CanvasLayer/Panel" instance=ExtResource("3_8at4f")]
+[node name="UI Menu Frame" parent="CanvasLayer/Panel" unique_id=168922523 instance=ExtResource("3_8at4f")]
 z_index = 1
 layout_mode = 1
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/Panel"]
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/Panel" unique_id=1702860343]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -56,24 +56,24 @@ offset_bottom = -159.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Title" type="Panel" parent="CanvasLayer/Panel/VBoxContainer"]
+[node name="Title" type="Panel" parent="CanvasLayer/Panel/VBoxContainer" unique_id=1102013277]
 custom_minimum_size = Vector2(0, 120)
 layout_mode = 2
 theme = ExtResource("4_f0eb0")
 theme_override_styles/panel = SubResource("StyleBoxFlat_bdt85")
 
-[node name="header" type="HBoxContainer" parent="CanvasLayer/Panel/VBoxContainer/Title"]
-layout_mode = 2
+[node name="header" type="HBoxContainer" parent="CanvasLayer/Panel/VBoxContainer/Title" unique_id=942803888]
+layout_mode = 0
 offset_top = 4.0
 offset_right = 720.0
 offset_bottom = 104.0
 size_flags_vertical = 3
 
-[node name="Control3" type="Control" parent="CanvasLayer/Panel/VBoxContainer/Title/header"]
+[node name="Control3" type="Control" parent="CanvasLayer/Panel/VBoxContainer/Title/header" unique_id=529084663]
 custom_minimum_size = Vector2(50, 0)
 layout_mode = 2
 
-[node name="title" type="Label" parent="CanvasLayer/Panel/VBoxContainer/Title/header"]
+[node name="title" type="Label" parent="CanvasLayer/Panel/VBoxContainer/Title/header" unique_id=258454591]
 layout_mode = 2
 size_flags_horizontal = 3
 theme = ExtResource("4_f0eb0")
@@ -84,27 +84,27 @@ text = "Display"
 horizontal_alignment = 1
 vertical_alignment = 2
 
-[node name="Control2" type="Control" parent="CanvasLayer/Panel/VBoxContainer/Title/header"]
+[node name="Control2" type="Control" parent="CanvasLayer/Panel/VBoxContainer/Title/header" unique_id=907164395]
 custom_minimum_size = Vector2(50, 0)
 layout_mode = 2
 
-[node name="Control4" type="Control" parent="CanvasLayer/Panel/VBoxContainer"]
+[node name="Control4" type="Control" parent="CanvasLayer/Panel/VBoxContainer" unique_id=62704833]
 custom_minimum_size = Vector2(720, 25)
 layout_mode = 2
 
-[node name="ScrollContainer" type="ScrollContainer" parent="CanvasLayer/Panel/VBoxContainer"]
+[node name="ScrollContainer" type="ScrollContainer" parent="CanvasLayer/Panel/VBoxContainer" unique_id=426351076]
 custom_minimum_size = Vector2(720, 800)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 
-[node name="list_of_loans" type="VBoxContainer" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer"]
+[node name="list_of_loans" type="VBoxContainer" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer" unique_id=1982024280]
 custom_minimum_size = Vector2(300, 125)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="list_of_loans" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_loans" instance=ExtResource("6_6hj8k")]
+[node name="list_of_loans" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_loans" unique_id=1982610467 instance=ExtResource("6_6hj8k")]
 layout_mode = 2
 
-[node name="list_of_loans2" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_loans" instance=ExtResource("6_6hj8k")]
+[node name="list_of_loans2" parent="CanvasLayer/Panel/VBoxContainer/ScrollContainer/list_of_loans" unique_id=450651491 instance=ExtResource("6_6hj8k")]
 layout_mode = 2
