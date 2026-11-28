@@ -32,6 +32,11 @@ var game_over := false
 var final_results: Array = []      # [{name, net_worth}], best first
 
 var _finished: Dictionary = {}     # host only: player token -> {cash, loans}
+# The round the table is in. The host moves it on the moment the last player ends their
+# turn, before anyone's recap / "Round N" curtain has played (Global.ROUND only changes
+# behind the curtain, up to ~25 s later). A player who comes back in that gap must be
+# told the new round, or they'd rejoin the old one and never get its start.
+var table_round := 1
 var _final_reports: Dictionary = {}  # host only: peer id -> {name, net_worth}
 var _was_online := false
 
@@ -66,8 +71,9 @@ var worth_start: Dictionary = {}  # player name -> {"round": n, "worth": net wor
 func recap_data(finished_round: int) -> Dictionary:
 	var players := []
 	for player_name in statuses:
-		if Network.is_online() and not player_name in Network.players.values():
-			continue   # left the game
+		if Network.is_online() and not player_name in Network.players.values() \
+				and not player_name in Network.away_names:
+			continue   # left the game (someone reconnecting still counts)
 		var s: Dictionary = statuses[player_name]
 		if not s.has("worth"):
 			continue
@@ -140,7 +146,7 @@ func end_turn() -> void:
 	Global.ACTIONS = 0   # browsing only until the next round (shares "finished" too)
 	share_status()
 	if Network.is_online():
-		_player_done.rpc_id(1, Global.CASH, Global.all_loans())
+		_player_done.rpc_id(1, Global.CASH, Global.all_loans(), Global.ROUND)
 	elif _is_winner(Global.CASH, Global.all_loans()):
 		_end_game()   # solo
 	else:
@@ -150,9 +156,11 @@ func _is_winner(cash: int, loans: int) -> bool:
 	return cash > Global.END_GOAL and loans == 0
 
 @rpc("any_peer", "call_local", "reliable")
-func _player_done(cash: int, loans: int) -> void:
+func _player_done(cash: int, loans: int, round_number: int = -1) -> void:
 	if not multiplayer.is_server():
 		return
+	if round_number != -1 and round_number != current_round():
+		return   # a phone that fell behind ended an old round: it doesn't count for this one
 	var id := multiplayer.get_remote_sender_id()
 	_finished[_token_of(id if id != 0 else 1)] = {"cash": cash, "loans": loans}
 	_check_round()
@@ -189,7 +197,12 @@ func _check_round() -> void:
 		_final_reports.clear()
 		_end_game.rpc()
 	else:
-		_start_round.rpc(Global.ROUND + 1)
+		table_round = current_round() + 1
+		_start_round.rpc(table_round)
+
+# The round being played (or about to start, during the recap / curtain).
+func current_round() -> int:
+	return maxi(table_round, Global.ROUND)
 
 @rpc("authority", "call_local", "reliable")
 func _sync_waiting(names: Array) -> void:
@@ -237,6 +250,7 @@ func _process(delta: float) -> void:
 	if countdown_name != "":
 		countdown_left = maxf(countdown_left - delta, 0.0)
 		_tick_tock()
+	_check_behind(delta)
 	if not (Network.is_online() and multiplayer.is_server()) or _countdown_token == "":
 		return
 	var now := _now()
@@ -307,6 +321,38 @@ func my_name() -> String:
 	return Network.players.get(multiplayer.get_unique_id(), Global.PLAYER)
 
 
+## ---- FALLEN BEHIND ----
+# Safety net: if this phone somehow missed a "next round" (a dropped connection at just
+# the wrong moment), the host's own status shows a later round. After long enough to rule
+# out the normal recap + curtain delay, catch up on the missed rounds here.
+const BEHIND_LIMIT := 45.0
+var _changing_round := false   # inside _start_round (recap / curtain): not behind, just slow
+var _behind_for := 0.0
+
+func _check_behind(delta: float) -> void:
+	if not (Network.in_game and Network.is_online()) or multiplayer.is_server() or game_over \
+			or _changing_round or _catching_up:
+		_behind_for = 0.0
+		return
+	var host_round := int(statuses.get(Network.players.get(1, ""), {}).get("round", 0))
+	if host_round <= Global.ROUND:
+		_behind_for = 0.0
+		return
+	_behind_for += delta
+	if _behind_for >= BEHIND_LIMIT:
+		_behind_for = 0.0
+		catch_up(host_round)
+
+func catch_up(to_round: int) -> void:
+	if _catching_up or to_round <= Global.ROUND:
+		return
+	my_turn_done = false
+	_catching_up = true
+	for number in range(Global.ROUND + 1, to_round + 1):
+		await _start_round(number)
+	_catching_up = false
+
+
 ## ---- POKES ----
 # Names we're waiting on that we may still poke this round (not reconnecting players).
 func pokeable() -> Array:
@@ -372,6 +418,7 @@ func resync_waiting() -> void:
 func resume(current_round: int, saved_round: int, turn_done: bool) -> void:
 	_was_online = true
 	game_over = false
+	table_round = maxi(current_round, saved_round)
 	if current_round > saved_round:
 		my_turn_done = false
 		_catching_up = true
@@ -392,12 +439,15 @@ func resume(current_round: int, saved_round: int, turn_done: bool) -> void:
 # The host came back after dropping: make sure it knows we already ended our turn.
 func resend_turn_done() -> void:
 	if my_turn_done and not game_over and Network.is_online() and not multiplayer.is_server():
-		_player_done.rpc_id(1, Global.CASH, Global.all_loans())
+		_player_done.rpc_id(1, Global.CASH, Global.all_loans(), Global.ROUND)
 
 
 ## ---- NEXT ROUND ----
 @rpc("authority", "call_local", "reliable")
 func _start_round(number: int) -> void:
+	table_round = maxi(table_round, number)
+	_changing_round = true
+	_behind_for = 0.0
 	waiting_on = []
 	poked.clear()
 	countdown_name = ""
@@ -414,6 +464,7 @@ func _start_round(number: int) -> void:
 		Global.ROUND = number
 		Global.ACTIONS = Global.A_CAPACITY)
 	my_turn_done = false
+	_changing_round = false
 	share_status()
 	round_started.emit(number)
 	await Global.process_new_round()
@@ -548,6 +599,9 @@ func reset(clear_save: bool = true) -> void:
 	_finished.clear()
 	_final_reports.clear()
 	_was_online = false
+	table_round = 1
+	_changing_round = false
+	_behind_for = 0.0
 	statuses.clear()
 	waiting_changed.emit([])
 

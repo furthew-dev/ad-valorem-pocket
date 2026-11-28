@@ -354,6 +354,7 @@ func _restore_as_host() -> void:
 	for token in away:
 		get_tree().create_timer(AWAY_GRACE).timeout.connect(_on_away_expired.bind(token))
 	Turns.restore_finished(shared["finished"])
+	Turns.table_round = Global.ROUND
 	_sync_players.rpc(players, away.values(), avatars)
 	Market.send_state_to_all()
 	_announce.rpc("The host is back.")
@@ -456,7 +457,9 @@ func _register_player(player_name: String, token: String = "", avatar: Array = [
 		_sync_players.rpc(players, away.values(), avatars)
 		_sync_settings.rpc_id(id, game_settings)
 		Market.send_state_to(id)
-		_resume_accepted.rpc_id(id, Global.ROUND, Turns.is_finished(token))
+		# Turns.current_round(), not Global.ROUND: during the recap / curtain the host's own
+		# Global.ROUND still shows the round that just ended.
+		_resume_accepted.rpc_id(id, Turns.current_round(), Turns.is_finished(token))
 		_announce.rpc("%s is back." % players[id])
 		Turns.resync_waiting()
 		return

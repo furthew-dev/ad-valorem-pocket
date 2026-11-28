@@ -126,6 +126,7 @@ func _ready() -> void:
 	setup_card()
 	Global.properties_changed.connect(_on_properties_changed)
 	Global.actions_changed.connect(func(_v): if is_inside_tree() and _owned_quietly(): setup_card())
+	get_viewport().size_changed.connect(_settle_card)   # the phone turned, or Safari's bars came and went
 	# What changed since you last looked (a new round, a Fortuna...): play it now.
 	var news := Notices.property_before(int(current_property.get("id", 0)))
 	Notices.mark_property(int(current_property.get("id", 0)))
@@ -606,6 +607,7 @@ func _show_suites(added_one: bool = false) -> void:
 			var drop := slot.create_tween().set_parallel(true)
 			drop.tween_property(slot, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			drop.tween_property(slot, "modulate:a", 1.0, 0.2)
+	_let_swipes_through(suites_row)   # (built after _build's pass, so a swipe starting on a slot used to do nothing)
 
 
 ## ---- FILLING IN THE CARD ----
@@ -1221,6 +1223,33 @@ func _on_swipe_input(event: InputEvent) -> void:
 		scroll.scroll_vertical = _swipe_scroll   # stay put while it's a sideways swipe
 		_column.position.x = _drag_offset(moved.x)
 		_place_peek(_column.position.x)
+
+# Safety net: the card must never be left part-way off the screen (a player saw it
+# hanging off the right edge). A finger that lifts where the card can't hear it (a second
+# finger, an iOS edge gesture, the screen rotating) still ends the swipe here, and any
+# leftover offset with no swipe or slide running is put back.
+func _input(event: InputEvent) -> void:
+	if _swipe_mode == "side" and event is InputEventMouseButton \
+			and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		var dx: float = event.global_position.x - _swipe_from.x
+		_swipe_from = Vector2.INF
+		_swipe_mode = ""
+		_end_side_swipe(dx)
+
+func _process(_delta: float) -> void:
+	if _column == null or _column.position.x == 0.0 or _swipe_mode == "side":
+		return
+	if _swipe_tween and _swipe_tween.is_valid() and _swipe_tween.is_running():
+		return
+	_settle_card()
+
+func _settle_card() -> void:
+	if _column == null or _swipe_mode == "side":
+		return
+	if _swipe_tween and _swipe_tween.is_valid() and _swipe_tween.is_running():
+		return
+	_column.position.x = 0.0
+	_clear_peek()
 
 # Past the first / last property the card only stretches a little (rubber band).
 func _drag_offset(dx: float) -> float:
