@@ -171,7 +171,7 @@ func _build_list() -> void:
 		list_of_properties.add_child(card_instance)
 		card_instance.setup_card(property_data)
 		if Notices.property_dirty(property_data.get("id", 0)):   # changed since last opened
-			Notices.dot(card_instance.panel, 38.0, Vector2(2, 2))
+			Notices.dot(card_instance.panel, 34.0, Vector2(-6, -8))   # pokes out of the corner, clear of RENT
 		card_instance.assign_requested.connect(_on_assign_requested.bind(property_data))
 	if _lock_button:
 		_update_lock_button.call_deferred()
