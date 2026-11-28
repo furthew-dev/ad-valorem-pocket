@@ -95,7 +95,7 @@ func _add_region_badge() -> void:
 	add_child(badge)
 
 
-## ---- DETAILS DROP-DOWN (only for properties with something extra to say) ----
+## ---- DETAILS DROP-DOWN (value and rent in every condition, plus the card's own rules) ----
 const CREAM := Color("f6f2e1")
 var _details_btn: Button
 var _details_panel: PanelContainer
@@ -121,9 +121,12 @@ func details_text() -> String:
 		return ""   # nothing beyond the region: no drop-down
 	return "\n\n".join(lines)
 
+func _has_table() -> bool:
+	return bool(card_data.get("has_condition", false)) and card_data.has("e_value")
+
 func _add_details() -> void:
 	var text := details_text()
-	if text == "":
+	if text == "" and not _has_table():
 		return
 	var pill := StyleBoxFlat.new()
 	pill.bg_color = Color(0.16, 0.12, 0.14, 0.82)
@@ -161,17 +164,72 @@ func _add_details() -> void:
 	_details_panel.gui_input.connect(func(event: InputEvent):   # tap the panel to fold it away
 		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 			_toggle_details())
-	var label := Label.new()
-	label.text = text
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", 24)
-	label.add_theme_color_override("font_color", CREAM)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_details_panel.add_child(label)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 12)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_details_panel.add_child(column)
+	if _has_table():
+		column.add_child(_conditions_table())
+	if text != "":
+		var label := Label.new()
+		label.text = text
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.add_theme_font_size_override("font_size", 24)
+		label.add_theme_color_override("font_color", CREAM)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		column.add_child(label)
 	_details_panel.visible = false
-	ColorTheme.keep(_details_panel)
-	ColorTheme.keep(label)
 	add_child(_details_panel)
+	for node in [_details_panel] + _details_panel.find_children("*", "", true, false):
+		ColorTheme.keep(node)
+
+# Value and rent in every condition (Matt, 11-28: compare before buying). The one for
+# sale is lit with a gold band.
+const GOLD := Color("ddcf99")
+const TIERS := [["e", "excellent", "Excellent"], ["g", "good", "Good"], ["f", "fair", "Fair"], ["p", "poor", "Poor"]]
+
+func _conditions_table() -> Control:
+	var table := VBoxContainer.new()
+	table.add_theme_constant_override("separation", 2)
+	table.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	table.add_child(_table_row(["Condition", "Value", "Rent"], GOLD, false))
+	var two: bool = card_data.get("two_conditions", false)   # Excellent / Poor only
+	for tier in TIERS:
+		if two and tier[0] in ["g", "f"]:
+			continue
+		var for_sale: bool = str(card_data.get("condition", "")).to_lower() == tier[1]
+		table.add_child(_table_row([tier[2], "$%s" % card_data.get(tier[0] + "_value", 0),
+				"$%s" % card_data.get(tier[0] + "_rent", 0)], CREAM, for_sale))
+	return table
+
+func _table_row(cells: Array, colour: Color, lit: bool) -> Control:
+	var row := PanelContainer.new()
+	var band := StyleBoxFlat.new()
+	band.bg_color = Color(GOLD, 0.22) if lit else Color(0, 0, 0, 0)
+	band.border_color = Color(GOLD, 0.8)
+	band.set_border_width_all(2 if lit else 0)
+	band.set_corner_radius_all(12)
+	band.content_margin_left = 10
+	band.content_margin_right = 10
+	band.content_margin_top = 2
+	band.content_margin_bottom = 4
+	row.add_theme_stylebox_override("panel", band)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var line := HBoxContainer.new()
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(line)
+	for i in cells.size():
+		var label := Label.new()
+		label.text = cells[i]
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.size_flags_stretch_ratio = 1.5 if i == 0 else 1.0
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if i == 0 else HORIZONTAL_ALIGNMENT_RIGHT
+		label.add_theme_font_override("font", preload("res://Assets/fonts/Comfortaa-Bold.ttf") if lit or colour == GOLD else preload("res://Assets/fonts/Comfortaa-Regular.ttf"))
+		label.add_theme_font_size_override("font_size", 24)
+		label.add_theme_color_override("font_color", colour)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		line.add_child(label)
+	return row
 
 func _toggle_details() -> void:
 	Sound.play("switch")

@@ -285,16 +285,14 @@ func suite_art(host: Dictionary) -> String:
 	var pictures: Array = template.get("art_variants", [template.get("art", "")])
 	return pictures[mini(host.get("suites", []).size(), pictures.size() - 1)]
 
-# Hotel Resort / Luxury Cruise page: take a Suite from the Suites deck with a Contractor.
+# Hotel Resort / Luxury Cruise page: add a Suite with a Contractor (Suites are unlimited).
 # Returns a message for the banner ("Suite added..." when it worked).
 func build_suite(host: Dictionary) -> String:
 	var kind: String = host.get("suite_kind", "")
-	var key := "hotel_suite" if kind == "Hotel Suite" else "cruise_suite"
 	var problem := suite_problem(host)
 	if problem != "":
 		return problem
-	if not await Market.buy_action(key):
-		return "There are no %ss left." % kind
+	# Suites never run out (Matt, 11-28): no shared stock to take from, only 4 per Hotel / Cruise.
 	if not Global.spend(SUITE_COST, "Suite"):   # cash dropped while asking the host: charge it anyway
 		Global.remove_cash(SUITE_COST, "Suite")
 	Global.action_used()

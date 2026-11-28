@@ -10,7 +10,6 @@ signal back_pressed
 
 const LOSS_COLOR := Color("c94040")   # Banner2 when money is taken out
 const GAIN_COLOR := Color("4c9a52")   # Banner2 when money is received
-const BANNER_SPACING := 108.0   # vertical distance between stacked message banners
 const MONEY_SPACING := 84.0     # ...and between stacked money notices
 const MONEY_SIZE := Vector2(75, 75)
 const REASON_FONT_SIZE := 26
@@ -334,48 +333,157 @@ func _setup_banner_templates() -> void:
 	_banner_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_top_layer().add_child(_banner_root)
 
-# Message banner: slides in from the right, holds, slides back out (2.5 s).
-# `link` (a Global.LINKS key): the banner can be tapped while it shows to open that screen,
-# and says so ("Tap to open the Market"). It also stays up a little longer.
+# Message banner (rebuilt 11-28, Matt): a card that slides in from the right under the
+# header, as tall as its text needs (nothing bleeds out), with the icon of the app it's
+# about (or the face of the player it mentions) in a round badge on the left.
+# `link` (a Global.LINKS key): tapping the card opens that screen. No "Tap to open" line:
+# people tap a notification when they want more.
+const BANNER_WIDTH := 600.0
+const BANNER_TOP := 178.0
+const BANNER_GAP := 10.0
+const BANNER_BADGE := 64.0
+
 func run_animation(message: String, link: String = "") -> void:
+	if not is_inside_tree():
+		return   # the screen is closing
 	if _active_banners.size() >= MAX_STACK:
 		_banner_queue.append([message, link])
 		return
-	var banner: Control = anim_frame.duplicate()
-	var label: Label = banner.get_node("text")
-	label.text = message
-	banner.visible = true
+	var screen := get_viewport().get_visible_rect().size
+	var width := minf(BANNER_WIDTH, screen.x - 32.0)
+	var banner := PanelContainer.new()
+	var style := Cozy.style(Color("3a2a31"), 26, Color(Cozy.EDGE, 0.7), 2)
+	style.shadow_color = Color(0, 0, 0, 0.35)
+	style.shadow_size = 10
+	style.shadow_offset = Vector2(0, 4)
+	style.content_margin_left = 14
+	style.content_margin_right = 20
+	style.content_margin_top = 12
+	style.content_margin_bottom = 12
+	banner.add_theme_stylebox_override("panel", style)
+	banner.custom_minimum_size.x = width
+	banner.size.x = width
 	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE   # plain banners never block taps
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", 14)
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	banner.add_child(line)
+	line.add_child(_banner_icon(message, link))
+	var label := Label.new()
+	label.text = message
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.custom_minimum_size.x = width - 14 - 20 - BANNER_BADGE - 14
+	label.add_theme_font_override("font", Cozy.FONT)
+	label.add_theme_font_size_override("font_size", 24)
+	label.add_theme_color_override("font_color", Cozy.CREAM)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.add_child(label)
+	for node in [banner, line, label]:
+		ColorTheme.keep(node)   # the same dark card in every theme
 	if Global.LINKS.has(link):
-		_make_tappable(banner, label, link)
-	_add_player_face(banner, message)
-	var y := _banner_rest.y + _active_banners.size() * BANNER_SPACING
-	banner.position = Vector2(_banner_hidden.x, y)
-	var spot := (anim_frame.get_parent() as Control).get_global_transform_with_canvas()
-	_banner_root.position = spot.origin   # same place and size on screen as the banner area
-	_banner_root.scale = spot.get_scale()
-	_banner_root.size = (anim_frame.get_parent() as Control).size
-	_banner_root.add_child(banner)
+		banner.mouse_filter = Control.MOUSE_FILTER_STOP
+		banner.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		banner.gui_input.connect(func(event: InputEvent):
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				banner.mouse_filter = Control.MOUSE_FILTER_IGNORE   # one tap is enough
+				Global.open_link(link))
+	_top_layer().add_child(banner)
+	banner.reset_size()
+	var rest_x := screen.x - width - 16.0
+	banner.position = Vector2(screen.x + 20.0, _banner_y(_active_banners.size()))
+	banner.set_meta("rest_x", rest_x)
 	_active_banners.append(banner)
 
+	# Longer messages stay up longer (about a second per 30 letters).
+	var hold := 1.6 + BANNER_EXTRA_TIME + clampf(message.length() / 30.0, 0.0, 4.0) + (1.0 if Global.LINKS.has(link) else 0.0)
 	var tween := banner.create_tween()
-	tween.tween_property(banner, "position:x", _banner_rest.x, 0.42)
-	tween.tween_interval((3.0 if Global.LINKS.has(link) else 1.6) + BANNER_EXTRA_TIME)
-	tween.tween_property(banner, "position:x", _banner_hidden.x, 0.48)
-	tween.finished.connect(_remove_from_stack.bind(banner, _active_banners, _banner_rest.y, BANNER_SPACING))
+	tween.tween_property(banner, "position:x", rest_x, 0.38).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_interval(hold)
+	tween.tween_property(banner, "position:x", screen.x + 20.0, 0.4).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tween.finished.connect(_banner_done.bind(banner))
 
-# A banner about another player ("Erika is waiting on you!", "Sam sabotaged you") shows
-# their character over the bell.
+# Where the n-th banner in the stack sits (they differ in height).
+func _banner_y(index: int) -> float:
+	var y := BANNER_TOP
+	for i in mini(index, _active_banners.size()):
+		y += _active_banners[i].size.y + BANNER_GAP
+	return y
+
+func _banner_done(banner: Control) -> void:
+	_active_banners.erase(banner)
+	banner.queue_free()
+	for i in _active_banners.size():
+		_active_banners[i].create_tween().tween_property(_active_banners[i], "position:y", _banner_y(i), 0.2)
+	if not _banner_queue.is_empty():
+		var next: Array = _banner_queue.pop_front()
+		run_animation(next[0], next[1])
+
+# The round badge: the face of another player the message mentions, else the icon of the
+# app it links to (or of the screen you're on), else the Ad Valorem logo.
 const AvatarArt = preload("res://Scripts/avatar.gd")
+const APP_ICONS := {
+	"market": "res://Assets/icons/tokens_icon.png", "shop": "res://Assets/icons/tokens_icon.png",
+	"my_properties": "res://Assets/icons/files_icon.png", "property_info": "res://Assets/icons/files_icon.png",
+	"sell_property": "res://Assets/icons/files_icon.png",
+	"real_estate": "res://Assets/icons/my_homes_icon.png", "realtor_or_random": "res://Assets/icons/my_homes_icon.png",
+	"property_reveal": "res://Assets/icons/my_homes_icon.png",
+	"my_actions": "res://Assets/icons/attorney_icon.png",
+	"bank": "res://Assets/icons/bank_icon.png", "bank_account": "res://Assets/icons/bank_icon.png",
+	"my_loans": "res://Assets/icons/bank_icon_2.png",
+	"home": "res://Assets/icons/home_icon.png",
+}
 
-func _add_player_face(banner: Control, message: String) -> void:
+func _banner_icon(message: String, link: String) -> Control:
+	var badge := Panel.new()
+	badge.custom_minimum_size = Vector2(BANNER_BADGE, BANNER_BADGE)
+	badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	badge.add_theme_stylebox_override("panel", Cozy.style(Cozy.INSET, int(BANNER_BADGE / 2.0), Color(Cozy.EDGE, 0.5), 2))
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ColorTheme.keep(badge)
 	var who := other_player_in(message)
-	if who == "":
-		return
-	var face := AvatarArt.for_player(who, 76)
-	face.position = Vector2(14, (anim_frame.size.y - 76) / 2.0)
-	face.z_index = 3
-	banner.add_child(face)
+	if who != "":
+		var face := AvatarArt.for_player(who, BANNER_BADGE - 6)
+		face.position = Vector2(3, 3)
+		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		badge.add_child(face)
+		return badge
+	var key := link
+	if key == "":
+		var scene := get_tree().current_scene
+		key = scene.scene_file_path.get_file().get_basename() if scene else ""
+	var texture: Texture2D = null
+	if key == "messages":
+		texture = load("res://Scripts/home_screen.gd").messages_icon()
+	elif key == "environment" and Network.expansion_on():
+		texture = Expansion.region_texture(Expansion.my_region, true)
+	elif APP_ICONS.has(key):
+		texture = load(APP_ICONS[key])
+	var icon := TextureRect.new()
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if texture == null:   # nothing more specific: the game's logo
+		texture = load("res://Assets/icons/ad_valorem_logo.png")
+		for side in [SIDE_LEFT, SIDE_TOP]:
+			icon.set_offset(side, 6)
+		for side in [SIDE_RIGHT, SIDE_BOTTOM]:
+			icon.set_offset(side, -6)
+	elif key == "environment":
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		badge.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+	else:   # black line art: drawn cream on the dark badge
+		for side in [SIDE_LEFT, SIDE_TOP]:
+			icon.set_offset(side, 12)
+		for side in [SIDE_RIGHT, SIDE_BOTTOM]:
+			icon.set_offset(side, -12)
+		icon.material = Cozy.tint_material()
+	icon.texture = texture
+	ColorTheme.keep(icon)
+	badge.add_child(icon)
+	return badge
 
 # The name of another player mentioned in `text` ("" if none). Longest names are tried
 # first, so "Sam" doesn't match inside "Samantha".
@@ -386,24 +494,6 @@ static func other_player_in(text: String) -> String:
 		if player_name != Global.PLAYER and player_name != "" and text.contains(player_name):
 			return player_name
 	return ""
-
-func _make_tappable(banner: Control, label: Label, link: String) -> void:
-	label.offset_bottom = -22   # make room for the hint line
-	var hint: Label = label.duplicate()
-	hint.text = "Tap to open %s  >" % Global.LINKS[link][1]
-	hint.autowrap_mode = TextServer.AUTOWRAP_OFF
-	hint.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	hint.offset_top = 0
-	hint.offset_bottom = -8
-	hint.add_theme_font_size_override("font_size", 15)
-	hint.modulate.a = 0.85
-	banner.add_child(hint)
-	banner.mouse_filter = Control.MOUSE_FILTER_STOP
-	banner.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	banner.gui_input.connect(func(event: InputEvent):
-		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-			banner.mouse_filter = Control.MOUSE_FILTER_IGNORE   # one tap is enough
-			Global.open_link(link))
 
 # Money notice: a 75x75 circle at the top-left, with the reason on a tag to its right
 # ("+$12" | Rent). Fades in, holds, fades out (2 s). Red for money out, green for money in.
